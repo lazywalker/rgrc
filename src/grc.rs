@@ -94,6 +94,7 @@ use fancy_regex::Regex;
 /// // Invalid keyword
 /// assert!(style_from_str("not_a_color").is_err());
 /// ```
+#[allow(dead_code)]
 fn style_from_str(text: &str) -> Result<console::Style, ()> {
     text.split(' ')
         .try_fold(console::Style::new(), |style, word| {
@@ -209,6 +210,7 @@ fn style_from_str(text: &str) -> Result<console::Style, ()> {
 /// // Error if any style is invalid
 /// assert!(styles_from_str("bold red,invalid_color,green").is_err());
 /// ```
+#[allow(dead_code)]
 fn styles_from_str(text: &str) -> Result<Vec<console::Style>, ()> {
     text.split(',').map(|e| style_from_str(e)).collect()
 }
@@ -267,10 +269,12 @@ fn styles_from_str(text: &str) -> Result<Vec<console::Style>, ()> {
 ///     println!("Pattern: {:?}, Config: {}", regex, config_path);
 /// }
 /// ```
+#[allow(dead_code)]
 pub struct GrcConfigReader<A> {
     inner: Lines<A>,
 }
 
+#[allow(dead_code)]
 impl<A: BufRead> GrcConfigReader<A> {
     /// Create a new GRC configuration reader from a line iterator.
     ///
@@ -492,10 +496,12 @@ impl<A: BufRead> Iterator for GrcConfigReader<A> {
 ///     println!("Styles: {:?}", entry.colors);
 /// }
 /// ```
+#[allow(dead_code)]
 pub struct GrcatConfigReader<A> {
     inner: Lines<A>,
 }
 
+#[allow(dead_code)]
 impl<A: BufRead> GrcatConfigReader<A> {
     /// Create a new grcat configuration reader from a line iterator.
     ///
