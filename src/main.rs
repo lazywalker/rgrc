@@ -2,10 +2,7 @@ use std::process::{Command, Stdio};
 
 // Import testable components from lib
 use rgrc::{
-    ColorMode,
-    load_config,
-    colorizer::colorize_parallel as colorize,
-    grc::GrcatConfigEntry,
+    ColorMode, colorizer::colorize_parallel as colorize, grc::GrcatConfigEntry, load_config,
 };
 
 /// Main entry point for the grc (generic colourizer) program.
@@ -29,18 +26,18 @@ use rgrc::{
 /// - --except CMD1,CMD2,...: Exclude commands from alias generation.
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut command: Vec<String> = Vec::new();
-    let mut colour = ColorMode::Auto;
+    let mut color = ColorMode::Auto;
     let mut show_all_aliases = false;
     let mut except_aliases: Vec<String> = Vec::new();
     let mut show_aliases = false;
-    
+
     // Parse command-line arguments using the argparse crate.
     {
         let mut ap = argparse::ArgumentParser::new();
-        ap.set_description("Generic colouriser");
+        ap.set_description("Rusty Generic Colouriser");
         ap.stop_on_first_argument(true);
-        ap.refer(&mut colour).add_option(
-            &["--colour"],
+        ap.refer(&mut color).add_option(
+            &["--color"],
             argparse::Store,
             "Override color output (on, off, auto)",
         );
@@ -64,6 +61,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             argparse::Collect,
             "Exclude alias from generated list (multiple or comma-separated allowed)",
         );
+
+        // If no arguments provided, show help
+        if std::env::args().len() == 1 {
+            ap.print_help("grc", &mut std::io::stdout())?;
+            std::process::exit(1);
+        }
         ap.parse_args_or_exit();
     }
 
@@ -172,7 +175,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Apply color mode setting
-    match colour {
+    match color {
         ColorMode::On => console::set_colors_enabled(true),
         ColorMode::Off => console::set_colors_enabled(false),
         ColorMode::Auto => {} // Default behavior based on TTY detection
@@ -207,7 +210,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Spawn the command with appropriate stdout handling
     let mut cmd = Command::new(command.iter().next().unwrap().as_str());
     cmd.args(command.iter().skip(1));
-    
+
     // If we have colorization rules, pipe the command's stdout so we can intercept and colorize it.
     if !rules.is_empty() {
         cmd.stdout(Stdio::piped());
