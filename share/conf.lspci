@@ -1,0 +1,36 @@
+# Address
+regexp=^(..):(..).(.)
+colours=default,bright_green,bright_yellow,red
+-
+# Ethernet
+regexp=(Ethernet|Network) controller:
+colours=cyan
+-
+# Wireless
+regexp=Wireless
+colours=bright_cyan
+-
+# SATA
+regexp=SATA controller:
+colours=green
+-
+# Audio
+regexp=Audio device:
+colours=blue
+-
+# Video
+regexp=VGA compatible controller:
+colours=magenta
+-
+# Bridges
+regexp=(PCI|ISA|Host) bridge:
+colours=red
+-
+# any unspecified controller
+regexp=([A-Z].+?) controller:
+colours=blue
+-
+# For lspci -k
+regexp=Kernel (?:modules|driver in use): (.+)
+colours=default,bright_red
+-

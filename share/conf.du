@@ -1,0 +1,39 @@
+# Cannot read STDERR, not working
+regexp=^du.*
+colours=red
+======
+# Path
+regexp=\s+[\.\/]+([\w\s\-\_\.]+)(\/.*)?$
+colours=default,bold blue,blue
+======
+# Size 'K'
+regexp=^\d{1,3}\s
+colours=green
+======
+regexp=^ ?\d*[.,]?\dKi?\s
+colours=green
+======
+# Size 'M'
+regexp=^\d{4,6}\s
+colours=yellow
+======
+regexp=^ ?\d*[.,]?\dMi?\s
+colours=yellow
+======
+# Size 'G'
+regexp=^\d{7,9}\s
+colours=red
+======
+regexp=^ ?\d*[.,]?\dGi?\s
+colours=red
+======
+# Size 'T'
+regexp=^\d{10,12}\s
+colours=bold red
+======
+regexp=^ ?\d*[.,]?\dTi?\s
+colours=bold red
+======
+# Total
+regexp=(.*)\s+(total)$
+colours=bold yellow on_blue
