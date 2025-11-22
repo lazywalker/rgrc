@@ -30,7 +30,7 @@ use std::fs::File;
 use std::io::BufRead;
 use std::str::FromStr;
 
-use grc::{GrcatConfigEntry, GrcConfigReader, GrcatConfigReader};
+use grc::{GrcConfigReader, GrcatConfigEntry, GrcatConfigReader};
 
 /// Control whether colored output should be enabled for this run.
 ///
@@ -211,7 +211,8 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
             let bufreader = std::io::BufReader::new(f);
             let mut configreader = GrcConfigReader::new(bufreader.lines());
             // Find the first matching rule for this pseudo_command
-            configreader.find(|(re, _config)| re.is_match(pseudo_command).unwrap_or(false))
+            configreader
+                .find(|(re, _config)| re.is_match(pseudo_command).unwrap_or(false))
                 .map(|(_, config)| config)
         })
         .map(|config| {

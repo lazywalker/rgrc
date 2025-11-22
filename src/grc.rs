@@ -78,19 +78,19 @@ use fancy_regex::Regex;
 ///
 /// ```ignore
 /// use console::Style;
-/// 
+///
 /// // Single color
 /// let style = style_from_str("red").unwrap();
-/// 
+///
 /// // Multiple attributes
 /// let style = style_from_str("bold cyan").unwrap();
-/// 
+///
 /// // Color with background
 /// let style = style_from_str("white on_blue").unwrap();
-/// 
+///
 /// // Bright color variant
 /// let style = style_from_str("bold bright_green").unwrap();
-/// 
+///
 /// // Invalid keyword
 /// assert!(style_from_str("not_a_color").is_err());
 /// ```
@@ -109,7 +109,7 @@ fn style_from_str(text: &str) -> Result<console::Style, ()> {
                 "default" => Ok(style),
                 "dark" => Ok(style),
                 "none" => Ok(style),
-                
+
                 // Foreground colors - standard ANSI colors
                 "black" => Ok(style.black()),
                 "red" => Ok(style.red()),
@@ -119,7 +119,7 @@ fn style_from_str(text: &str) -> Result<console::Style, ()> {
                 "magenta" => Ok(style.magenta()),
                 "cyan" => Ok(style.cyan()),
                 "white" => Ok(style.white()),
-                
+
                 // Background colors - with on_ prefix for background
                 "on_black" => Ok(style.on_black()),
                 "on_red" => Ok(style.on_red()),
@@ -129,14 +129,14 @@ fn style_from_str(text: &str) -> Result<console::Style, ()> {
                 "on_magenta" => Ok(style.on_magenta()),
                 "on_cyan" => Ok(style.on_cyan()),
                 "on_white" => Ok(style.on_white()),
-                
+
                 // Text attributes - styling options
                 "bold" => Ok(style.bold()),
                 "underline" => Ok(style.underlined()),
                 "italic" => Ok(style.italic()),
                 "blink" => Ok(style.blink()),
                 "reverse" => Ok(style.reverse()),
-                
+
                 // Bright color variants - high-intensity colors
                 "bright_black" => Ok(style.bright().black()),
                 "bright_red" => Ok(style.bright().red()),
@@ -146,7 +146,7 @@ fn style_from_str(text: &str) -> Result<console::Style, ()> {
                 "bright_magenta" => Ok(style.bright().magenta()),
                 "bright_cyan" => Ok(style.bright().cyan()),
                 "bright_white" => Ok(style.bright().white()),
-                
+
                 // Unknown keyword - log and return error
                 _ => {
                     println!("unhandled style: {}", word);
@@ -197,15 +197,15 @@ fn style_from_str(text: &str) -> Result<console::Style, ()> {
 /// // Single style
 /// let styles = styles_from_str("bold red").unwrap();
 /// assert_eq!(styles.len(), 1);
-/// 
+///
 /// // Multiple styles for multiple capture groups
 /// let styles = styles_from_str("bold red,yellow,green").unwrap();
 /// assert_eq!(styles.len(), 3);
-/// 
+///
 /// // With no-op keywords
 /// let styles = styles_from_str("bold red,default,unchanged").unwrap();
 /// assert_eq!(styles.len(), 3);
-/// 
+///
 /// // Error if any style is invalid
 /// assert!(styles_from_str("bold red,invalid_color,green").is_err());
 /// ```
@@ -226,10 +226,10 @@ fn styles_from_str(text: &str) -> Result<Vec<console::Style>, ()> {
 /// # Comment lines start with # and are ignored
 /// ^ping           # First line: regex pattern to match command names
 /// conf.ping       # Second line: path to grcat config file for matching commands
-/// 
+///
 /// ^curl
 /// conf.curl
-/// 
+///
 /// ^(ls|dir)
 /// conf.ls
 /// ```
@@ -258,11 +258,11 @@ fn styles_from_str(text: &str) -> Result<Vec<console::Style>, ()> {
 /// use std::io::BufReader;
 /// use std::fs::File;
 /// use rgrc::grc::GrcConfigReader;
-/// 
+///
 /// let file = File::open("~/.config/rgrc/grc.conf")?;
 /// let reader = BufReader::new(file);
 /// let config_reader = GrcConfigReader::new(reader.lines());
-/// 
+///
 /// for (regex, config_path) in config_reader {
 ///     println!("Pattern: {:?}, Config: {}", regex, config_path);
 /// }
@@ -283,7 +283,7 @@ impl<A: BufRead> GrcConfigReader<A> {
     /// ```ignore
     /// use std::io::BufReader;
     /// use std::fs::File;
-    /// 
+    ///
     /// let file = File::open("~/.config/rgrc/grc.conf")?;
     /// let reader = BufReader::new(file);
     /// let config_reader = GrcConfigReader::new(reader.lines());
@@ -317,7 +317,7 @@ impl<A: BufRead> GrcConfigReader<A> {
     /// With input:
     /// ```text
     /// # This is a comment
-    /// 
+    ///
     /// ^ping
     /// conf.ping
     /// ```
@@ -344,10 +344,10 @@ impl<A: BufRead> GrcConfigReader<A> {
                         return Some(line2.trim().to_string());
                     }
                 }
-                Err(_) => break,  // Stop on read error
+                Err(_) => break, // Stop on read error
             }
         }
-        None  // No more content lines (EOF)
+        None // No more content lines (EOF)
     }
 }
 
@@ -379,11 +379,11 @@ impl<A: BufRead> GrcConfigReader<A> {
 /// ```ignore
 /// use std::io::BufReader;
 /// use std::fs::File;
-/// 
+///
 /// let file = File::open("~/.config/rgrc/grc.conf")?;
 /// let reader = BufReader::new(file);
 /// let config_reader = GrcConfigReader::new(reader.lines());
-/// 
+///
 /// for (pattern_regex, config_file) in config_reader {
 ///     // Each iteration yields a command pattern and its config file
 ///     println!("Command pattern: {:?}", pattern_regex);
@@ -442,10 +442,10 @@ impl<A: BufRead> Iterator for GrcConfigReader<A> {
 /// ```text
 /// regexp=^(ERROR|WARN|INFO)\s+(\d+ms)
 /// colours=bold red,yellow,green
-/// 
+///
 /// regexp=^(PASS|OK)\s+
 /// colours=bold green
-/// 
+///
 /// regexp=status:\s+(\w+)
 /// colours=cyan
 /// ```
@@ -482,11 +482,11 @@ impl<A: BufRead> Iterator for GrcConfigReader<A> {
 /// ```ignore
 /// use std::io::BufReader;
 /// use std::fs::File;
-/// 
+///
 /// let file = File::open("~/.config/rgrc/conf.ping")?;
 /// let reader = BufReader::new(file);
 /// let grcat_reader = GrcatConfigReader::new(reader.lines());
-/// 
+///
 /// for entry in grcat_reader {
 ///     println!("Pattern: {:?}", entry.regex);
 ///     println!("Styles: {:?}", entry.colors);
@@ -508,7 +508,7 @@ impl<A: BufRead> GrcatConfigReader<A> {
     /// ```ignore
     /// use std::io::BufReader;
     /// use std::fs::File;
-    /// 
+    ///
     /// let file = File::open("~/.config/rgrc/conf.ping")?;
     /// let reader = BufReader::new(file);
     /// let grcat_reader = GrcatConfigReader::new(reader.lines());
@@ -540,10 +540,10 @@ impl<A: BufRead> GrcatConfigReader<A> {
     /// With input:
     /// ```text
     /// # Comment line
-    /// 
+    ///
     /// regexp=^ERROR
     /// colours=bold red
-    /// 
+    ///
     /// regexp=^WARN
     /// ```
     /// `next_alphanumeric()` will skip comments and blanks, returning:
@@ -559,7 +559,7 @@ impl<A: BufRead> GrcatConfigReader<A> {
                 return Some(line.trim().to_string());
             }
         }
-        None  // No more alphanumeric lines (EOF)
+        None // No more alphanumeric lines (EOF)
     }
 
     /// Fetch the next line if it's alphanumeric, or None to signal end of entry.
@@ -643,7 +643,7 @@ impl<A: BufRead> GrcatConfigReader<A> {
 /// use fancy_regex::Regex;
 /// use console::Style;
 /// use rgrc::grc::GrcatConfigEntry;
-/// 
+///
 /// let regex = Regex::new(r"^(ERROR|WARN) (\d+ms)$").unwrap();
 /// let colors = vec![
 ///     Style::new().bold().red(),      // ERROR|WARN
@@ -712,7 +712,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
     /// ```text
     /// regexp=^(ERROR|WARN) (\d+ms)$
     /// colours=bold red,yellow
-    /// 
+    ///
     /// regexp=^OK\s+
     /// colours=green
     /// ```
@@ -732,7 +732,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
         // - "key = value with spaces"
         let re = Regex::new("^([a-z_]+)\\s*=\\s*(.*)$").unwrap();
         let mut ln: String;
-        
+
         while let Some(line) = self.next_alphanumeric() {
             ln = line;
             let mut regex: Option<Regex> = None;
@@ -745,7 +745,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                 let cap = re.captures(&ln).unwrap().unwrap();
                 let key = cap.get(1).unwrap().as_str();
                 let value = cap.get(2).unwrap().as_str();
-                
+
                 // Process known keys, ignore unknown ones
                 match key {
                     "regexp" => {
@@ -772,22 +772,22 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
 
                 // Attempt to fetch the next line in this entry
                 if let Some(nline) = self.following() {
-                    ln = nline;  // Continue with next line of this entry
+                    ln = nline; // Continue with next line of this entry
                 } else {
                     // Non-alphanumeric line encountered - end of entry
                     break;
                 }
             }
-            
+
             // Only emit entry if we successfully parsed a regex (required)
             if let Some(regex) = regex {
                 return Some(GrcatConfigEntry {
                     regex,
-                    colors: colors.unwrap_or_default(),  // Empty color list if not specified
+                    colors: colors.unwrap_or_default(), // Empty color list if not specified
                 });
             }
             // This entry lacked a valid regex; skip and try next entry
         }
-        None  // No more entries (EOF)
+        None // No more entries (EOF)
     }
 }

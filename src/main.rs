@@ -64,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         // If no arguments provided, show help
         if std::env::args().len() == 1 {
-            ap.print_help("grc", &mut std::io::stdout())?;
+            ap.print_help("rgrc", &mut std::io::stdout())?;
             std::process::exit(1);
         }
         ap.parse_args_or_exit();

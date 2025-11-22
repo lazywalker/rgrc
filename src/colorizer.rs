@@ -105,7 +105,7 @@ where
 {
     // Use buffered reader to reduce I/O syscall overhead.
     let reader = BufReader::new(reader);
-    
+
     // Fast path: no rules means no processing required.
     if rules.is_empty() {
         for line in reader.lines() {
@@ -117,7 +117,7 @@ where
     // Collect all input lines up-front. This is necessary for deterministic
     // parallel processing to preserve the original line order in output.
     let lines: Vec<String> = reader.lines().collect::<Result<Vec<_>, _>>()?;
-    
+
     // For small inputs, use single-threaded processing to avoid the overhead
     // of spawning and joining threads, which would dominate execution time.
     if lines.len() < 1000 {
@@ -129,10 +129,10 @@ where
     let num_threads = std::thread::available_parallelism()
         .map(|n| n.get().min(8))
         .unwrap_or(4);
-    
+
     // Compute chunk size to distribute lines evenly across threads.
     let chunk_size = (lines.len() + num_threads - 1) / num_threads;
-    
+
     // Spawn worker threads to process chunks in parallel. Each thread
     // applies the full set of rules independently to its chunk.
     let results: Vec<Vec<String>> = lines
@@ -143,11 +143,9 @@ where
             // Cloning is inexpensive here as Regex handles and Style values are cheap.
             let chunk = chunk.to_vec();
             let rules = rules.to_vec();
-            
+
             // Spawn a new thread to process this chunk.
-            thread::spawn(move || {
-                process_chunk(&chunk, &rules)
-            })
+            thread::spawn(move || process_chunk(&chunk, &rules))
         })
         .collect::<Vec<_>>()
         .into_iter()
@@ -221,7 +219,7 @@ where
 fn process_chunk(lines: &[String], rules: &[GrcatConfigEntry]) -> Vec<String> {
     // Preallocate output vector with exact capacity to reduce reallocation
     let mut results = Vec::with_capacity(lines.len());
-    
+
     // Default style (no color, no attributes) for unstyled text
     let default_style = console::Style::new();
 
@@ -236,7 +234,7 @@ fn process_chunk(lines: &[String], rules: &[GrcatConfigEntry]) -> Vec<String> {
         // PHASE 1: REGEX MATCHING - Find all pattern matches and extract capture groups
         // ═══════════════════════════════════════════════════════════════════════════════
         let mut style_ranges: Vec<(usize, usize, &console::Style)> = Vec::new();
-        
+
         // For each rule, iterate over all matches from the current offset
         for rule in rules {
             let mut offset = 0;
@@ -286,7 +284,7 @@ fn process_chunk(lines: &[String], rules: &[GrcatConfigEntry]) -> Vec<String> {
         // PHASE 2: STYLE MAPPING - Build per-character style lookup table
         // ═══════════════════════════════════════════════════════════════════════════════
         let mut char_styles: Vec<&console::Style> = vec![&default_style; line.len()];
-        
+
         // Apply all style ranges to the per-character map
         for (start, end, style) in style_ranges {
             // Bounds check: limit end to line length to prevent panics
@@ -302,7 +300,7 @@ fn process_chunk(lines: &[String], rules: &[GrcatConfigEntry]) -> Vec<String> {
         let mut output = String::with_capacity(line.len() + 100);
         let mut prev_style = &default_style;
         let mut offset = 0;
-        
+
         // Iterate through each character and detect style boundaries
         for i in 0..line.len() {
             let this_style = char_styles[i];
@@ -318,14 +316,14 @@ fn process_chunk(lines: &[String], rules: &[GrcatConfigEntry]) -> Vec<String> {
                 offset = i;
             }
         }
-        
+
         // Output the final range with its style (from last boundary to end)
         if offset < line.len() {
             output.push_str(&prev_style.apply_to(&line[offset..]).to_string());
         }
         // Add newline (input lines don't include \n)
         output.push('\n');
-        
+
         results.push(output);
     }
 
@@ -401,7 +399,7 @@ where
         // PHASE 1: Collect all matching ranges and associated styles
         // Same regex matching logic as process_chunk
         let mut style_ranges: Vec<(usize, usize, &console::Style)> = Vec::new();
-        
+
         // Apply all rules and collect style ranges
         // (Identical to process_chunk Phase 1)
         for rule in rules {
@@ -451,7 +449,7 @@ where
         // (Similar to process_chunk Phase 3, but writes directly instead of buffering)
         let mut prev_style = &default_style;
         let mut offset = 0;
-        
+
         // Iterate and detect style boundaries
         for i in 0..line.len() {
             let this_style = char_styles[i];
@@ -464,7 +462,7 @@ where
                 offset = i;
             }
         }
-        
+
         // Write final segment
         if offset < line.len() {
             write!(writer, "{}", prev_style.apply_to(&line[offset..]))?;
@@ -475,4 +473,3 @@ where
 
     Ok(())
 }
-
