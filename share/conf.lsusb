@@ -1,0 +1,7 @@
+# Devices
+regexp=^Bus (\d+) Device (\d+): ID (\w+):(\w+) \w
+colours=default,blue,green,red,yellow
+count=more
+# Headlines
+regexp=^ *(.*?:)$
+colours=default,yellow underline
