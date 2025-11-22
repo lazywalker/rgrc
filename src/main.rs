@@ -2,7 +2,7 @@ use std::process::{Command, Stdio};
 
 // Import testable components from lib
 use rgrc::{
-    ColorMode, colorizer::colorize_parallel as colorize, grc::GrcatConfigEntry, load_config,
+    ColorMode, colorizer::colorize_parallel as colorize, grc::GrcatConfigEntry, load_rules_for_command,
 };
 
 /// Main entry point for the grc (generic colourizer) program.
@@ -183,29 +183,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pseudo_command = command.join(" ");
 
-    // Configuration file paths in priority order.
-    // The program searches these paths to find grc.conf (or rgrc.conf) which maps
-    // commands to their colorization profiles. Paths prefixed with ~ are expanded using shellexpand.
-    // Typical flow: try ~/.grc first (user config), then system-wide configs (/etc/grc.conf).
-    const CONFIG_PATHS: &[&str] = &[
-        "~/.rgrc",
-        "~/.config/rgrc/rgrc.conf",
-        "/usr/local/etc/rgrc.conf",
-        "/etc/rgrc.conf",
-        "~/.grc",
-        "~/.config/grc/grc.conf",
-        "/usr/local/etc/grc.conf",
-        "/etc/grc.conf",
-    ];
-
     // Load colorization rules: iterate through config paths, find matching command regex,
     // then load the associated grcat configuration file (containing regex + color style rules).
     // Rules from all matching configs are collected into a single vector for colorization.
-    let rules: Vec<GrcatConfigEntry> = CONFIG_PATHS
-        .iter()
-        .map(|s| shellexpand::tilde(s))
-        .flat_map(|s| load_config(s.as_ref(), &pseudo_command))
-        .collect();
+    let rules: Vec<GrcatConfigEntry> = load_rules_for_command(&pseudo_command);
 
     // Spawn the command with appropriate stdout handling
     let mut cmd = Command::new(command.iter().next().unwrap().as_str());

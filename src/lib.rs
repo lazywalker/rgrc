@@ -31,6 +31,7 @@ use std::io::BufRead;
 use std::str::FromStr;
 
 use grc::{GrcConfigReader, GrcatConfigEntry, GrcatConfigReader};
+use shellexpand;
 
 /// Control whether colored output should be enabled for this run.
 ///
@@ -302,4 +303,49 @@ pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
             configreader.collect()
         })
         .unwrap_or_default()
+}
+
+/// Configuration file paths in priority order.
+/// The program searches these paths to find grc.conf (or rgrc.conf) which maps
+/// commands to their colorization profiles. Paths prefixed with ~ are expanded using shellexpand.
+/// Typical flow: try ~/.grc first (user config), then system-wide configs (/etc/grc.conf).
+const CONFIG_PATHS: &[&str] = &[
+    "~/.rgrc",
+    "~/.config/rgrc/rgrc.conf",
+    "/usr/local/etc/rgrc.conf",
+    "/etc/rgrc.conf",
+    "~/.grc",
+    "~/.config/grc/grc.conf",
+    "/usr/local/etc/grc.conf",
+    "/etc/grc.conf",
+];
+
+/// Load colorization rules for a given pseudo-command by searching all configuration paths.
+///
+/// This function iterates through the predefined CONFIG_PATHS, attempting to load
+/// colorization rules for the specified pseudo-command from each configuration file.
+/// It returns a combined vector of all matching rules found across all paths.
+///
+/// # Arguments
+///
+/// * `pseudo_command` - The command string to match against configuration rules
+///                      (e.g., "ping", "ls", "curl")
+///
+/// # Returns
+///
+/// A vector of `GrcatConfigEntry` containing all colorization rules that apply
+/// to the given pseudo-command. Rules from multiple configuration files are combined.
+///
+/// # Examples
+///
+/// ```ignore
+/// let rules = load_rules_for_command("ping");
+/// // Now rules contains all colorization rules for ping from all config files
+/// ```
+pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
+    CONFIG_PATHS
+        .iter()
+        .map(|s| shellexpand::tilde(s))
+        .flat_map(|s| load_config(s.as_ref(), pseudo_command))
+        .collect()
 }

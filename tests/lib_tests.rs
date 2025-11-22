@@ -200,3 +200,24 @@ fn test_color_mode_clone_semantics() {
 // Note: These tests are documentation-based since the main() function
 // cannot be directly tested. The actual behavior would need to be tested
 // through integration tests that run the binary.
+
+#[test]
+fn test_load_rules_for_command() {
+    // Test loading rules for a known command that should have configuration
+    let rules = rgrc::load_rules_for_command("ping");
+    
+    // Since we have rgrc.conf and share/conf.ping, we should get some rules
+    // The exact number may vary, but it should be non-empty for a common command
+    assert!(!rules.is_empty(), "Should load rules for ping command");
+    
+    // Verify that the rules are valid GrcatConfigEntry structs
+    for rule in &rules {
+        assert!(!rule.regex.as_str().is_empty(), "Rule should have a regex pattern");
+        // Colors can be empty for some rules, but regex should always be present
+    }
+    
+    // Test with a command that likely doesn't exist
+    let no_rules = rgrc::load_rules_for_command("nonexistent_command_xyz");
+    // This should return empty, as no config should match
+    assert!(no_rules.is_empty(), "Nonexistent command should return no rules");
+}
