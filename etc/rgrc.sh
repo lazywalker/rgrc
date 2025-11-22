@@ -4,11 +4,11 @@
 # GRC_ALIASES=true
 # in /etc/default/grc or you export GRC_ALIASES=true prior to sourcing this
 
-[ -f /etc/default/grc ] && . /etc/default/grc
+[ -f /etc/default/rgrc ] && . /etc/default/rgrc
 
 [ x$GRC_ALIASES = xtrue ] || return 0
 
-GRC="$(which grc)"
+GRC="$(which rgrc)"
 if tty -s && [ -n "$TERM" ] && [ "$TERM" != dumb ] && [ -n "$GRC" ]; then
     alias colourify="$GRC -es"
     alias blkid='colourify blkid'
