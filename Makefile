@@ -12,6 +12,9 @@ release: rgrc.1.gz
 test:
 	cargo test
 
+fmt:
+	cargo fmt
+
 man:
 # 	pandoc -f markdown -t man doc/rgrc.1.md -o doc/rgrc.1
 	script/md2man.sh doc/rgrc.1.md doc/rgrc.1

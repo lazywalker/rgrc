@@ -150,7 +150,7 @@ impl FromStr for ColorMode {
 /// ```
 #[cfg(test)]
 pub const RESOURCE_PATHS: &[&str] = &[
-    "./share",  // Test mode: include project share directory first
+    "./share", // Test mode: include project share directory first
     "~/.config/rgrc",
     "~/.local/share/rgrc",
     "/usr/local/share/rgrc",
@@ -339,7 +339,7 @@ pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
 /// **Test mode**: Includes `./etc/rgrc.conf` for CI/testing environments.
 #[cfg(test)]
 const CONFIG_PATHS: &[&str] = &[
-    "./etc/rgrc.conf",  // Test mode: include project etc directory first
+    "./etc/rgrc.conf", // Test mode: include project etc directory first
     "~/.rgrc",
     "~/.config/rgrc/rgrc.conf",
     "/usr/local/etc/rgrc.conf",
@@ -392,7 +392,6 @@ pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         .flat_map(|s| load_config(s.as_ref(), pseudo_command))
         .collect()
 }
-
 
 // Note: These tests are documentation-based since the main() function
 // cannot be directly tested. The actual behavior would need to be tested
