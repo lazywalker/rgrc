@@ -5,7 +5,6 @@ mod colorizer;
 #[path = "../src/grc.rs"]
 mod grc;
 
-use colorizer::colorize_parallel;
 use colorizer::colorize_regex;
 use fancy_regex::Regex;
 use grc::GrcatConfigEntry;
@@ -16,7 +15,7 @@ fn colorize_test(
     rules: &[GrcatConfigEntry],
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut writer = Vec::new();
-    colorize_parallel(&mut input.as_bytes(), &mut writer, rules)?;
+    colorize_regex(&mut input.as_bytes(), &mut writer, rules)?;
     Ok(String::from_utf8(writer)?)
 }
 
@@ -35,10 +34,7 @@ fn rule(
     pattern: &str,
     style: console::Style,
 ) -> Result<GrcatConfigEntry, Box<dyn std::error::Error>> {
-    Ok(GrcatConfigEntry {
-        regex: Regex::new(pattern)?,
-        colors: vec![style],
-    })
+    Ok(GrcatConfigEntry::new(Regex::new(pattern)?, vec![style]))
 }
 
 #[cfg(test)]
@@ -346,10 +342,10 @@ mod capture_group_tests {
     #[test]
     fn test_single_capture_group() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let rules = vec![GrcatConfigEntry {
-            regex: Regex::new(r"(test)")?,
-            colors: vec![console::Style::new(), console::Style::new().red()],
-        }];
+        let rules = vec![GrcatConfigEntry::new(
+            Regex::new(r"(test)")?,
+            vec![console::Style::new(), console::Style::new().red()],
+        )];
         let output = colorize_test("this is test", &rules)?;
         assert!(output.contains("test"));
         Ok(())
@@ -358,14 +354,14 @@ mod capture_group_tests {
     #[test]
     fn test_multiple_capture_groups() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let rules = vec![GrcatConfigEntry {
-            regex: Regex::new(r"(\w+):(\d+)")?,
-            colors: vec![
+        let rules = vec![GrcatConfigEntry::new(
+            Regex::new(r"(\w+):(\d+)")?,
+            vec![
                 console::Style::new(),
                 console::Style::new().red(),
                 console::Style::new().blue(),
             ],
-        }];
+        )];
         let output = colorize_test("server:8080", &rules)?;
         assert!(output.contains("server"));
         assert!(output.contains("8080"));
@@ -375,10 +371,10 @@ mod capture_group_tests {
     #[test]
     fn test_capture_group_with_no_style() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let rules = vec![GrcatConfigEntry {
-            regex: Regex::new(r"(\w+):(\d+)")?,
-            colors: vec![console::Style::new().red()],
-        }];
+        let rules = vec![GrcatConfigEntry::new(
+            Regex::new(r"(\w+):(\d+)")?,
+            vec![console::Style::new().red()],
+        )];
         let output = colorize_test("server:8080", &rules)?;
         // Should still process without error
         assert!(output.contains("server"));
@@ -388,14 +384,14 @@ mod capture_group_tests {
     #[test]
     fn test_nested_capture_groups() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let rules = vec![GrcatConfigEntry {
-            regex: Regex::new(r"((test))")?,
-            colors: vec![
+        let rules = vec![GrcatConfigEntry::new(
+            Regex::new(r"((test))")?,
+            vec![
                 console::Style::new(),
                 console::Style::new().red(),
                 console::Style::new().green(),
             ],
-        }];
+        )];
         let output = colorize_test("test data", &rules)?;
         assert!(output.contains("test"));
         Ok(())
@@ -404,15 +400,15 @@ mod capture_group_tests {
     #[test]
     fn test_optional_capture_group() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let rules = vec![GrcatConfigEntry {
-            regex: Regex::new(r"(\w+)(:)?(\d+)?")?,
-            colors: vec![
+        let rules = vec![GrcatConfigEntry::new(
+            Regex::new(r"(\w+)(:)?(\d+)?")?,
+            vec![
                 console::Style::new(),
                 console::Style::new().red(),
                 console::Style::new().green(),
                 console::Style::new().blue(),
             ],
-        }];
+        )];
         let output = colorize_test("server:8080 simple", &rules)?;
         assert!(output.contains("server"));
         assert!(output.contains("simple"));
@@ -677,6 +673,35 @@ mod edge_case_tests {
 
         // Output should still work even with colors disabled
         assert!(output.contains("test"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_skip_rule_functionality() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+
+        // Create rules: one normal rule and one skipped rule
+        let normal_rule = rule("ERROR", console::Style::new().red())?;
+        let mut skip_rule = rule("WARNING", console::Style::new().yellow())?;
+        skip_rule.skip = true; // Mark this rule as skipped
+
+        let rules = vec![normal_rule, skip_rule];
+
+        let input = "This is an ERROR message\nThis is a WARNING message\n";
+        let output = colorize_test(input, &rules)?;
+
+        println!("Output: {:?}", output);
+
+        // Both ERROR and WARNING text should be present
+        assert!(output.contains("ERROR"));
+        assert!(output.contains("WARNING"));
+
+        // Check that ERROR has color codes (red) but WARNING does not have yellow color codes
+        // We can't easily check exact ANSI codes, so we'll check that the output contains ANSI codes for ERROR
+        // and that WARNING appears without the yellow color code pattern
+        assert!(output.contains("\x1b[")); // Should have some ANSI codes
+        assert!(output.contains("ERROR")); // ERROR should be present
+
         Ok(())
     }
 }

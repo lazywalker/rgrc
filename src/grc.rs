@@ -657,12 +657,98 @@ impl<A: BufRead> GrcatConfigReader<A> {
 /// ];
 /// let entry = GrcatConfigEntry { regex, colors };
 /// ```
+/// Control how many times a regex pattern should match within a single line.
+///
+/// This enum specifies the matching behavior for grcat configuration entries.
+/// It determines whether a rule should match once, multiple times, or stop processing
+/// the line after the first match.
+///
+/// ## Variants
+///
+/// - **Once**: Match only the first occurrence of the pattern in each line
+/// - **More**: Match all occurrences of the pattern in each line (default)
+/// - **Stop**: Match the first occurrence and stop processing the entire line
+///
+/// ## Usage in Configuration
+///
+/// In grcat configuration files, this is specified using the `count` key:
+/// ```text
+/// regexp=^\s*#
+/// colours=cyan
+/// count=once    # Only color the first comment marker
+///
+/// regexp=\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}
+/// colours=magenta
+/// count=more    # Color all IP addresses (default)
+///
+/// regexp=^FATAL
+/// colours=red,bold
+/// count=stop    # Stop processing after first fatal error
+/// ```
+///
+/// ## Implementation Notes
+///
+/// The count behavior is enforced during the regex matching phase in `colorize_regex()`.
+/// - `Once`: After first match, skip to next rule
+/// - `More`: Continue matching within the same rule (default behavior)
+/// - `Stop`: After first match, skip all remaining rules for this line
+#[derive(Debug, Clone, PartialEq)]
+pub enum GrcatConfigEntryCount {
+    /// Match only once per line, then skip to the next rule
+    Once,
+    /// Match all occurrences per line (default behavior)
+    More,
+    /// Match once and stop processing the entire line
+    Stop,
+}
+
 #[derive(Debug, Clone)]
 pub struct GrcatConfigEntry {
     /// The compiled regex pattern to match against output text
     pub regex: Regex,
     /// Styles to apply to capture groups (index 0 = group 1, index 1 = group 2, etc.)
     pub colors: Vec<console::Style>,
+    pub skip: bool,
+    pub count: GrcatConfigEntryCount,
+    pub replace: String,
+}
+
+impl GrcatConfigEntry {
+    /// Create a new GrcatConfigEntry with default count and replace values.
+    ///
+    /// # Arguments
+    ///
+    /// * `regex` - The compiled regex pattern to match against output text
+    /// * `colors` - Styles to apply to capture groups
+    ///
+    /// # Returns
+    ///
+    /// A new GrcatConfigEntry with count set to GrcatConfigEntryCount::More, replace set to empty string, and skip set to false
+    ///
+    /// # Examples
+    ///
+    /// ```ignore
+    /// use fancy_regex::Regex;
+    /// use console::Style;
+    /// use rgrc::grc::GrcatConfigEntry;
+    ///
+    /// let regex = Regex::new(r"^(ERROR|WARN) (\d+ms)$").unwrap();
+    /// let colors = vec![
+    ///     Style::new().bold().red(),      // ERROR|WARN
+    ///     Style::new().yellow(),           // \d+ms
+    /// ];
+    /// let entry = GrcatConfigEntry::new(regex, colors);
+    /// ```
+    #[allow(dead_code)]
+    pub fn new(regex: Regex, colors: Vec<console::Style>) -> Self {
+        GrcatConfigEntry {
+            regex,
+            colors,
+            skip: false,
+            count: GrcatConfigEntryCount::More,
+            replace: String::new(),
+        }
+    }
 }
 
 impl<A: BufRead> Iterator for GrcatConfigReader<A> {
@@ -743,6 +829,9 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
             ln = line;
             let mut regex: Option<Regex> = None;
             let mut colors: Option<Vec<console::Style>> = None;
+            let mut skip: Option<bool> = None;
+            let mut count: Option<GrcatConfigEntryCount> = None;
+            let mut replace: Option<String> = None;
 
             // Loop over all consecutive alphanumeric lines belonging to this entry
             // until we hit a non-alphanumeric line (entry boundary)
@@ -771,6 +860,36 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                         // Example: "bold red,yellow,cyan" → [Style::new().bold().red(), Style::new().yellow(), Style::new().cyan()]
                         colors = Some(styles_from_str(value).unwrap());
                     }
+                    "count" => {
+                        // Parse count value: once/more/stop
+                        count = match value {
+                            "once" => Some(GrcatConfigEntryCount::Once),
+                            "more" => Some(GrcatConfigEntryCount::More),
+                            "stop" => Some(GrcatConfigEntryCount::Stop),
+                            _ => {
+                                debug_println!("Unknown count value: {}", value);
+                                None
+                            }
+                        };
+                    }
+                    "replace" => {
+                        // Store replace string
+                        replace = Some(value.to_string());
+                    }
+                    "skip" => {
+                        // Parse skip value: true/false
+                        skip = match value.to_lowercase().as_str() {
+                            "true" | "1" | "yes" => Some(true),
+                            "false" | "0" | "no" => Some(false),
+                            _ => {
+                                debug_println!(
+                                    "Unknown skip value: {}, defaulting to false",
+                                    value
+                                );
+                                Some(false)
+                            }
+                        };
+                    }
                     _ => {
                         // Ignore unknown keys - grcat may add new keys in future versions
                     }
@@ -790,6 +909,9 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                 return Some(GrcatConfigEntry {
                     regex,
                     colors: colors.unwrap_or_default(), // Empty color list if not specified
+                    skip: skip.unwrap_or(false),        // Default to false if not specified
+                    count: count.unwrap_or(GrcatConfigEntryCount::More), // Default to More if not specified
+                    replace: replace.unwrap_or_default(), // Empty string if not specified
                 });
             }
             // This entry lacked a valid regex; skip and try next entry

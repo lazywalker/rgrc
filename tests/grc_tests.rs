@@ -472,6 +472,253 @@ mod grcat_config_reader_tests {
             "Should find at least some test configuration files"
         );
     }
+
+    #[test]
+    fn test_conf_log_count_field_parsing() {
+        let conf_path = get_share_dir().join("conf.log");
+        let file = File::open(&conf_path).expect("conf.log should exist");
+        let reader = BufReader::new(file);
+        let grcat_reader = GrcatConfigReader::new(reader.lines());
+
+        let entries: Vec<GrcatConfigEntry> = grcat_reader.collect();
+        assert!(
+            !entries.is_empty(),
+            "conf.log should contain at least one entry"
+        );
+
+        // Check that count fields are parsed correctly
+        let mut found_once = false;
+        let mut found_more = false;
+        let mut found_stop = false;
+
+        for entry in &entries {
+            match entry.count {
+                grc::GrcatConfigEntryCount::Once => found_once = true,
+                grc::GrcatConfigEntryCount::More => found_more = true,
+                grc::GrcatConfigEntryCount::Stop => found_stop = true,
+            }
+        }
+
+        assert!(found_once, "Should find at least one 'once' count entry");
+        assert!(found_more, "Should find at least one 'more' count entry");
+        assert!(found_stop, "Should find at least one 'stop' count entry");
+
+        println!(
+            "conf.log count field parsing: once={}, more={}, stop={}",
+            found_once, found_more, found_stop
+        );
+    }
+
+    #[test]
+    fn test_conf_ping2_replace_field_parsing() {
+        let conf_path = get_share_dir().join("conf.ping2");
+        let file = File::open(&conf_path).expect("conf.ping2 should exist");
+        let reader = BufReader::new(file);
+        let grcat_reader = GrcatConfigReader::new(reader.lines());
+
+        let entries: Vec<GrcatConfigEntry> = grcat_reader.collect();
+        assert!(
+            !entries.is_empty(),
+            "conf.ping2 should contain at least one entry"
+        );
+
+        // Check that replace field is parsed correctly
+        let mut found_replace = false;
+        let mut replace_value = String::new();
+
+        for entry in &entries {
+            if !entry.replace.is_empty() {
+                found_replace = true;
+                replace_value = entry.replace.clone();
+                break;
+            }
+        }
+
+        assert!(
+            found_replace,
+            "Should find at least one entry with replace field"
+        );
+        assert_eq!(
+            replace_value, "TIMEOUT \\1",
+            "Replace value should match expected pattern"
+        );
+
+        println!(
+            "conf.ping2 replace field parsing: found replace='{}'",
+            replace_value
+        );
+    }
+
+    #[test]
+    fn test_count_and_replace_default_values() {
+        // Test with a simple config that doesn't specify count or replace
+        let config_content = r#"
+regexp=test pattern
+colours=red
+======
+"#;
+
+        let reader = BufReader::new(config_content.as_bytes());
+        let grcat_reader = GrcatConfigReader::new(reader.lines());
+
+        let entries: Vec<GrcatConfigEntry> = grcat_reader.collect();
+        assert_eq!(entries.len(), 1, "Should parse one entry");
+
+        let entry = &entries[0];
+        // Check default values
+        assert!(
+            matches!(entry.count, grc::GrcatConfigEntryCount::More),
+            "Default count should be More"
+        );
+        assert!(
+            entry.replace.is_empty(),
+            "Default replace should be empty string"
+        );
+
+        println!("Default values test passed: count=More, replace=''");
+    }
+
+    #[test]
+    fn test_conf_netstat_skip_field_parsing() {
+        let conf_path = get_share_dir().join("conf.netstat");
+        let file = File::open(&conf_path).expect("conf.netstat should exist");
+        let reader = BufReader::new(file);
+        let grcat_reader = GrcatConfigReader::new(reader.lines());
+
+        let entries: Vec<GrcatConfigEntry> = grcat_reader.collect();
+        assert!(
+            !entries.is_empty(),
+            "conf.netstat should contain at least one entry"
+        );
+
+        // Check that skip fields are parsed correctly
+        let mut found_skip_true = false;
+        let mut found_skip_false = false;
+
+        for entry in &entries {
+            if entry.skip {
+                found_skip_true = true;
+            } else {
+                found_skip_false = true;
+            }
+        }
+
+        assert!(
+            found_skip_true,
+            "Should find at least one entry with skip=true"
+        );
+        assert!(
+            found_skip_false,
+            "Should find at least one entry with skip=false"
+        );
+
+        println!(
+            "conf.netstat skip field parsing: skip_true={}, skip_false={}",
+            found_skip_true, found_skip_false
+        );
+    }
+
+    #[test]
+    fn test_conf_sockstat_skip_field_parsing() {
+        let conf_path = get_share_dir().join("conf.sockstat");
+        let file = File::open(&conf_path).expect("conf.sockstat should exist");
+        let reader = BufReader::new(file);
+        let grcat_reader = GrcatConfigReader::new(reader.lines());
+
+        let entries: Vec<GrcatConfigEntry> = grcat_reader.collect();
+        assert!(
+            !entries.is_empty(),
+            "conf.sockstat should contain at least one entry"
+        );
+
+        // Check that skip fields are parsed correctly
+        let mut found_skip_true = false;
+        let mut found_skip_false = false;
+
+        for entry in &entries {
+            if entry.skip {
+                found_skip_true = true;
+            } else {
+                found_skip_false = true;
+            }
+        }
+
+        assert!(
+            found_skip_true,
+            "Should find at least one entry with skip=true"
+        );
+        assert!(
+            found_skip_false,
+            "Should find at least one entry with skip=false"
+        );
+
+        println!(
+            "conf.sockstat skip field parsing: skip_true={}, skip_false={}",
+            found_skip_true, found_skip_false
+        );
+    }
+
+    #[test]
+    fn test_conf_ss_skip_field_parsing() {
+        let conf_path = get_share_dir().join("conf.ss");
+        let file = File::open(&conf_path).expect("conf.ss should exist");
+        let reader = BufReader::new(file);
+        let grcat_reader = GrcatConfigReader::new(reader.lines());
+
+        let entries: Vec<GrcatConfigEntry> = grcat_reader.collect();
+        assert!(
+            !entries.is_empty(),
+            "conf.ss should contain at least one entry"
+        );
+
+        // Check that skip fields are parsed correctly
+        let mut found_skip_true = false;
+        let mut found_skip_false = false;
+
+        for entry in &entries {
+            if entry.skip {
+                found_skip_true = true;
+            } else {
+                found_skip_false = true;
+            }
+        }
+
+        assert!(
+            found_skip_true,
+            "Should find at least one entry with skip=true"
+        );
+        assert!(
+            found_skip_false,
+            "Should find at least one entry with skip=false"
+        );
+
+        println!(
+            "conf.ss skip field parsing: skip_true={}, skip_false={}",
+            found_skip_true, found_skip_false
+        );
+    }
+
+    #[test]
+    fn test_skip_default_values() {
+        // Test with a simple config that doesn't specify skip
+        let config_content = r#"
+regexp=test pattern
+colours=red
+======
+"#;
+
+        let reader = BufReader::new(config_content.as_bytes());
+        let grcat_reader = GrcatConfigReader::new(reader.lines());
+
+        let entries: Vec<GrcatConfigEntry> = grcat_reader.collect();
+        assert_eq!(entries.len(), 1, "Should parse one entry");
+
+        assert!(
+            !entries[0].skip,
+            "Skip should default to false when not specified"
+        );
+        println!("Skip default value test passed: skip=false");
+    }
 }
 
 #[cfg(test)]

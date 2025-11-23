@@ -29,16 +29,16 @@ fn test_load_grcat_config_with_tilde_path() {
 }
 
 #[test]
-#[ignore] // Skip this test as it might hang when reading a directory
+#[ignore = "Skip this test as it might hang when reading a directory"]
 fn test_load_grcat_config_handles_directories() {
     // Attempting to load a directory as a file should fail gracefully
-    let result = rgrc::load_grcat_config("/tmp");
+    let result = rgrc::load_grcat_config("share");
     // Should not panic, just return empty
     assert!(result.is_empty());
 }
 
 #[test]
-#[ignore] // Skip this test as relative paths might cause hangs
+#[ignore = "Skip this test as relative paths might cause hangs"]
 fn test_load_grcat_config_with_relative_paths() {
     // Relative paths should be handled
     let result = rgrc::load_grcat_config(".");

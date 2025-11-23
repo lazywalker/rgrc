@@ -3,16 +3,19 @@
 [![Rust](https://img.shields.io/badge/rust-2024--edition-orange)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A fast, Rust-based command-line tool that colorizes the output of other commands using regex-based rules, similar to the classic `grc` (Generic Colouriser) utility.
+A fast, Rust-based command-line tool that colorizes the output of other commands using regex-based rules with advanced count/replace functionality, similar to the classic `grc` (Generic Colouriser) utility.
+
+**Latest Features**: Full implementation of count/replace functionality with backreference support, advanced matching controls (once/more/stop), and optimized performance with intelligent caching.
 
 ## Features
 
-- 🚀 **High Performance**: Written in Rust with parallel processing for large outputs
-- 🎨 **Rich Colorization**: Supports ANSI colors, styles, and attributes
+- 🚀 **High Performance**: Written in Rust with optimized regex-based colorization
+- 🎨 **Rich Colorization**: Supports ANSI colors, styles, and attributes with count/replace functionality
 - 🔧 **Flexible Configuration**: Compatible with grc/grcat configuration files
 - 🐚 **Shell Integration**: Generates aliases for popular commands
 - 📖 **Comprehensive**: Supports 80+ pre-configured commands
-- ⚡ **Adaptive**: Automatically chooses single-threaded or parallel processing
+- ⚡ **Advanced Matching**: Regex-based rules with intelligent caching, pattern optimization, and advanced count/replace controls
+- 🔄 **Text Transformation**: Replace matched text with backreference support for output modification
 
 ## Quick Start
 
@@ -170,6 +173,37 @@ regexp=^INFO
 colours=green
 ```
 
+### Advanced Matching Control
+
+Use `count` and `replace` fields for sophisticated pattern matching:
+
+```
+# Match only once per line
+regexp=^\s*#
+colours=cyan
+count=once
+
+# Replace matched text
+regexp=(ERROR|WARN|INFO)
+colours=red,yellow,green
+replace=\1:
+
+# Stop processing after first match
+regexp=^FATAL
+colours=red,bold
+count=stop
+```
+
+**Count Options:**
+- `once`: Match only the first occurrence per line
+- `more`: Match all occurrences (default)
+- `stop`: Match first occurrence and stop processing the line
+
+**Replace Field:**
+- Supports backreferences (`\1`, `\2`, etc.)
+- Empty string removes matched text
+- Can transform output content
+
 ### Extending Existing Commands
 
 Add rules to `~/.rgrc`:
@@ -182,10 +216,12 @@ colours=blue,underline
 
 ## Performance
 
-- **Adaptive Processing**: Automatically chooses single-threaded (<1000 lines) or parallel processing
-- **Zero-copy Operations**: Efficient memory usage with minimal allocations
-- **Regex Optimization**: Uses fancy-regex for advanced pattern matching
-- **ANSI Optimization**: Merges adjacent styles to reduce escape sequences
+- **Optimized Processing**: High-performance single-threaded colorization with intelligent caching and match result reuse
+- **Zero-copy Operations**: Efficient memory usage with minimal allocations and streaming I/O
+- **Regex Optimization**: Uses fancy-regex with advanced pattern matching, backtracking control, and result caching
+- **ANSI Optimization**: Merges adjacent styles using run-length encoding to reduce escape sequences
+- **Count/Replace Support**: Advanced matching control with text substitution capabilities and line reprocessing
+- **Parallel Processing**: Optional multi-threaded processing for large inputs with automatic fallback
 
 ## Development
 
@@ -236,9 +272,10 @@ rgrc/
 ## Compatibility
 
 - **Operating Systems**: Linux, macOS, Windows (with WSL)
-- **Shells**: Bash, Zsh, Fish, and others
-- **Terminals**: Any ANSI-compatible terminal
-- **grc Compatibility**: Drop-in replacement for grc
+- **Shells**: Bash, Zsh, Fish, and others supporting ANSI escape sequences
+- **Terminals**: Any ANSI-compatible terminal with 256-color support
+- **grc Compatibility**: Drop-in replacement for grc with enhanced count/replace functionality and improved performance
+- **Configuration Files**: Fully compatible with existing grc/grcat configuration files and directory structures
 
 ## License
 
@@ -246,11 +283,12 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Credits
 
-- Inspired by the original `grc` (Generic Colouriser) by Radovan Garabík
+- Inspired by the original `grc` (Generic Colouriser) by Radovan Garabík, `grc-rs` by Lars Christensen
 - Built with [Rust](https://www.rust-lang.org/) and [console](https://crates.io/crates/console)
 
 ## Related Projects
 
 - [grc](https://github.com/garabik/grc) - Original Generic Colouriser (Python)
+- [grc-rs](https://github.com/larsch/grc-rs) - Generic Colouriser in Rust (Rust)
 - [lolcat](https://github.com/busyloop/lolcat) - Rainbow coloring tool
 - [bat](https://github.com/sharkdp/bat) - A cat clone with syntax highlighting
