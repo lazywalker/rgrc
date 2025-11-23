@@ -110,7 +110,7 @@ jobs:
           path: ${{ matrix.exe }}
       - uses: actions/upload-artifact@v5
         with:
-          name: rgrc-${{ env.VERSION }}-${{ matrix.target }}.zip
+          name: rgrc-${{ env.VERSION }}-${{ matrix.target }}
           path: target/${{ matrix.target }}/release/rgrc-${{ env.VERSION }}-${{ matrix.target }}.zip
   data:
     name: Package data files
@@ -128,7 +128,7 @@ jobs:
         run: make data
       - uses: actions/upload-artifact@v5
         with:
-          name: rgrc-data-${{ env.VERSION }}.zip
+          name: rgrc-data-${{ env.VERSION }}
           path: target/tarball/rgrc-data-${{ env.VERSION }}.zip
   publish:
     name: Publish release
