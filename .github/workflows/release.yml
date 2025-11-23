@@ -68,7 +68,7 @@ jobs:
           profile: minimal
           toolchain: stable
       - name: Install cross
-        run: cargo install --version 0.2.5 cross
+        run: cargo install --version 0.1.16 cross
       # - name: Run tests
       #   run: cross test --release --target ${{ matrix.target }} --verbose
       - name: Build release
