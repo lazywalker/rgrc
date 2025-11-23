@@ -35,29 +35,27 @@ jobs:
           - os: ubuntu-latest
             target: armv7-unknown-linux-musleabihf
             exe: rgrc
-          - os: ubuntu-latest
-            target: mips-unknown-linux-gnu
-            exe: rgrc
-          - os: ubuntu-latest
-            target: mips-unknown-linux-musl
-            exe: rgrc
-          - os: ubuntu-latest
-            target: mipsel-unknown-linux-gnu
-            exe: rgrc
-          - os: ubuntu-latest
-            target: mipsel-unknown-linux-musl
-            exe: rgrc
-          - os: ubuntu-latest
-            target: mips64-unknown-linux-gnuabi64
-            exe: rgrc
-          - os: ubuntu-latest
-            target: mips64el-unknown-linux-gnuabi64
-            exe: rgrc
-
+          # - os: ubuntu-latest
+          #   target: mips-unknown-linux-gnu
+          #   exe: rgrc
+          # - os: ubuntu-latest
+          #   target: mips-unknown-linux-musl
+          #   exe: rgrc
+          # - os: ubuntu-latest
+          #   target: mipsel-unknown-linux-gnu
+          #   exe: rgrc
+          # - os: ubuntu-latest
+          #   target: mipsel-unknown-linux-musl
+          #   exe: rgrc
+          # - os: ubuntu-latest
+          #   target: mips64-unknown-linux-gnuabi64
+          #   exe: rgrc
+          # - os: ubuntu-latest
+          #   target: mips64el-unknown-linux-gnuabi64
+          #   exe: rgrc
           - os: macos-latest
             target: x86_64-apple-darwin
             exe: rgrc
-
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             exe: rgrc.exe
