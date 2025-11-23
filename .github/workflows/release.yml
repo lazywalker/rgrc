@@ -66,11 +66,22 @@ jobs:
           profile: minimal
           toolchain: stable
       - name: Install cross
+        if: matrix.os == 'ubuntu-latest'
         run: cargo install --version 0.1.16 cross
       # - name: Run tests
-      #   run: cross test --release --target ${{ matrix.target }} --verbose
+      #   run: |
+      #     if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+      #       cross test --release --target ${{ matrix.target }} --verbose
+      #     else
+      #       cargo test --release --target ${{ matrix.target }} --verbose
+      #     fi
       - name: Build release
-        run: cross build --release --target ${{ matrix.target }}
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
       - name: Run UPX
         # Upx may not support some platforms. Ignore the errors
         continue-on-error: true
