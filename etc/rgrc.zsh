@@ -50,6 +50,7 @@ cmds=(
   lsmod
   lsof
   lspci
+  lsusb
   make
   mount
   mtr
@@ -71,6 +72,8 @@ cmds=(
   stat
   sysctl
   systemctl
+  head
+  tail
   tcpdump
   traceroute
   traceroute6
