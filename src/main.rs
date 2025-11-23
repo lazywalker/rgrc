@@ -159,8 +159,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Output a shell alias if:
             // 1. The command is not in the exclude list, AND
             // 2. Either we're generating all aliases (--all-aliases) OR the command exists in PATH (which::which)
-            if !except_set.contains(cmd as &str)
-                && (show_all_aliases || which::which(cmd).is_ok())
+            if !except_set.contains(cmd as &str) && (show_all_aliases || which::which(cmd).is_ok())
             {
                 // Print shell alias in the format: alias CMD='grc CMD';
                 println!("alias {}='{} {}';", cmd, grc, cmd);
