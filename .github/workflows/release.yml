@@ -93,8 +93,9 @@ jobs:
           files: target/${{ matrix.target }}/release/${{ matrix.exe }}
           args: -q --best --lzma
       - name: Get version
+        shell: bash
         run: |
-          VERSION=$(cargo pkgid | cut -d\# -f2 | cut -d: -f2)
+          VERSION=$(grep '^version =' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
       - uses: actions/upload-artifact@v5
         with:
@@ -109,7 +110,7 @@ jobs:
           path: ${{ matrix.exe }}
       - uses: actions/upload-artifact@v5
         with:
-          name: rgrc-${VERSION}-${{ matrix.target }}.zip
+          name: rgrc-bin-${VERSION}-${{ matrix.target }}.zip
           path: target/${{ matrix.target }}/release/rgrc-bin-${VERSION}-${{ matrix.target }}.zip
   data:
     name: Package data files
@@ -118,8 +119,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - name: Get version
+        shell: bash
         run: |
-          VERSION=$(cargo pkgid | cut -d\# -f2 | cut -d: -f2)
+          VERSION=$(grep '^version =' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
       - name: Generate man page
         run: make man
