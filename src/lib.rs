@@ -31,7 +31,6 @@ use std::io::BufRead;
 use std::str::FromStr;
 
 use grc::{GrcConfigReader, GrcatConfigEntry, GrcatConfigReader};
-use shellexpand;
 
 /// Control whether colored output should be enabled for this run.
 ///
@@ -192,7 +191,7 @@ pub const RESOURCE_PATHS: &[&str] = &[
 ///
 /// * `path` - Path to the grc.conf file to read (e.g., "~/.config/rgrc/grc.conf")
 /// * `pseudo_command` - The command name to match against patterns in grc.conf
-///                      (e.g., "ping", "ls", "curl")
+///   (e.g., "ping", "ls", "curl")
 ///
 /// # Returns
 ///
@@ -249,7 +248,7 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
                 .iter()
                 .map(|path| shellexpand::tilde(path))
                 .map(|path| format!("{}/{}", path, config))
-                .flat_map(|filename| load_grcat_config(filename))
+                .flat_map(load_grcat_config)
                 .collect()
         })
         .unwrap_or_default()
@@ -272,9 +271,9 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
 /// # Arguments
 ///
 /// * `filename` - Path to the grcat.conf file to read
-///                Supports paths with ~ for home directory expansion
-///                Can be a path within RESOURCE_PATHS directories
-///                Example: "~/.config/rgrc/conf.ping"
+///   Supports paths with ~ for home directory expansion
+///   Can be a path within RESOURCE_PATHS directories
+///   Example: "~/.config/rgrc/conf.ping"
 ///
 /// # Returns
 ///
@@ -371,7 +370,7 @@ const CONFIG_PATHS: &[&str] = &[
 /// # Arguments
 ///
 /// * `pseudo_command` - The command string to match against configuration rules
-///                      (e.g., "ping", "ls", "curl")
+///   (e.g., "ping", "ls", "curl")
 ///
 /// # Returns
 ///

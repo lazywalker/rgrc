@@ -94,7 +94,7 @@ use crate::grc::GrcatConfigEntry;
 /// // Output contains ANSI-styled text
 /// ```
 #[allow(dead_code)] // Used in main.rs but may not be detected in all build configurations
-pub fn colorize_regex<R: ?Sized, W: ?Sized>(
+pub fn colorize_regex<R, W>(
     reader: &mut R,
     writer: &mut W,
     rules: &[GrcatConfigEntry],
@@ -310,8 +310,8 @@ where
         // Later ranges override earlier ones (simple precedence rule)
         for (start, end, style) in style_ranges {
             // Bounds check: ensure we don't exceed line length
-            for i in start..end.min(line.len()) {
-                char_styles[i] = style;
+            for item in char_styles.iter_mut().take(end.min(line.len())).skip(start) {
+                *item = style;
             }
         }
 

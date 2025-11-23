@@ -159,7 +159,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Output a shell alias if:
             // 1. The command is not in the exclude list, AND
             // 2. Either we're generating all aliases (--all-aliases) OR the command exists in PATH (which::which)
-            if !except_set.contains(&cmd.to_string())
+            if !except_set.contains(cmd as &str)
                 && (show_all_aliases || which::which(cmd).is_ok())
             {
                 // Print shell alias in the format: alias CMD='grc CMD';
@@ -189,7 +189,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let rules: Vec<GrcatConfigEntry> = load_rules_for_command(&pseudo_command);
 
     // Spawn the command with appropriate stdout handling
-    let mut cmd = Command::new(command.iter().next().unwrap().as_str());
+    let mut cmd = Command::new(command.first().unwrap().as_str());
     cmd.args(command.iter().skip(1));
 
     // If we have colorization rules, pipe the command's stdout so we can intercept and colorize it.

@@ -212,7 +212,7 @@ fn style_from_str(text: &str) -> Result<console::Style, ()> {
 /// ```
 #[allow(dead_code)]
 fn styles_from_str(text: &str) -> Result<Vec<console::Style>, ()> {
-    text.split(',').map(|e| style_from_str(e)).collect()
+    text.split(',').map(style_from_str).collect()
 }
 
 /// Configuration reader for the main grc.conf file.
