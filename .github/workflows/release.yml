@@ -105,7 +105,7 @@ jobs:
         uses: TheDoctor0/zip-release@0.6.1
         with:
           type: zip
-          filename: rgrc-${VERSION}-${{ matrix.target }}.zip
+          filename: rgrc-bin-${VERSION}-${{ matrix.target }}.zip
           directory: target/${{ matrix.target }}/release/
           path: ${{ matrix.exe }}
       - uses: actions/upload-artifact@v5
