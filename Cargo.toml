@@ -1,13 +1,14 @@
 [package]
 name = "rgrc"
-version = "0.1.2"
+version = "0.2.3"
 edition = "2024"
 license = "MIT"
 description = "Rusty Generic Colouriser"
 repository = "https://github.com/lazywalker/rgrc"
 homepage = "https://github.com/lazywalker/rgrc"
-keywords = ["cli"]
+keywords = ["cli", "grc"]
 categories = ["command-line-utilities"]
+readme = "README.md"
 
 [dependencies]
 console = "^0.16.1"
@@ -17,3 +18,18 @@ argparse = "^0.2.2"
 which = "^8.0.0"
 fancy-regex = "^0.16.2"
 shellexpand = "^3.1.1"
+
+[profile.release]
+panic = "abort"
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.bench]
+debug = 1
+
+[profile.minimal]
+inherits = "release"
+opt-level = "z"
+lto = true
+codegen-units = 1

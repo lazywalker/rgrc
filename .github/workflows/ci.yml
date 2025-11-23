@@ -1,4 +1,4 @@
-name: Rust
+name: ci
 
 on:
   push:
@@ -22,3 +22,5 @@ jobs:
       run: cargo test --verbose
     - name: Check format
       run: cargo fmt -- --check
+    - name: Check with clippy
+      run: cargo clippy --all
