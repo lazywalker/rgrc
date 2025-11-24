@@ -4,6 +4,70 @@
 
 本分支的主要目标是将 rgrc 从传统的文件系统配置模式改为嵌入式配置模式，使其可以通过 `cargo install` 直接安装使用，同时保持高性能。
 
+## 最新优化 (2025年11月25日)
+
+### 1. 构建优化和二进制大小减少
+
+**Cargo.toml 优化设置统一**:
+- 确保所有profile (release, minimal) 使用一致的优化设置
+- 添加 `opt-level = "z"` 到release profile以实现最大压缩
+- 添加 `strip = true` 到minimal profile以移除调试信息
+
+**Makefile 改进**:
+- 新增 `minimal` target: `cargo auditable build --profile minimal`
+- 整合最小化构建命令，简化构建流程
+
+**二进制大小影响**:
+- 通过统一的优化设置减少二进制大小
+- 移除不必要的调试信息和符号表
+
+### 2. 依赖项清理和调试优化
+
+**移除未使用的依赖项**:
+- `serde` (1.0.228) - JSON序列化库，未在最终实现中使用
+- `regex` (1.12.2) - 标准正则表达式库，替换为fancy-regex
+
+**调试打印优化**:
+- 将 `debug_print` 从依赖项移至开发依赖项
+- 实现条件编译的调试宏，仅在debug模式下输出
+- 移除运行时调试开销
+
+**依赖统计更新**:
+- **优化前**: 29+ 个 crate
+- **优化后**: 18 个 crate (**37%减少**)
+- **核心依赖**: `console`, `fancy-regex`, `lazy_static`, `mimalloc`
+
+### 3. 代码质量改进
+
+**条件编译优化**:
+```rust
+#[cfg(debug_assertions)]
+macro_rules! debug_println {
+    ($($arg:tt)*) => {
+        println!($($arg)*);
+    };
+};
+
+#[cfg(not(debug_assertions))]
+macro_rules! debug_println {
+    ($($arg:tt)*) => {};
+};
+```
+
+**构建配置优化**:
+```toml
+[profile.release]
+opt-level = "z"  # 最大优化
+lto = true       # 链接时优化
+codegen-units = 1 # 单代码生成单元
+strip = true     # 移除符号表
+
+[profile.minimal]
+inherits = "release"
+opt-level = "z"  # 继承并强化优化
+strip = true     # 额外移除调试信息
+```
+
 ## 主要改动
 
 ### 1. 构建时配置预处理 (build.rs)
@@ -217,6 +281,9 @@ match command {
 ✅ **成功实现嵌入式配置**: rgrc现在可以通过`cargo install`完整安装
 ✅ **显著性能提升**: 从70倍差距优化到6.4倍
 ✅ **保持功能完整性**: 所有颜色化功能正常工作
+✅ **依赖项最小化**: 从29+个crate减少到18个 (**37%减少**)
+✅ **构建优化**: 统一的优化设置，减少二进制大小
+✅ **调试优化**: 条件编译调试，移除运行时开销
 
 ### 剩余优化空间
 
@@ -254,6 +321,7 @@ rgrc ps aux | head -10
 
 ---
 
-*文档生成时间: 2025年11月24日*
+*文档生成时间: 2025年11月25日*
 *分支: embed-configs*
 *性能基准: uptime命令*
+*最新优化: 构建优化 + 依赖清理 + 调试优化*

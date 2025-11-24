@@ -31,7 +31,16 @@ use std::io::BufRead;
 use std::str::FromStr;
 
 use grc::{GrcConfigReader, GrcatConfigEntry, GrcatConfigReader};
-use shellexpand;
+
+// Simple tilde expansion function to replace shellexpand
+fn expand_tilde(path: &str) -> String {
+    if path.starts_with("~/") {
+        if let Ok(home) = std::env::var("HOME") {
+            return format!("{}/{}", home, &path[2..]);
+        }
+    }
+    path.to_string()
+}
 
 // Include build-time generated preprocessed configs
 include!(concat!(env!("OUT_DIR"), "/preprocessed_configs.rs"));
@@ -177,6 +186,27 @@ pub enum ColorMode {
     Auto,
 }
 
+/// Colorization strategy determines when and how to apply colorization
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ColorizationStrategy {
+    /// Always colorize commands that have colorization rules available
+    Always,
+    /// Smart decision: only colorize commands that benefit from colorization
+    Smart,
+    /// Never colorize output
+    Never,
+}
+
+impl From<ColorMode> for ColorizationStrategy {
+    fn from(mode: ColorMode) -> Self {
+        match mode {
+            ColorMode::On => ColorizationStrategy::Always,
+            ColorMode::Off => ColorizationStrategy::Never,
+            ColorMode::Auto => ColorizationStrategy::Smart,
+        }
+    }
+}
+
 impl FromStr for ColorMode {
     type Err = ();
 
@@ -228,11 +258,9 @@ impl FromStr for ColorMode {
 /// - `~` expansion (home directory)
 /// - XDG Base Directory Specification compliance
 /// - System-wide configuration directories
-/// - **Test mode**: Includes `./share` for CI/testing environments
 ///
 /// # Search Order
 ///
-/// ## Normal Mode
 /// 1. `~/.config/rgrc` - User's rgrc config directory (XDG_CONFIG_HOME)
 /// 2. `~/.local/share/rgrc` - User's rgrc data directory (XDG_DATA_HOME)
 /// 3. `/usr/local/share/rgrc` - System-wide custom installations
@@ -241,12 +269,6 @@ impl FromStr for ColorMode {
 /// 6. `~/.local/share/grc` - Legacy grc user data directory
 /// 7. `/usr/local/share/grc` - Legacy system-wide location
 /// 8. `/usr/share/grc` - Standard grc location (original)
-///
-/// ## Test Mode (when running `cargo test`)
-/// 1. `./share` - **Project share directory (for CI/testing)**
-/// 2. `~/.config/rgrc` - User's rgrc config directory (XDG_CONFIG_HOME)
-/// 3. `~/.local/share/rgrc` - User's rgrc data directory (XDG_DATA_HOME)
-/// 4. `/usr/local/share/rgrc` - System-wide custom installations
 /// 5. `/usr/share/rgrc` - Standard system location (rgrc variant)
 /// 6. `~/.config/grc` - Legacy grc user config directory
 /// 7. `~/.local/share/grc` - Legacy grc user data directory
@@ -260,20 +282,6 @@ impl FromStr for ColorMode {
 /// let config_entries = load_config("~/.config/rgrc/grc.conf", "ping");
 /// // This will search in all RESOURCE_PATHS directories for matching rules
 /// ```
-#[cfg(test)]
-pub const RESOURCE_PATHS: &[&str] = &[
-    "./share", // Test mode: include project share directory first
-    "~/.config/rgrc",
-    "~/.local/share/rgrc",
-    "/usr/local/share/rgrc",
-    "/usr/share/rgrc",
-    "~/.config/grc",
-    "~/.local/share/grc",
-    "/usr/local/share/grc",
-    "/usr/share/grc",
-];
-
-#[cfg(not(test))]
 pub const RESOURCE_PATHS: &[&str] = &[
     "~/.config/rgrc",
     "~/.local/share/rgrc",
@@ -359,7 +367,7 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         // Search all resource paths for the colorization file
         return RESOURCE_PATHS
             .iter()
-            .map(|path| shellexpand::tilde(path))
+            .map(|path| expand_tilde(path))
             .map(|path| format!("{}/{}", path, config))
             .flat_map(load_grcat_config)
             .collect();
@@ -380,7 +388,7 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
             // Search all resource paths for the colorization file
             RESOURCE_PATHS
                 .iter()
-                .map(|path| shellexpand::tilde(path))
+                .map(|path| expand_tilde(path))
                 .map(|path| format!("{}/{}", path, config))
                 .flat_map(load_grcat_config)
                 .collect()
@@ -497,21 +505,6 @@ pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
 /// The program searches these paths to find grc.conf (or rgrc.conf) which maps
 /// commands to their colorization profiles. Paths prefixed with ~ are expanded using shellexpand.
 /// Typical flow: try ~/.grc first (user config), then system-wide configs (/etc/grc.conf).
-/// **Test mode**: Includes `./etc/rgrc.conf` for CI/testing environments.
-#[cfg(test)]
-const CONFIG_PATHS: &[&str] = &[
-    "./etc/rgrc.conf", // Test mode: include project etc directory first
-    "~/.rgrc",
-    "~/.config/rgrc/rgrc.conf",
-    "/usr/local/etc/rgrc.conf",
-    "/etc/rgrc.conf",
-    "~/.grc",
-    "~/.config/grc/grc.conf",
-    "/usr/local/etc/grc.conf",
-    "/etc/grc.conf",
-];
-
-#[cfg(not(test))]
 const CONFIG_PATHS: &[&str] = &[
     "~/.rgrc",
     "~/.config/rgrc/rgrc.conf",
@@ -556,7 +549,7 @@ pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     // Fallback to file system configuration paths
     CONFIG_PATHS
         .iter()
-        .map(|s| shellexpand::tilde(s))
+        .map(|s| expand_tilde(s))
         .flat_map(|s| load_config(s.as_ref(), pseudo_command))
         .collect()
 }
@@ -646,5 +639,38 @@ fn test_load_rules_for_command() {
         // Should be reasonably fast (< 50ms per call in release mode)
         println!("Average time to load ping rules: {:?}", avg_time);
         assert!(avg_time.as_millis() < 50, "Loading rules should be reasonably fast (< 50ms)");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_expand_tilde() {
+        // Test with valid HOME environment variable
+        unsafe { std::env::set_var("HOME", "/home/testuser"); }
+        
+        // Normal tilde expansion
+        assert_eq!(expand_tilde("~/Documents"), "/home/testuser/Documents");
+        assert_eq!(expand_tilde("~/"), "/home/testuser/");
+        assert_eq!(expand_tilde("~"), "~");
+        
+        // No tilde should be unchanged
+        assert_eq!(expand_tilde("/absolute/path"), "/absolute/path");
+        assert_eq!(expand_tilde("relative/path"), "relative/path");
+        assert_eq!(expand_tilde(""), "");
+        
+        // Tilde not at start should be unchanged
+        assert_eq!(expand_tilde("path~/to/file"), "path~/to/file");
+        assert_eq!(expand_tilde("path~"), "path~");
+        
+        // Test without HOME environment variable
+        unsafe { std::env::remove_var("HOME"); }
+        assert_eq!(expand_tilde("~/Documents"), "~/Documents");
+        assert_eq!(expand_tilde("/absolute/path"), "/absolute/path");
+        
+        // Restore HOME for other tests
+        unsafe { std::env::set_var("HOME", "/home/testuser"); }
     }
 }

@@ -103,6 +103,8 @@ where
     R: Read,
     W: Write,
 {
+    // Ensure colors are enabled for this colorization session
+    console::set_colors_enabled(true);
     // ═══════════════════════════════════════════════════════════════════════════════
     // PHASE 1: INPUT PROCESSING - Set up buffered reading and line iteration
     // ═══════════════════════════════════════════════════════════════════════════════
