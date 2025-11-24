@@ -26,8 +26,111 @@ fn command_exists(cmd: &str) -> bool {
     false
 }
 
+/// Line-buffered writer that flushes after each newline
+/// This ensures real-time output for commands like ping
+struct LineBufferedWriter<W: std::io::Write> {
+    inner: W,
+}
+
+impl<W: std::io::Write> LineBufferedWriter<W> {
+    fn new(inner: W) -> Self {
+        Self { inner }
+    }
+}
+
+impl<W: std::io::Write> std::io::Write for LineBufferedWriter<W> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        let written = self.inner.write(buf)?;
+        // Flush after each newline to ensure real-time output
+        if buf.contains(&b'\n') {
+            self.inner.flush()?;
+        }
+        Ok(written)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.inner.flush()
+    }
+}
+
+/// Curated list of commands known to work well with grc
+/// These commands have colorization rules that provide meaningful visual improvements
+const SUPPORTED_COMMANDS: &[&str] = &[
+    "ant",
+    "blkid",
+    "common",
+    "curl",
+    "cvs",
+    "df",
+    "diff",
+    "dig",
+    "dnf",
+    "docker",
+    "du",
+    "dummy",
+    "env",
+    "esperanto",
+    "fdisk",
+    "findmnt",
+    "free",
+    "gcc",
+    "getfacl",
+    "getsebool",
+    "id",
+    "ifconfig",
+    "ip",
+    "iptables",
+    "irclog",
+    "iwconfig",
+    "jobs",
+    "kubectl",
+    "last",
+    "ldap",
+    "log",
+    "lolcat",
+    "lsattr",
+    "lsblk",
+    "lsmod",
+    "lsof",
+    "lspci",
+    "mount",
+    "mvn",
+    "netstat",
+    "nmap",
+    "ntpdate",
+    "php",
+    "ping",
+    "ping2",
+    "proftpd",
+    "ps",
+    "pv",
+    "semanage",
+    "sensors",
+    "showmount",
+    "sockstat",
+    "sql",
+    "ss",
+    "stat",
+    "sysctl",
+    "systemctl",
+    "tail",
+    "tcpdump",
+    "traceroute",
+    "tune2fs",
+    "ulimit",
+    "uptime",
+    "vmstat",
+    "wdiff",
+    "whois",
+    "yaml",
+    "docker",
+    "go",
+    "iostat",
+    "lsusb",
+];
+
 use std::process::{Command, Stdio};
-use std::io::Write;
+use std::io::{self, IsTerminal, Write};
 
 // Import testable components from lib
 use rgrc::{
@@ -137,13 +240,13 @@ fn print_help() {
 
 /// Quick check if a command is likely to benefit from colorization (used for Smart strategy)
 /// This is a lightweight check that doesn't require loading rules
-fn should_use_colorization_for_command_only(command: &str) -> bool {
+fn should_use_colorization_for_command_benefit(command: &str) -> bool {
     // Commands that definitely benefit from colorization (have meaningful output to colorize)
     match command {
         "ant" | "blkid" | "curl" | "cvs" | "df" | "diff" | "dig" | "dnf" |
         "docker" | "du" | "env" | "esperanto" | "fdisk" | "findmnt" | "free" |
         "gcc" | "getfacl" | "getsebool" | "id" | "ifconfig" | "ip" | "iptables" |
-        "irclog" | "iwconfig" | "jobs" | "kubectl" | "last" | "ldap" | "log" |
+        "irclog" | "iwconfig" | "jobs" | "kubectl" | "tail" | "last" | "ldap" | "log" |
         "lolcat" | "lsattr" | "lsblk" | "lsmod" | "lsof" | "lspci" | "lsusb" |
         "mount" | "mvn" | "netstat" | "nmap" | "ntpdate" | "php" | "ping" |
         "ping2" | "proftpd" | "ps" | "pv" | "semanage" | "sensors" | "showmount" |
@@ -159,22 +262,7 @@ fn should_use_colorization_for_command_only(command: &str) -> bool {
 
 /// Check if a command has colorization rules available (used for Always strategy)
 fn should_use_colorization_for_command_supported(command: &str) -> bool {
-    // Commands that are known to have colorization rules in the configuration
-    match command {
-        "ant" | "blkid" | "common" | "curl" | "cvs" | "df" | "diff" | "dig" | "dnf" |
-        "docker" | "du" | "dummy" | "env" | "esperanto" | "fdisk" | "findmnt" | "free" |
-        "gcc" | "getfacl" | "getsebool" | "id" | "ifconfig" | "ip" | "iptables" | "irclog" |
-        "iwconfig" | "jobs" | "kubectl" | "last" | "ldap" | "log" | "lolcat" | "lsattr" |
-        "lsblk" | "lsmod" | "lsof" | "lspci" | "lsusb" | "mount" | "mvn" | "netstat" | "nmap" |
-        "ntpdate" | "php" | "ping" | "ping2" | "proftpd" | "ps" | "pv" | "semanage" |
-        "sensors" | "showmount" | "sockstat" | "sql" | "ss" | "stat" | "sysctl" | "systemctl" |
-        "tcpdump" | "traceroute" | "tune2fs" | "ulimit" | "uptime" | "vmstat" |
-        "wdiff" | "whois" | "yaml" | "go" | "iostat" | "ls" => {
-            true
-        }
-        // For unknown commands, assume they might have rules
-        _ => true,
-    }
+    SUPPORTED_COMMANDS.contains(&command)
 }
 
 /// Main entry point for the grc (generic colourizer) program.
@@ -219,79 +307,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect();
 
         // Curated list of commands known to work well with grc
-        for cmd in &[
-            "ant",
-            "blkid",
-            "common",
-            "curl",
-            "cvs",
-            "df",
-            "diff",
-            "dig",
-            "dnf",
-            "docker",
-            "du",
-            "dummy",
-            "env",
-            "esperanto",
-            "fdisk",
-            "findmnt",
-            "free",
-            "gcc",
-            "getfacl",
-            "getsebool",
-            "id",
-            "ifconfig",
-            "ip",
-            "iptables",
-            "irclog",
-            "iwconfig",
-            "jobs",
-            "kubectl",
-            "last",
-            "ldap",
-            "log",
-            "lolcat",
-            "lsattr",
-            "lsblk",
-            "lsmod",
-            "lsof",
-            "lspci",
-            "mount",
-            "mvn",
-            "netstat",
-            "nmap",
-            "ntpdate",
-            "php",
-            "ping",
-            "ping2",
-            "proftpd",
-            "ps",
-            "pv",
-            "semanage",
-            "sensors",
-            "showmount",
-            "sockstat",
-            "sql",
-            "ss",
-            "stat",
-            "sysctl",
-            "systemctl",
-            "tail",
-            "tcpdump",
-            "traceroute",
-            "tune2fs",
-            "ulimit",
-            "uptime",
-            "vmstat",
-            "wdiff",
-            "whois",
-            "yaml",
-            "docker",
-            "go",
-            "iostat",
-            "lsusb",
-        ] {
+        for cmd in SUPPORTED_COMMANDS {
             // Output a shell alias if:
             // 1. The command is not in the exclude list, AND
             // 2. Either we're generating all aliases (--all-aliases) OR the command exists in PATH (which::which)
@@ -328,7 +344,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let should_attempt_colorization = match strategy {
             ColorizationStrategy::Always => should_use_colorization_for_command_supported(command_name),
             ColorizationStrategy::Never => false,
-            ColorizationStrategy::Smart => should_use_colorization_for_command_only(command_name),
+            ColorizationStrategy::Smart => should_use_colorization_for_command_benefit(command_name),
         };
 
         should_attempt_colorization
@@ -350,9 +366,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::new(command_name);
     cmd.args(command.iter().skip(1));
 
-    // Optimization: When colorization is not needed, let the child process output directly to stdout
-    // This completely avoids any piping overhead and data copying
-    if !should_colorize {
+    // Optimization: When colorization is not needed AND output goes directly to terminal,
+    // let the child process output directly to stdout. This completely avoids any piping overhead.
+    // However, when output is piped (e.g., rgrc cmd | other_cmd), we must still use pipes
+    // to maintain data flow integrity.
+    let stdout_is_terminal = io::stdout().is_terminal();
+    if !should_colorize && stdout_is_terminal {
         cmd.stdout(Stdio::inherit()); // Inherit parent's stdout directly
         cmd.stderr(Stdio::inherit()); // Also inherit stderr for consistency
         
@@ -380,10 +399,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // This can significantly improve performance for commands with lots of output
     let mut buffered_stdout = std::io::BufReader::with_capacity(64 * 1024, &mut stdout); // 64KB buffer
     
-    // Also use a buffered writer for output to reduce write system calls
-    let mut buffered_writer = std::io::BufWriter::with_capacity(32 * 1024, std::io::stdout()); // 32KB buffer
+    // For real-time output commands, use line buffering to ensure output appears immediately
+    // Use a smaller buffer (4KB) and flush after each line to prevent output delay
+    let mut buffered_writer = std::io::BufWriter::with_capacity(4 * 1024, std::io::stdout()); // 4KB buffer for line buffering
     
-    colorize(&mut buffered_stdout, &mut buffered_writer, rules.as_slice())?;
+    // Create a line-buffered writer that flushes after each line
+    let mut line_buffered_writer = LineBufferedWriter::new(&mut buffered_writer);
+    
+    colorize(&mut buffered_stdout, &mut line_buffered_writer, rules.as_slice())?;
     
     // Ensure all buffered output is written
     buffered_writer.flush()?;
@@ -584,5 +607,118 @@ mod tests {
         }
         
         parse_args_test(args)
+    }
+
+    #[test]
+    fn test_line_buffered_writer() {
+        use std::io::{Cursor, Write};
+        
+        // Test basic functionality with Cursor<Vec<u8>> as underlying writer
+        let buffer = Vec::new();
+        let cursor = Cursor::new(buffer);
+        let mut writer = LineBufferedWriter::new(cursor);
+        
+        // Test writing data without newlines - should write but not flush
+        writer.write_all(b"hello").unwrap();
+        // Data should be written to buffer immediately
+        let data = writer.inner.get_ref();
+        assert_eq!(data, b"hello", "Buffer should contain written data immediately");
+        
+        // Test writing data with newline - should write and flush
+        writer.write_all(b" world\n").unwrap();
+        let data = writer.inner.get_ref();
+        assert_eq!(data, b"hello world\n", "Buffer should contain all written data");
+        
+        // Test writing more data without newline
+        writer.write_all(b"more data").unwrap();
+        let data = writer.inner.get_ref();
+        assert_eq!(data, b"hello world\nmore data", "Buffer should contain all written data");
+        
+        // Test explicit flush (should be no-op since data is already written)
+        writer.flush().unwrap();
+        let data = writer.inner.get_ref();
+        assert_eq!(data, b"hello world\nmore data", "Buffer should remain unchanged after flush");
+    }
+
+    #[test]
+    fn test_line_buffered_writer_empty_writes() {
+        use std::io::{Cursor, Write};
+        
+        let buffer = Vec::new();
+        let cursor = Cursor::new(buffer);
+        let mut writer = LineBufferedWriter::new(cursor);
+        
+        // Test empty write
+        writer.write_all(b"").unwrap();
+        let data = writer.inner.get_ref();
+        assert!(data.is_empty(), "Empty write should not affect buffer");
+        
+        // Test write with only newline
+        writer.write_all(b"\n").unwrap();
+        let data = writer.inner.get_ref();
+        assert_eq!(data, b"\n", "Write with only newline should flush immediately");
+        
+        // Test multiple empty writes
+        writer.write_all(b"").unwrap();
+        writer.write_all(b"").unwrap();
+        let data = writer.inner.get_ref();
+        assert_eq!(data, b"\n", "Multiple empty writes should not affect buffer");
+    }
+
+    #[test]
+    fn test_line_buffered_writer_partial_writes() {
+        use std::io::{Cursor, Write};
+        
+        let buffer = Vec::new();
+        let cursor = Cursor::new(buffer);
+        let mut writer = LineBufferedWriter::new(cursor);
+        
+        // Test partial writes that together form a line
+        let result1 = writer.write(b"hello ").unwrap();
+        assert_eq!(result1, 6);
+        let data = writer.inner.get_ref();
+        assert_eq!(data, b"hello ", "Partial write should be written immediately");
+        
+        let result2 = writer.write(b"world\n").unwrap();
+        assert_eq!(result2, 6);
+        let data = writer.inner.get_ref();
+        assert_eq!(data, b"hello world\n", "Write with newline should be written immediately");
+        
+        // Test write method with data containing newlines
+        let result3 = writer.write(b"test\nmore").unwrap();
+        assert_eq!(result3, 9);
+        let data = writer.inner.get_ref();
+        assert_eq!(data, b"hello world\ntest\nmore", "Write with newline should write all data immediately");
+        
+        writer.flush().unwrap();
+        let data = writer.inner.get_ref();
+        assert_eq!(data, b"hello world\ntest\nmore", "Final flush should ensure all data is written");
+    }
+
+    #[test]
+    fn test_line_buffered_writer_error_handling() {
+        use std::io::{Error, ErrorKind, Write};
+        
+        // Create a writer that always fails
+        struct FailingWriter;
+        impl std::io::Write for FailingWriter {
+            fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
+                Err(Error::new(ErrorKind::Other, "Simulated write error"))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Err(Error::new(ErrorKind::Other, "Simulated flush error"))
+            }
+        }
+        
+        let failing_writer = FailingWriter;
+        let mut writer = LineBufferedWriter::new(failing_writer);
+        
+        // Test that write errors are propagated
+        let result = writer.write(b"test");
+        assert!(result.is_err(), "Write error should be propagated");
+        
+        // Test that flush errors are propagated
+        let result = writer.flush();
+        assert!(result.is_err(), "Flush error should be propagated");
     }
 }
