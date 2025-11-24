@@ -33,6 +33,9 @@ use std::str::FromStr;
 use grc::{GrcConfigReader, GrcatConfigEntry, GrcatConfigReader};
 use shellexpand;
 
+// Include build-time generated preprocessed configs
+include!(concat!(env!("OUT_DIR"), "/preprocessed_configs.rs"));
+
 // Embedded configuration files
 // These are compiled into the binary for cargo install compatibility
 macro_rules! embed_config {
@@ -129,6 +132,18 @@ pub const EMBEDDED_CONFIGS: &[(&str, &str)] = &[
 ];
 
 pub const EMBEDDED_GRC_CONF: &str = include_str!("../etc/rgrc.conf");
+
+// Cached parsed configurations for performance - now truly persistent across calls
+lazy_static::lazy_static! {
+    static ref PARSED_EMBEDDED_CONFIGS: std::sync::RwLock<std::collections::HashMap<String, Vec<GrcatConfigEntry>>> = 
+        std::sync::RwLock::new(std::collections::HashMap::new());
+    
+    static ref PARSED_EMBEDDED_GRC: Vec<fancy_regex::Regex> = {
+        PRECOMPILED_GRC_RULES.iter()
+            .filter_map(|(regex_str, _)| fancy_regex::Regex::new(regex_str).ok())
+            .collect()
+    };
+}
 
 /// Control whether colored output should be enabled for this run.
 ///
@@ -445,13 +460,25 @@ pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
         .last()
         .unwrap_or(filename_str);
     
-    // First, try to find embedded config
+    // First, try to find cached embedded config
+    {
+        let cache = PARSED_EMBEDDED_CONFIGS.read().unwrap();
+        if let Some(cached_entries) = cache.get(config_name) {
+            return cached_entries.clone();
+        }
+    }
+    
+    // Not in cache, try to find embedded config and parse it
     if let Some((_, embedded_content)) = EMBEDDED_CONFIGS.iter().find(|(name, _)| *name == config_name) {
-        // Parse embedded config content
-        let content = embedded_content.as_bytes();
-        let bufreader = std::io::BufReader::new(content);
+        let bufreader = std::io::BufReader::new(embedded_content.as_bytes());
         let configreader = GrcatConfigReader::new(bufreader.lines());
-        return configreader.collect();
+        let entries: Vec<_> = configreader.collect();
+        
+        // Cache the parsed result
+        let mut cache = PARSED_EMBEDDED_CONFIGS.write().unwrap();
+        cache.insert(config_name.to_string(), entries.clone());
+        
+        return entries;
     }
     
     // Fallback to file system
@@ -520,11 +547,59 @@ const CONFIG_PATHS: &[&str] = &[
 /// ```
 #[allow(dead_code)]
 pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
+    // First, try to load from embedded configuration
+    let embedded_rules = load_config_from_embedded(pseudo_command);
+    if !embedded_rules.is_empty() {
+        return embedded_rules;
+    }
+    
+    // Fallback to file system configuration paths
     CONFIG_PATHS
         .iter()
         .map(|s| shellexpand::tilde(s))
         .flat_map(|s| load_config(s.as_ref(), pseudo_command))
         .collect()
+}
+
+/// Load colorization rules from embedded configuration only.
+/// This is a fast path that avoids file system access.
+fn load_config_from_embedded(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
+    // Find the first matching rule for this pseudo_command in precompiled config
+    for (i, (_, config_file)) in PRECOMPILED_GRC_RULES.iter().enumerate() {
+        if let Some(regex) = PARSED_EMBEDDED_GRC.get(i) {
+            if regex.is_match(pseudo_command).unwrap_or(false) {
+                // Load the corresponding embedded grcat config
+                return load_grcat_config_from_embedded(config_file);
+            }
+        }
+    }
+    Vec::new()
+}
+
+/// Load grcat config from embedded configs only (no file system fallback).
+fn load_grcat_config_from_embedded(config_name: &str) -> Vec<GrcatConfigEntry> {
+    // Try to find cached embedded config first
+    {
+        let cache = PARSED_EMBEDDED_CONFIGS.read().unwrap();
+        if let Some(cached_entries) = cache.get(config_name) {
+            return cached_entries.clone();
+        }
+    }
+    
+    // Not in cache, find embedded config and parse it
+    if let Some((_, embedded_content)) = EMBEDDED_CONFIGS.iter().find(|(name, _)| *name == config_name) {
+        let bufreader = std::io::BufReader::new(embedded_content.as_bytes());
+        let configreader = GrcatConfigReader::new(bufreader.lines());
+        let entries: Vec<_> = configreader.collect();
+        
+        // Cache the parsed result
+        let mut cache = PARSED_EMBEDDED_CONFIGS.write().unwrap();
+        cache.insert(config_name.to_string(), entries.clone());
+        
+        return entries;
+    }
+    
+    Vec::new()
 }
 
 // Note: These tests are documentation-based since the main() function
@@ -556,4 +631,20 @@ fn test_load_rules_for_command() {
         no_rules.is_empty(),
         "Nonexistent command should return no rules"
     );
+    
+    // Performance test: measure time to load rules (skip in debug mode)
+    #[cfg(not(debug_assertions))]
+    {
+        use std::time::Instant;
+        let start = Instant::now();
+        for _ in 0..10 {
+            let _rules = load_rules_for_command("ping");
+        }
+        let duration = start.elapsed();
+        let avg_time = duration / 10;
+        
+        // Should be reasonably fast (< 50ms per call in release mode)
+        println!("Average time to load ping rules: {:?}", avg_time);
+        assert!(avg_time.as_millis() < 50, "Loading rules should be reasonably fast (< 50ms)");
+    }
 }

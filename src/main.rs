@@ -191,17 +191,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::new(command.first().unwrap().as_str());
     cmd.args(command.iter().skip(1));
 
-    // If we have colorization rules, pipe the command's stdout so we can intercept and colorize it.
-    if !rules.is_empty() {
+    // Only pipe stdout if we have rules AND colors are enabled
+    // This avoids unnecessary piping overhead when colors are disabled
+    let should_colorize = !rules.is_empty() && console::colors_enabled();
+
+    if should_colorize {
         cmd.stdout(Stdio::piped());
     }
 
     // Spawn the command subprocess.
     let mut child = cmd.spawn().expect("failed to spawn command");
 
-    // If colorization rules exist, read from the piped stdout, apply colorization
+    // If colorization is enabled, read from the piped stdout, apply colorization
     // rules line-by-line (or in parallel chunks), and write colored output to stdout.
-    if !rules.is_empty() {
+    if should_colorize {
         let mut stdout = child
             .stdout
             .take()
