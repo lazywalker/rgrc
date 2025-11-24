@@ -37,22 +37,61 @@
 - **优化后**: 18 个 crate (**37%减少**)
 - **核心依赖**: `console`, `fancy-regex`, `lazy_static`, `mimalloc`
 
-### 3. 代码质量改进
+### 3. 零拷贝管道优化
 
-**条件编译优化**:
+**实现的技术**:
+- **智能Stdio处理**: 当不需要颜色化时，子进程直接继承父进程的stdout/stderr，避免任何管道开销
+- **大缓冲区I/O**: 使用64KB读取缓冲区和32KB写入缓冲区，减少系统调用次数
+- **条件管道**: 只有在确定需要颜色化且有匹配规则时才创建管道
+
+**代码实现**:
 ```rust
-#[cfg(debug_assertions)]
-macro_rules! debug_println {
-    ($($arg:tt)*) => {
-        println!($($arg)*);
-    };
-};
+// 当不需要颜色化时，完全避免管道
+if !should_colorize {
+    cmd.stdout(Stdio::inherit()); // 直接继承父进程stdout
+    cmd.stderr(Stdio::inherit()); // 也继承stderr
+    // 直接执行，无管道开销
+}
 
-#[cfg(not(debug_assertions))]
-macro_rules! debug_println {
-    ($($arg:tt)*) => {};
-};
+// 需要颜色化时，使用大缓冲区
+let mut buffered_stdout = std::io::BufReader::with_capacity(64 * 1024, &mut stdout);
+let mut buffered_writer = std::io::BufWriter::with_capacity(32 * 1024, std::io::stdout());
 ```
+
+**性能提升**:
+- **零管道开销**: 对于不需要颜色化的命令，完全避免管道创建和数据传输成本
+- **减少系统调用**: 大缓冲区将多次小I/O操作合并为少量大操作
+- **内存效率**: 缓冲区复用，避免重复内存分配
+
+### 4. 内存映射文件传输 (未来优化方向)
+
+**设计思路**: 使用临时文件 + 内存映射来实现跨进程数据传输
+
+```rust
+// 概念实现 (需要 memmap2 crate)
+// 1. 创建临时文件
+let temp_file = tempfile::NamedTempFile::new()?;
+
+// 2. 子进程输出重定向到临时文件
+cmd.stdout(Stdio::from(temp_file.reopen()?));
+
+// 3. 父进程内存映射文件进行读取
+let mmap = unsafe { Mmap::map(&temp_file)? };
+let reader = &mmap[..];
+
+// 4. 直接在内存映射区域进行颜色化
+colorize_from_memory(reader, writer, rules)?;
+```
+
+**优势**:
+- **零拷贝**: 数据直接在内存映射区域处理，无需复制
+- **高效I/O**: 操作系统自动进行页面缓存和预读
+- **并行友好**: 多个进程可以同时映射同一文件
+
+**挑战**:
+- 需要额外的依赖 (memmap2)
+- 文件系统开销
+- 权限和清理管理
 
 **构建配置优化**:
 ```toml
@@ -284,6 +323,8 @@ match command {
 ✅ **依赖项最小化**: 从29+个crate减少到18个 (**37%减少**)
 ✅ **构建优化**: 统一的优化设置，减少二进制大小
 ✅ **调试优化**: 条件编译调试，移除运行时开销
+✅ **零拷贝管道**: 智能Stdio处理，避免不必要的管道开销
+✅ **大缓冲区I/O**: 64KB读取/32KB写入缓冲区，减少系统调用
 
 ### 剩余优化空间
 
@@ -324,4 +365,4 @@ rgrc ps aux | head -10
 *文档生成时间: 2025年11月25日*
 *分支: embed-configs*
 *性能基准: uptime命令*
-*最新优化: 构建优化 + 依赖清理 + 调试优化*
+*最新优化: 零拷贝管道 + 大缓冲区I/O + 内存映射文件设计*

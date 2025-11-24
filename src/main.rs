@@ -27,6 +27,7 @@ fn command_exists(cmd: &str) -> bool {
 }
 
 use std::process::{Command, Stdio};
+use std::io::Write;
 
 // Import testable components from lib
 use rgrc::{
@@ -349,24 +350,43 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::new(command_name);
     cmd.args(command.iter().skip(1));
 
-    // Only pipe stdout if we have determined that colorization should be used
-    // This avoids unnecessary piping overhead when colors are disabled or not beneficial
-    if should_colorize {
-        cmd.stdout(Stdio::piped());
+    // Optimization: When colorization is not needed, let the child process output directly to stdout
+    // This completely avoids any piping overhead and data copying
+    if !should_colorize {
+        cmd.stdout(Stdio::inherit()); // Inherit parent's stdout directly
+        cmd.stderr(Stdio::inherit()); // Also inherit stderr for consistency
+        
+        // Spawn and wait for the command
+        let mut child = cmd.spawn().expect("failed to spawn command");
+        let ecode = child.wait().expect("failed to wait on child");
+        std::process::exit(ecode.code().expect("need an exit code"));
     }
+
+    // Only pipe stdout when colorization is actually needed
+    // This avoids unnecessary piping overhead when colors are disabled or not beneficial
+    cmd.stdout(Stdio::piped());
 
     // Spawn the command subprocess.
     let mut child = cmd.spawn().expect("failed to spawn command");
 
-    // If colorization is enabled, read from the piped stdout, apply colorization
+    // Colorization is enabled, read from the piped stdout, apply colorization
     // rules line-by-line (or in parallel chunks), and write colored output to stdout.
-    if should_colorize {
-        let mut stdout = child
-            .stdout
-            .take()
-            .expect("child did not have a handle to stdout");
-        colorize(&mut stdout, &mut std::io::stdout(), rules.as_slice())?;
-    }
+    let mut stdout = child
+        .stdout
+        .take()
+        .expect("child did not have a handle to stdout");
+    
+    // Optimization: Use a larger buffer to reduce system call overhead
+    // This can significantly improve performance for commands with lots of output
+    let mut buffered_stdout = std::io::BufReader::with_capacity(64 * 1024, &mut stdout); // 64KB buffer
+    
+    // Also use a buffered writer for output to reduce write system calls
+    let mut buffered_writer = std::io::BufWriter::with_capacity(32 * 1024, std::io::stdout()); // 32KB buffer
+    
+    colorize(&mut buffered_stdout, &mut buffered_writer, rules.as_slice())?;
+    
+    // Ensure all buffered output is written
+    buffered_writer.flush()?;
 
     // Wait for the spawned command to complete and propagate its exit code.
     let ecode = child.wait().expect("failed to wait on child");
