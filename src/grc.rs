@@ -31,7 +31,18 @@
 
 use std::io::{BufRead, Lines};
 
-use debug_print::debug_println;
+#[cfg(debug_assertions)]
+macro_rules! debug_println {
+    ($($arg:tt)*) => {
+        println!($($arg)*);
+    };
+}
+
+#[cfg(not(debug_assertions))]
+macro_rules! debug_println {
+    ($($arg:tt)*) => {};
+}
+
 use fancy_regex::Regex;
 
 /// Parse a single space-separated style keyword and apply it to a Style.
@@ -851,6 +862,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                             }
                             Err(_exc) => {
                                 // Log error and skip this entry (regex is required)
+                                #[cfg(debug_assertions)]
                                 debug_println!("Failed regexp: {:?}", _exc);
                             }
                         }
@@ -867,6 +879,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                             "more" => Some(GrcatConfigEntryCount::More),
                             "stop" => Some(GrcatConfigEntryCount::Stop),
                             _ => {
+                                #[cfg(debug_assertions)]
                                 debug_println!("Unknown count value: {}", value);
                                 None
                             }

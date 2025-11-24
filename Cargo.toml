@@ -13,13 +13,13 @@ readme = "README.md"
 [dependencies]
 console = "^0.16.1"
 lazy_static = "^1.5.0"
-debug_print = "^1.0.0"
 argparse = "^0.2.2"
 which = "^8.0.0"
 fancy-regex = "^0.16.2"
 shellexpand = "^3.1.1"
-serde = { version = "1.0.228", features = ["derive"] }
-regex = { version = "1.12.2", features = ["perf"] }
+
+[dev-dependencies]
+debug_print = "^1.0.0"
 
 [profile.release]
 panic = "abort"
