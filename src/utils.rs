@@ -42,29 +42,6 @@ pub fn command_exists(cmd: &str) -> bool {
     false
 }
 
-/// Print help message to stdout
-/// Print a short help/usage message to stdout.
-///
-/// This is a convenience helper used by the binary; it prints the basic
-/// options and examples to the standard output.
-pub fn print_help() {
-    println!("Rusty Generic Colouriser");
-    println!();
-    println!("Usage: rgrc [OPTIONS] COMMAND [ARGS...]");
-    println!();
-    println!("Options:");
-    println!("  --color MODE      Override color output (on, off, auto)");
-    println!("  --aliases         Output shell aliases for available binaries");
-    println!("  --all-aliases     Output all shell aliases");
-    println!("  --except CMD,..   Exclude commands from alias generation");
-    println!("  --help, -h        Show this help message");
-    println!();
-    println!("Examples:");
-    println!("  rgrc ping -c 4 google.com");
-    println!("  rgrc --color=off ls -la");
-    println!("  rgrc --aliases");
-}
-
 /// Curated list of commands known to work well with grc
 /// These commands have colorization rules that provide meaningful visual improvements
 /// Curated list of commands that ship with colorization rules.
