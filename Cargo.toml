@@ -1,6 +1,6 @@
 [package]
 name = "rgrc"
-version = "0.2.3"
+version = "0.3.6"
 edition = "2024"
 license = "MIT"
 description = "Rusty Generic Colouriser"

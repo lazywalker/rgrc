@@ -49,114 +49,10 @@ fn expand_tilde(path: &str) -> String {
 #[cfg(feature = "embed-configs")]
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Embedded configuration files compiled into the binary when the
-/// `embed-configs` feature is enabled. Each entry is a tuple of
-/// `(filename, contents)` corresponding to files under `share/conf.*`.
-/// This allows `rgrc` to function without external config files when
-/// installed via `cargo install`.
+// Use generated `embedded_configs.rs` (created by build.rs) so the list of
+// embedded files is derived from the `share` directory instead of being hard-coded.
 #[cfg(feature = "embed-configs")]
-macro_rules! embed_config {
-    ($name:expr) => {
-        include_str!(concat!("../share/", $name))
-    };
-}
-
-#[cfg(feature = "embed-configs")]
-pub const EMBEDDED_CONFIGS: &[(&str, &str)] = &[
-    ("conf.ant", embed_config!("conf.ant")),
-    ("conf.blkid", embed_config!("conf.blkid")),
-    ("conf.common", embed_config!("conf.common")),
-    ("conf.configure", embed_config!("conf.configure")),
-    ("conf.curl", embed_config!("conf.curl")),
-    ("conf.cvs", embed_config!("conf.cvs")),
-    ("conf.df", embed_config!("conf.df")),
-    ("conf.diff", embed_config!("conf.diff")),
-    ("conf.dig", embed_config!("conf.dig")),
-    ("conf.dnf", embed_config!("conf.dnf")),
-    (
-        "conf.docker-machinels",
-        embed_config!("conf.docker-machinels"),
-    ),
-    ("conf.dockerimages", embed_config!("conf.dockerimages")),
-    ("conf.dockerinfo", embed_config!("conf.dockerinfo")),
-    ("conf.dockernetwork", embed_config!("conf.dockernetwork")),
-    ("conf.dockerps", embed_config!("conf.dockerps")),
-    ("conf.dockerpull", embed_config!("conf.dockerpull")),
-    ("conf.dockersearch", embed_config!("conf.dockersearch")),
-    ("conf.dockerversion", embed_config!("conf.dockerversion")),
-    ("conf.du", embed_config!("conf.du")),
-    ("conf.dummy", embed_config!("conf.dummy")),
-    ("conf.env", embed_config!("conf.env")),
-    ("conf.esperanto", embed_config!("conf.esperanto")),
-    ("conf.fdisk", embed_config!("conf.fdisk")),
-    ("conf.findmnt", embed_config!("conf.findmnt")),
-    ("conf.free", embed_config!("conf.free")),
-    ("conf.gcc", embed_config!("conf.gcc")),
-    ("conf.getfacl", embed_config!("conf.getfacl")),
-    ("conf.getsebool", embed_config!("conf.getsebool")),
-    ("conf.go-test", embed_config!("conf.go-test")),
-    ("conf.id", embed_config!("conf.id")),
-    ("conf.ifconfig", embed_config!("conf.ifconfig")),
-    ("conf.iostat_sar", embed_config!("conf.iostat_sar")),
-    ("conf.ip", embed_config!("conf.ip")),
-    ("conf.ipaddr", embed_config!("conf.ipaddr")),
-    ("conf.ipneighbor", embed_config!("conf.ipneighbor")),
-    ("conf.iproute", embed_config!("conf.iproute")),
-    ("conf.iptables", embed_config!("conf.iptables")),
-    ("conf.irclog", embed_config!("conf.irclog")),
-    ("conf.iwconfig", embed_config!("conf.iwconfig")),
-    ("conf.jobs", embed_config!("conf.jobs")),
-    ("conf.kubectl", embed_config!("conf.kubectl")),
-    ("conf.last", embed_config!("conf.last")),
-    ("conf.ldap", embed_config!("conf.ldap")),
-    ("conf.log", embed_config!("conf.log")),
-    ("conf.lolcat", embed_config!("conf.lolcat")),
-    ("conf.ls", embed_config!("conf.ls")),
-    ("conf.lsattr", embed_config!("conf.lsattr")),
-    ("conf.lsblk", embed_config!("conf.lsblk")),
-    ("conf.lsmod", embed_config!("conf.lsmod")),
-    ("conf.lsof", embed_config!("conf.lsof")),
-    ("conf.lspci", embed_config!("conf.lspci")),
-    ("conf.lsusb", embed_config!("conf.lsusb")),
-    ("conf.mount", embed_config!("conf.mount")),
-    ("conf.mtr", embed_config!("conf.mtr")),
-    ("conf.mvn", embed_config!("conf.mvn")),
-    ("conf.netstat", embed_config!("conf.netstat")),
-    ("conf.nmap", embed_config!("conf.nmap")),
-    ("conf.ntpdate", embed_config!("conf.ntpdate")),
-    ("conf.php", embed_config!("conf.php")),
-    ("conf.ping", embed_config!("conf.ping")),
-    ("conf.ping2", embed_config!("conf.ping2")),
-    ("conf.proftpd", embed_config!("conf.proftpd")),
-    ("conf.ps", embed_config!("conf.ps")),
-    ("conf.pv", embed_config!("conf.pv")),
-    (
-        "conf.semanageboolean",
-        embed_config!("conf.semanageboolean"),
-    ),
-    (
-        "conf.semanagefcontext",
-        embed_config!("conf.semanagefcontext"),
-    ),
-    ("conf.semanageuser", embed_config!("conf.semanageuser")),
-    ("conf.sensors", embed_config!("conf.sensors")),
-    ("conf.showmount", embed_config!("conf.showmount")),
-    ("conf.sockstat", embed_config!("conf.sockstat")),
-    ("conf.sql", embed_config!("conf.sql")),
-    ("conf.ss", embed_config!("conf.ss")),
-    ("conf.stat", embed_config!("conf.stat")),
-    ("conf.sysctl", embed_config!("conf.sysctl")),
-    ("conf.systemctl", embed_config!("conf.systemctl")),
-    ("conf.tcpdump", embed_config!("conf.tcpdump")),
-    ("conf.traceroute", embed_config!("conf.traceroute")),
-    ("conf.tune2fs", embed_config!("conf.tune2fs")),
-    ("conf.ulimit", embed_config!("conf.ulimit")),
-    ("conf.uptime", embed_config!("conf.uptime")),
-    ("conf.vmstat", embed_config!("conf.vmstat")),
-    ("conf.wdiff", embed_config!("conf.wdiff")),
-    ("conf.whois", embed_config!("conf.whois")),
-    ("conf.yaml", embed_config!("conf.yaml")),
-];
+include!(concat!(env!("OUT_DIR"), "/embedded_configs.rs"));
 
 #[cfg(not(feature = "embed-configs"))]
 /// When `embed-configs` is disabled, there are no embedded config files.
@@ -225,10 +121,18 @@ fn get_cache_dir() -> Option<std::path::PathBuf> {
 fn ensure_cache_populated() -> Option<std::path::PathBuf> {
     let cache_dir = get_cache_dir()?;
 
-    // Check if cache directory exists and has rgrc.conf
+    // Check if cache directory exists and appears populated (rgrc.conf + at least one conf file)
     let grc_conf_path = cache_dir.join("rgrc.conf");
+    let conf_dir = cache_dir.join("conf");
     if grc_conf_path.exists() {
-        return Some(cache_dir);
+        // If conf directory exists and contains at least one file, we assume cache is populated
+        if conf_dir.exists()
+            && let Ok(mut entries) = std::fs::read_dir(&conf_dir)
+            && entries.next().is_some()
+        {
+            return Some(cache_dir);
+        }
+        // rgrc.conf exists but conf dir missing or empty — fall through and repopulate
     }
 
     // Create cache directory structure

@@ -125,9 +125,9 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
                     i += 2;
                 }
                 "--flush-cache" => {
-                            flush_cache = true;
-                            i += 1;
-                        }
+                    flush_cache = true;
+                    i += 1;
+                }
                 "--help" | "-h" => {
                     print_help();
                     std::process::exit(0);

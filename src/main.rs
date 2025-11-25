@@ -133,7 +133,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         match color_mode {
             ColorMode::Off => false,
-            ColorMode::On | ColorMode::Auto => should_use_colorization_for_command_supported(command_name),
+            ColorMode::On | ColorMode::Auto => {
+                should_use_colorization_for_command_supported(command_name)
+            }
         }
     };
 
