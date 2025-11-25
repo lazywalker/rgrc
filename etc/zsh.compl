@@ -1,4 +1,4 @@
-#compdef rgrs
+#compdef rgrc
 _arguments -s -S -A '-*' : \
   '--aliases[show aliases]' \
   '--all-aliases[show all aliases]' \
