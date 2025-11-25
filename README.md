@@ -45,6 +45,17 @@ rgrc ls -la
 
 # Colorize any command
 rgrc df -h
+
+Note on Auto-mode behavior
+-------------------------
+
+When `--color=auto` is used (the default), rgrc performs a conservative check to
+decide whether to attempt colorization. In particular we support exact pseudo-command
+exclusions — for example the command `rgrc ls` (pseudo-command == "ls") is explicitly
+excluded from colorization in Auto mode, while `rgrc ls -l` (pseudo-command == "ls -l")
+does not match the exclusion and will be colorized normally. This allows common
+short forms such as `ls` to remain unmodified in Auto mode while more explicit invocations
+continue to get colorization.
 ```
 
 ### Generate Shell Aliases
@@ -249,6 +260,57 @@ cargo build --release --features embed-configs
 
 # Build without embedded configurations (file system only)
 cargo build --release -no-default-features
+
+### Embed mode when installing with cargo
+
+When you `cargo install` rgrc you can choose whether to embed the bundled
+configuration files (the `etc/rgrc.conf` and `share/conf.*` files) into the
+compiled binary. Embedding is controlled by the Cargo feature `embed-configs`.
+
+Why embed?
+- Embedding makes rgrc self-contained. The rules/configs are compiled into the
+  binary so the program works out-of-the-box on systems that do not provide
+  these files (useful for portable builds, containers, and minimal systems).
+
+Runtime behavior
+- When built with `embed-configs` the program will extract the embedded files
+  into the user cache dir (for example `~/.cache/rgrc/<version>`) on first run
+  and then load configs from that cache on subsequent runs. There is a
+  runtime command to flush and rebuild that cache (available only when built
+  with `embed-configs`).
+
+Examples
+- Install with embedded configs enabled (explicit):
+
+```bash
+cargo install
+
+- Install without embedding (smaller binary, requires system configs at runtime):
+
+```bash
+cargo install --no-default-features
+```
+
+If installing from a published crate on crates.io, whether `embed-configs` is
+enabled by default depends on how that specific release was published. If you
+need a portable, self-contained binary, explicitly pass `--features embed-configs`(by default).
+
+# Optional: build with timing instrumentation for diagnostics
+# ---------------------------------------------------------
+#
+# For troubleshooting we provide a small instrumentation feature that prints
+# per-stage timings to stderr when enabled. Build with the `timetrace` feature
+# and set the `RGRCTIME` environment variable when running to enable timings.
+
+# Build instrumented binary:
+```bash
+# cargo build -p rgrc --release --features timetrace
+#```
+
+# Run with timings enabled (prints to stderr):
+```bash
+# RGRCTIME=1 target/release/rgrc ls >/dev/null
+#```
 
 # Run all tests (126+ tests across multiple modules)
 cargo test
