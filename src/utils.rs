@@ -42,8 +42,6 @@ pub fn command_exists(cmd: &str) -> bool {
     false
 }
 
-/// Curated list of commands known to work well with grc
-/// These commands have colorization rules that provide meaningful visual improvements
 /// Curated list of commands that ship with colorization rules.
 ///
 /// This array contains the command identifiers corresponding to files in
