@@ -34,6 +34,16 @@ sudo make install
 cargo install rgrc
 ```
 
+#### From AUR (Arch Linux / Manjaro)
+If you use an AUR helper, rgrc is available via the Arch User Repository:
+
+```bash
+# Using yay (AUR helper)
+yay -S grc
+```
+
+(Alternatively use another AUR helper such as `paru`.)
+
 ### Basic Usage
 
 ```bash
