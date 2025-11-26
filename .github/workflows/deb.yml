@@ -5,9 +5,9 @@ on:
 
   workflow_dispatch:
 
-  push:
-    tags:
-      - "*"
+#   push:
+#     tags:
+#       - "*"
 
 jobs:
   build-deb:

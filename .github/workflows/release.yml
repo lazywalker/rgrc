@@ -128,11 +128,91 @@ jobs:
         with:
           name: rgrc-data-${{ env.VERSION }}
           path: target/tarball/rgrc-data-${{ env.VERSION }}.zip
+  deb:
+    name: Build Debian packages
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf, i686-unknown-linux-gnu]
+      fail-fast: false
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Install base system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config curl ca-certificates git libssl-dev dpkg-dev gzip
+
+      - name: Set up Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          profile: minimal
+          override: true
+
+      - name: Generate Man Page gzip
+        run: gzip -fk doc/rgrc.1
+
+      - name: Install cargo-deb
+        run: cargo install --locked cargo-deb
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Install cross toolchain for aarch64
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu
+          echo "CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Install cross toolchain for armv7 (armhf)
+        if: matrix.target == 'armv7-unknown-linux-gnueabihf'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf binutils-arm-linux-gnueabihf
+          echo "CC_armv7_unknown_linux_gnueabihf=arm-linux-gnueabihf-gcc" >> $GITHUB_ENV
+          echo "CARGO_TARGET_ARMV7_UNKNOWN_LINUX_GNUEABIHF_LINKER=arm-linux-gnueabihf-gcc" >> $GITHUB_ENV
+
+      - name: Install cross toolchain for i686
+        if: matrix.target == 'i686-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-multilib g++-multilib libc6-dev-i386
+          echo "CC_i686_unknown_linux_gnu=gcc" >> $GITHUB_ENV
+          echo "CARGO_TARGET_I686_UNKNOWN_LINUX_GNU_LINKER=gcc" >> $GITHUB_ENV
+
+      - name: Build project and generate deb for target
+        env:
+          PREFIX: /usr/local
+        run: |
+          cargo deb --target ${{ matrix.target }} --no-default-features
+
+      - name: Find deb artifacts
+        run: |
+          echo 'Listing created .deb artifacts:'
+          find target -type f -name "*.deb" -print || true
+
+      - name: Get version
+        shell: bash
+        run: |
+          VERSION=$(grep '^version =' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Upload built .deb artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: rgrc-${{ env.VERSION }}-${{ matrix.target }}.deb
+          path: |
+            target/debian/*.deb
   publish:
     name: Publish release
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
-    needs: [release, data]
+    needs: [release, data, deb]
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@v6
