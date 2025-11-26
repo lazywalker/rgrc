@@ -2,8 +2,10 @@ name: Build .deb package
 
 on:
   workflow_dispatch:
+
   push:
-    branches: [ master ]
+    tags:
+      - "*"
 
 jobs:
   build-deb:
@@ -20,9 +22,10 @@ jobs:
           sudo apt-get install -y build-essential pkg-config curl ca-certificates git libssl-dev dpkg-dev
 
       - name: Set up Rust toolchain
-        uses: dtolnay/gh-actions-rust@stable
+        uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          profile: minimal
           override: true
 
       - name: Install cargo-deb
