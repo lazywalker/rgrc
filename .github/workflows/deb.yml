@@ -46,10 +46,16 @@ jobs:
           echo 'Listing created .deb artifacts:'
           find target -type f -name "*.deb" -print || true
 
+      - name: Get version
+        shell: bash
+        run: |
+          VERSION=$(grep '^version =' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
       - name: Upload built .deb artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
-          name: rgrc-deb
+          name: rgrc-${{ env.VERSION }}.deb
           path: |
             target/**/*.deb
             target/*.deb
