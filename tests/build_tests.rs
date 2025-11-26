@@ -1,14 +1,7 @@
 use std::collections::HashSet;
-
+#[cfg(feature = "embed-configs")]
 #[test]
 fn test_generated_embedded_configs_consistency() {
-    // Ensure compile-time feature enabled
-    #[cfg(not(feature = "embed-configs"))]
-    {
-        // This test only runs when the feature is enabled.
-        return;
-    }
-
     // Access constants from the library
     use rgrc::{EMBEDDED_CONFIG_NAMES, EMBEDDED_CONFIGS};
 
