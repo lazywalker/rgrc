@@ -1,5 +1,9 @@
 name: Build .deb package
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_call: {}
 
@@ -17,6 +21,7 @@ jobs:
       matrix:
         target: [x86_64-unknown-linux-gnu, aarch64-unknown-linux-gnu, armv7-unknown-linux-gnueabihf, i686-unknown-linux-gnu]
       fail-fast: false
+      max-parallel: 2
 
     steps:
       - name: Check out repo

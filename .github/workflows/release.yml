@@ -1,5 +1,9 @@
 name: Release
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     tags:
@@ -60,6 +64,8 @@ jobs:
           - os: windows-latest
             target: x86_64-pc-windows-msvc
             exe: rgrc.exe
+      max-parallel: 2
+
     steps:
       - uses: actions/checkout@v6
       - uses: actions-rs/toolchain@v1
