@@ -221,7 +221,29 @@ fn test_color_mode_clone_semantics() {
 #[cfg(feature = "embed-configs")]
 mod embed_configs_tests {
     use std::io::Write;
-    use tempfile::NamedTempFile;
+    use tempfile::{NamedTempFile, TempDir};
+
+    // Helper to run a test with a temporary HOME directory so cache creation is
+    // isolated and reliable in CI or cross-build environments.
+    fn with_temp_home<R>(f: impl FnOnce() -> R) -> R {
+        let td = TempDir::new().expect("create tempdir");
+        let prev_home = std::env::var_os("HOME");
+
+        // Set HOME to our temporary directory for the duration of the test
+        unsafe { std::env::set_var("HOME", td.path()); }
+
+        // Run provided closure while the TempDir is kept alive
+        let res = f();
+
+        // Restore original HOME
+        if let Some(h) = prev_home {
+            unsafe { std::env::set_var("HOME", h); }
+        } else {
+            unsafe { std::env::remove_var("HOME"); }
+        }
+
+        res
+    }
 
     #[test]
     fn test_embed_configs_filesystem_priority() {
@@ -252,7 +274,7 @@ mod embed_configs_tests {
     #[test]
     fn test_embed_configs_fallback_to_embedded() {
         // Test that when filesystem config doesn't exist, it falls back to embedded configs
-        let rules = rgrc::load_rules_for_command("ping");
+        let rules = with_temp_home(|| rgrc::load_rules_for_command("ping"));
 
         // Should load from embedded configs since filesystem doesn't exist
         // This should work because embedded configs include conf.ping
@@ -293,7 +315,7 @@ mod embed_configs_tests {
     #[test]
     fn test_embed_configs_grcat_fallback_to_embedded() {
         // Test that load_grcat_config falls back to embedded configs when filesystem doesn't exist
-        let rules = rgrc::load_grcat_config("conf.ping");
+        let rules = with_temp_home(|| rgrc::load_grcat_config("conf.ping"));
 
         // Should load from embedded configs since filesystem doesn't exist
         assert!(
@@ -308,7 +330,7 @@ mod embed_configs_tests {
         // is safe and consistent
 
         // First call should work
-        let rules1 = rgrc::load_rules_for_command("ping");
+        let rules1 = with_temp_home(|| rgrc::load_rules_for_command("ping"));
         assert!(!rules1.is_empty(), "First call should load rules for ping");
 
         // Second call should return the same results
@@ -361,11 +383,11 @@ mod embed_configs_tests {
     fn test_cache_directory_structure() {
         // Test that cache directory has the expected structure after loading rules
         // This indirectly tests that cache creation works properly
-        let _rules = rgrc::load_rules_for_command("ping"); // This should trigger cache creation
+        let _rules = with_temp_home(|| rgrc::load_rules_for_command("ping")); // This should trigger cache creation
 
         // We can't directly check the cache directory since it's private,
         // but we can verify that subsequent calls work consistently
-        let rules2 = rgrc::load_rules_for_command("ping");
+        let rules2 = with_temp_home(|| rgrc::load_rules_for_command("ping"));
         assert!(
             !rules2.is_empty(),
             "Cache should be functional after creation"
@@ -382,7 +404,7 @@ mod embed_configs_tests {
         // we'll test the behavior when ensure_cache_populated returns None.
 
         // First, let's verify normal operation works
-        let rules_normal = rgrc::load_rules_for_command("ping");
+        let rules_normal = with_temp_home(|| rgrc::load_rules_for_command("ping"));
         assert!(!rules_normal.is_empty(), "Normal operation should work");
 
         // Since we can't easily simulate filesystem permission issues in a unit test,
