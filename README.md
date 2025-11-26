@@ -293,7 +293,7 @@ cargo install --no-default-features
 
 If installing from a published crate on crates.io, whether `embed-configs` is
 enabled by default depends on how that specific release was published. If you
-need a portable, self-contained binary, explicitly pass `--features embed-configs`(by default).
+need a portable, self-contained binary, explicitly pass `--features embed-configs` (by default).
 
 # Optional: build with timing instrumentation for diagnostics
 # ---------------------------------------------------------
