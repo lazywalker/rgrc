@@ -230,16 +230,22 @@ mod embed_configs_tests {
         let prev_home = std::env::var_os("HOME");
 
         // Set HOME to our temporary directory for the duration of the test
-        unsafe { std::env::set_var("HOME", td.path()); }
+        unsafe {
+            std::env::set_var("HOME", td.path());
+        }
 
         // Run provided closure while the TempDir is kept alive
         let res = f();
 
         // Restore original HOME
         if let Some(h) = prev_home {
-            unsafe { std::env::set_var("HOME", h); }
+            unsafe {
+                std::env::set_var("HOME", h);
+            }
         } else {
-            unsafe { std::env::remove_var("HOME"); }
+            unsafe {
+                std::env::remove_var("HOME");
+            }
         }
 
         res
