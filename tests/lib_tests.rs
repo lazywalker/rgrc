@@ -214,17 +214,26 @@ fn test_color_mode_clone_semantics() {
 #[cfg(feature = "embed-configs")]
 mod embed_configs_tests {
     use std::io::Write;
+    use std::sync::Mutex;
     use tempfile::{NamedTempFile, TempDir};
 
     // Helper to run a test with a temporary HOME directory so cache creation is
     // isolated and reliable in CI or cross-build environments.
+    // Serialize tests that modify HOME so multiple tests in this module don't
+    // race by clobbering the process global HOME environment variable.
+    static HOME_LOCK: Mutex<()> = Mutex::new(());
+
     fn with_temp_home<R>(f: impl FnOnce() -> R) -> R {
+        // Acquire module-level lock so that only one test at a time will change HOME
+        let _guard = HOME_LOCK.lock().expect("HOME_LOCK mutex poisoned");
         let td = TempDir::new().expect("create tempdir");
         let prev_home = std::env::var_os("HOME");
 
         // Set HOME to our temporary directory for the duration of the test
+        // Use a stringified path here to ensure the environment value is stable
+        let td_path = td.path().to_str().expect("tempdir path is valid utf8");
         unsafe {
-            std::env::set_var("HOME", td.path());
+            std::env::set_var("HOME", td_path);
         }
 
         // Run provided closure while the TempDir is kept alive
