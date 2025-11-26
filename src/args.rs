@@ -148,12 +148,7 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
         }
     }
 
-    if command.is_empty()
-        && !show_aliases
-        && !show_all_aliases
-        && !flush_cache
-        && !show_version
-    {
+    if command.is_empty() && !show_aliases && !show_all_aliases && !flush_cache && !show_version {
         return Err("No command specified".to_string());
     }
 
