@@ -117,7 +117,11 @@ jobs:
           VERSION=$(grep '^version =' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
       - name: Generate man page
-        run: make man
+        run: |
+          # pandoc is required by the Makefile to generate the man page
+          sudo apt-get update
+          sudo apt-get install -y pandoc
+          make man
       - name: Package data files
         run: make data
       - uses: actions/upload-artifact@v5
