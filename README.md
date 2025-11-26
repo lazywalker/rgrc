@@ -307,10 +307,9 @@ need a portable, self-contained binary, explicitly pass `--features embed-config
 # cargo build -p rgrc --release --features timetrace
 #```
 
-# Run with timings enabled (prints to stderr):
+Run with timings enabled (prints to stderr):
 ```bash
-# RGRCTIME=1 target/release/rgrc ls >/dev/null
-#```
+RGRCTIME=1 target/release/rgrc ls >/dev/null
 
 # Run all tests (126+ tests across multiple modules)
 cargo test
