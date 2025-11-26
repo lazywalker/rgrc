@@ -554,10 +554,30 @@ mod lib_test {
 
         // Behavior depends on whether embed-configs feature is enabled
         #[cfg(feature = "embed-configs")]
-        assert!(
-            !rules.is_empty(),
-            "Should load rules for ping command from embedded configs when embed-configs is enabled"
-        );
+        {
+            // Ensure tests run reliably in CI where HOME may be unset or point
+            // to an unexpected location. Use a tempdir as HOME so ensure_cache_populated
+            // can write the embedded config cache and load_rules_for_command finds rules.
+            use tempfile::TempDir;
+            let td = TempDir::new().expect("create tempdir");
+            let prev_home = std::env::var_os("HOME");
+            unsafe { std::env::set_var("HOME", td.path()); }
+
+            // Re-run loading after setting HOME to the tempdir-backed cache
+            let rules_after = load_rules_for_command("ping");
+
+            // Restore HOME for subsequent tests
+            if let Some(h) = prev_home {
+                unsafe { std::env::set_var("HOME", h); }
+            } else {
+                unsafe { std::env::remove_var("HOME"); }
+            }
+
+            assert!(
+                !rules_after.is_empty(),
+                "Should load rules for ping command from embedded configs when embed-configs is enabled"
+            );
+        }
 
         #[cfg(not(feature = "embed-configs"))]
         {
