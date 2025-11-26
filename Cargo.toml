@@ -36,3 +36,24 @@ debug = 1
 [profile.minimal]
 inherits = "release"
 opt-level = "z"
+
+[package.metadata.deb]
+maintainer = "lazywalker <lazywalkerz@gmail.com>"
+copyright = "2025, lazywalker <lazywalkerz@gmail.com>"
+license-file = ["LICENSE"]
+extended-description = """\
+A fast, Rust-based command-line tool \
+that colorizes output from other commands \
+using grc/grcat-style configuration files. \
+Supports embedded configs, advanced count/replace features, \
+and portable packaging."""
+depends = "$auto"
+section = "utility"
+priority = "optional"
+assets = [
+	# `target/release` path is special and will be replaced by cargo-deb at build time
+	["target/release/rgrc", "usr/bin/", "755"],
+	["doc/rgrc.1.gz", "usr/share/man/man1/", "644"],
+	["etc/rgrc.conf", "etc/", "644"],
+	["share/conf.*", "usr/share/rgrc/", "644"],
+]

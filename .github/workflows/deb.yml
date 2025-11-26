@@ -1,0 +1,50 @@
+name: Build .deb package
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ master ]
+
+jobs:
+  build-deb:
+    name: Build Debian packages
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config curl ca-certificates git libssl-dev dpkg-dev
+
+      - name: Set up Rust toolchain
+        uses: dtolnay/gh-actions-rust@stable
+        with:
+          toolchain: stable
+          override: true
+
+      - name: Install cargo-deb
+        run: cargo install --locked cargo-deb
+
+      - name: Build project and generate deb
+        env:
+          PREFIX: /usr/local
+        run: |
+          # Use Makefile provided 'deb' target which calls cargo deb --target x86_64-unknown-linux-gnu
+          cargo deb --no-default-features
+
+      - name: Find deb artifacts
+        run: |
+          echo 'Listing created .deb artifacts:'
+          find target -type f -name "*.deb" -print || true
+
+      - name: Upload built .deb artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rgrc-deb
+          path: |
+            target/**/*.deb
+            target/*.deb
+

@@ -1,0 +1,37 @@
+# Dockerfile for building a Debian package (.deb) for rgrc
+# Usage (from repo root):
+#  docker build -t rgrc-deb-builder -f Dockerfile.deb .
+#  docker run --rm -v "$(pwd):/work" rgrc-deb-builder cargo deb --no-default-features
+
+
+FROM rust:slim-bullseye
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Replace mirrors for speed in CN
+RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list
+
+# Install system dependencies required for compiling and for dpkg
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        pkg-config \
+        curl \
+        ca-certificates \
+        git \
+        libssl-dev \
+        dpkg-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install cargo-deb (so we can create .deb packages)
+RUN cargo install --locked cargo-deb
+
+WORKDIR /work
+
+# Ensure we have the linux target available inside the container
+# RUN rustup target add x86_64-unknown-linux-gnu
+
+# ENTRYPOINT [ "/bin/sh" ]
+
+# Default entrypoint does nothing — run container with volume to retrieve artifacts
+CMD ["/bin/sh", "-c", "echo done; ls -la /work || true"]

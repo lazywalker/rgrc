@@ -76,3 +76,8 @@ uninstall:
 
  rgrc.1.gz:  doc/rgrc.1
 	gzip -fk doc/rgrc.1
+
+deb:
+# 	cargo deb --no-default-features
+	cargo clean
+	docker run --rm -v "$(pwd):/work" rgrc-deb-builder cargo deb --no-default-features
