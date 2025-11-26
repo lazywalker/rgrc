@@ -1,7 +1,8 @@
-use std::collections::HashSet;
 #[cfg(feature = "embed-configs")]
 #[test]
 fn test_generated_embedded_configs_consistency() {
+    use std::collections::HashSet;
+
     // Access constants from the library
     use rgrc::{EMBEDDED_CONFIG_NAMES, EMBEDDED_CONFIGS};
 
