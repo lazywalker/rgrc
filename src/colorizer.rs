@@ -42,6 +42,7 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::time::Instant;
 
 use crate::grc::GrcatConfigEntry;
+#[cfg(feature = "simd")]
 use aho_corasick::AhoCorasick;
 
 /// Regex-optimized colorizer with advanced caching and pattern matching optimizations.
@@ -431,6 +432,7 @@ where
 /// * `Ok(())` - Successfully processed all input
 /// * `Err(Box<dyn Error>)` - I/O or processing error
 #[allow(dead_code)]
+#[cfg(feature = "simd")]
 pub fn colorize_simd<R, W>(
     reader: &mut R,
     writer: &mut W,
@@ -441,17 +443,17 @@ where
     W: Write,
 {
     console::set_colors_enabled(true);
-    
+
     #[cfg(feature = "timetrace")]
     let record_time = std::env::var_os("RGRCTIME").is_some();
-    
+
     #[cfg(feature = "timetrace")]
     let overall_start = if record_time {
         Some(Instant::now())
     } else {
         None
     };
-    
+
     #[cfg(feature = "timetrace")]
     let mut lines_processed: usize = 0;
 
@@ -475,12 +477,27 @@ where
             // Try to extract literal pattern from regex
             // This is a simplified heuristic - checks if pattern is a simple literal
             let pattern_str = r.regex.as_str();
-            
+
             // Check if pattern is a simple literal (no regex metacharacters)
             let is_literal = !pattern_str.chars().any(|c| {
-                matches!(c, '.' | '*' | '+' | '?' | '|' | '(' | ')' | '[' | ']' | '{' | '}' | '^' | '$' | '\\')
+                matches!(
+                    c,
+                    '.' | '*'
+                        | '+'
+                        | '?'
+                        | '|'
+                        | '('
+                        | ')'
+                        | '['
+                        | ']'
+                        | '{'
+                        | '}'
+                        | '^'
+                        | '$'
+                        | '\\'
+                )
             });
-            
+
             if is_literal && !r.colors.is_empty() {
                 Some((pattern_str.to_string(), &r.colors[0]))
             } else {
@@ -499,7 +516,7 @@ where
 
     for line in reader {
         let line = line?;
-        
+
         #[cfg(feature = "timetrace")]
         if record_time {
             lines_processed += 1;
@@ -531,9 +548,24 @@ where
             // Skip if already handled by literal matching
             let pattern_str = rule.regex.as_str();
             let is_literal = !pattern_str.chars().any(|c| {
-                matches!(c, '.' | '*' | '+' | '?' | '|' | '(' | ')' | '[' | ']' | '{' | '}' | '^' | '$' | '\\')
+                matches!(
+                    c,
+                    '.' | '*'
+                        | '+'
+                        | '?'
+                        | '|'
+                        | '('
+                        | ')'
+                        | '['
+                        | ']'
+                        | '{'
+                        | '}'
+                        | '^'
+                        | '$'
+                        | '\\'
+                )
             });
-            
+
             if is_literal {
                 continue; // Already handled by Aho-Corasick
             }

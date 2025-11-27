@@ -3,11 +3,15 @@ use rgrc::{
     ColorMode,
     args::parse_args,
     buffer::LineBufferedWriter,
-    colorizer::colorize_regex as colorize,
     grc::GrcatConfigEntry,
     load_rules_for_command,
     utils::{SUPPORTED_COMMANDS, command_exists, should_use_colorization_for_command_supported},
 };
+
+#[cfg(not(feature = "simd"))]
+use rgrc::colorizer::colorize_regex as colorize;
+#[cfg(feature = "simd")]
+use rgrc::colorizer::colorize_simd as colorize;
 
 use std::io::{self, IsTerminal, Write};
 use std::process::{Command, Stdio};
