@@ -200,6 +200,9 @@ pub fn get_completion_script(shell: &str) -> Option<&'static str> {
         COMPREPLY=( $(compgen -W "--color --aliases --all-aliases --except --flush-cache --help -h --version -v --completions" -- "$cur") )
         return 0
     fi
+
+    # Complete commands and files
+    COMPREPLY=( $(compgen -c -f -- "$cur") )
 }
 
 complete -F _rgrc_completions rgrc
@@ -216,9 +219,10 @@ _rgrc() {
     '--flush-cache[Flush and rebuild cache dir]' \
     '--help[Show help]' \
     '--version[Show version]' \
-    '--completions=[Print completions for shell]:shell:(bash zsh fish ash)'
+    '--completions=[Print completions for shell]:shell:(bash zsh fish ash)' \
+    '1:command:_command_names -e' \
+    '*::args:_files'
 }
-# Provide completion for the main cmd
 compdef _rgrc rgrc
 "#,
         ),
@@ -232,6 +236,10 @@ complete -c rgrc -l flush-cache -d 'Flush cache (embed-configs only)'
 complete -c rgrc -l help -d 'Show help'
 complete -c rgrc -l version -s v -d 'Show version'
 complete -c rgrc -l completions -d 'Print completions for shell' -a 'bash zsh fish ash'
+
+# Complete commands and files for arguments
+complete -c rgrc -f -a '(__fish_complete_command)'
+complete -c rgrc -F
 
 function __rgrc_list_commands
     # no-op placeholder for future dynamic completions
