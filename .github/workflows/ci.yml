@@ -55,8 +55,10 @@ jobs:
         # --workspace: include all crates in the workspace
         # --timeout 120: allow 2 minutes per test (some integration tests are slow)
         # --all-targets: test all targets (ensures binary is built for integration tests)
-        # --follow-exec: track coverage in spawned subprocesses (needed for CLI integration tests)
-        cargo tarpaulin --all-features --workspace --timeout 120 --all-targets --follow-exec --out Xml
+        # Note: --follow-exec would track subprocess coverage but causes segfaults with CLI tests
+        # Main.rs coverage is lower because CLI integration tests spawn rgrc as subprocess
+        # which tarpaulin cannot track without --follow-exec. This is a known limitation.
+        cargo tarpaulin --all-features --workspace --timeout 120 --all-targets --out Xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
