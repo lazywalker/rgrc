@@ -103,49 +103,34 @@ jobs:
           version: v3.96
           files: target/${{ matrix.target }}/release/${{ matrix.exe }}
           args: -q --best --lzma
-      - name: Get version
-        shell: bash
-        run: |
-          VERSION=$(grep '^version =' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
       - name: Package release (non-Windows)
         if: matrix.os != 'windows-latest'
         shell: bash
         run: |
           set -euo pipefail
-          VERSION=${{ env.VERSION }}
           TARGET=${{ matrix.target }}
           EXE=${{ matrix.exe }}
           DIR=target/${{ matrix.target }}/release
           # Ensure the executable exists
           ls -lah "$DIR" || true
-          tar czf "$DIR/rgrc-${VERSION}-${TARGET}.tar.gz" -C "$DIR" "$EXE"
-          # Also produce an unversioned archive for the 'latest' download URL
-          cp "$DIR/rgrc-${VERSION}-${TARGET}.tar.gz" "$DIR/rgrc-${TARGET}.tar.gz"
+          # Create an unversioned archive matching installer expectations:
+          # rgrc-<target>.tar.gz
+          tar czf "$DIR/rgrc-${TARGET}.tar.gz" -C "$DIR" "$EXE"
 
       - name: Package release (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          $VERSION = '${{ env.VERSION }}'
           $TARGET = '${{ matrix.target }}'
           $EXE = '${{ matrix.exe }}'
           $DIR = "target/${{ matrix.target }}/release"
           # Use ${} to avoid accidental variable-token parsing when followed by punctuation
           Write-Output "Files in ${DIR}`n"
           Get-ChildItem -Path $DIR | Write-Output
-          Compress-Archive -Path "$DIR/$EXE" -DestinationPath "$DIR/rgrc-$VERSION-$TARGET.zip" -Force
-          # Also produce an unversioned zip for the 'latest' download URL
-          Copy-Item -Path "$DIR/rgrc-$VERSION-$TARGET.zip" -Destination "$DIR/rgrc-$TARGET.zip" -Force
+          # Create an unversioned zip matching installer expectations: rgrc-<target>.zip
+          Compress-Archive -Path "$DIR/$EXE" -DestinationPath "$DIR/rgrc-$TARGET.zip" -Force
 
       - name: Upload artifact (non-Windows)
-        if: matrix.os != 'windows-latest'
-        uses: actions/upload-artifact@v5
-        with:
-          name: rgrc-${{ env.VERSION }}-${{ matrix.target }}.tar.gz
-          path: target/${{ matrix.target }}/release/rgrc-${{ env.VERSION }}-${{ matrix.target }}.tar.gz
-
-      - name: Upload artifact (non-Windows, unversioned)
         if: matrix.os != 'windows-latest'
         uses: actions/upload-artifact@v5
         with:
@@ -156,13 +141,6 @@ jobs:
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v5
         with:
-          name: rgrc-${{ env.VERSION }}-${{ matrix.target }}.zip
-          path: target/${{ matrix.target }}/release/rgrc-${{ env.VERSION }}-${{ matrix.target }}.zip
-
-      - name: Upload artifact (Windows, unversioned)
-        if: matrix.os == 'windows-latest'
-        uses: actions/upload-artifact@v5
-        with:
           name: rgrc-${{ matrix.target }}.zip
           path: target/${{ matrix.target }}/release/rgrc-${{ matrix.target }}.zip
   data:
@@ -170,11 +148,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-      - name: Get version
-        shell: bash
-        run: |
-          VERSION=$(grep '^version =' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
       - name: Generate man page
         run: |
           # pandoc is required by the Makefile to generate the man page
@@ -185,8 +158,8 @@ jobs:
         run: make data
       - uses: actions/upload-artifact@v5
         with:
-          name: rgrc-data-${{ env.VERSION }}.tar.gz
-          path: target/tarball/rgrc-data-${{ env.VERSION }}.tar.gz
+          name: rgrc-data.tar.gz
+          path: target/tarball/rgrc-data.tar.gz
   deb:
     name: Build Debian packages
     runs-on: ubuntu-latest
