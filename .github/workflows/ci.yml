@@ -55,7 +55,8 @@ jobs:
         # --workspace: include all crates in the workspace
         # --timeout 120: allow 2 minutes per test (some integration tests are slow)
         # --all-targets: test all targets (ensures binary is built for integration tests)
-        cargo tarpaulin --all-features --workspace --timeout 120 --all-targets --out Xml
+        # --follow-exec: track coverage in spawned subprocesses (needed for CLI integration tests)
+        cargo tarpaulin --all-features --workspace --timeout 120 --all-targets --follow-exec --out Xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
