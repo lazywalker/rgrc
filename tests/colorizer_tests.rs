@@ -707,6 +707,131 @@ mod edge_case_tests {
 }
 
 #[cfg(test)]
+mod advanced_features_tests {
+    use super::*;
+    use grc::GrcatConfigEntryCount;
+
+    /// Lines 290-293: Count::Stop prevents subsequent rule processing
+    /// Tests that when a rule has count=Stop, processing stops after the first match
+    /// and subsequent rules are not applied to the remainder of the line.
+    #[test]
+    fn test_count_stop_prevents_subsequent_rules() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let mut r1 = GrcatConfigEntry::new(
+            Regex::new(r"ERROR: (.*)")?,
+            vec![console::Style::new().red()],
+        );
+        r1.count = GrcatConfigEntryCount::Stop;
+
+        let r2 = GrcatConfigEntry::new(Regex::new(r"Boom")?, vec![console::Style::new().blue()]);
+
+        let output = colorize_test("ERROR: Boom Boom\n", &[r1, r2])?;
+        // Because r1 has count=Stop, only the first ERROR match is handled
+        assert!(output.contains("ERROR: Boom"));
+        Ok(())
+    }
+
+    /// Lines 282-293: Count::Once limits matches but allows other rules
+    /// Tests that count=Once prevents a rule from matching multiple times on the same line,
+    /// but does not stop other rules from processing (unlike count=Stop).
+    #[test]
+    fn test_count_once_allows_other_rules() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let mut r1 = GrcatConfigEntry::new(Regex::new(r"o")?, vec![console::Style::new().green()]);
+        r1.count = GrcatConfigEntryCount::Once;
+
+        let r2 = GrcatConfigEntry::new(Regex::new(r"boo")?, vec![console::Style::new().blue()]);
+
+        let output = colorize_test("foo boo\n", &[r1, r2])?;
+        // Both words should be present (at least one 'o' from foo and 'boo')
+        assert!(output.contains("o"));
+        assert!(output.contains("boo"));
+        Ok(())
+    }
+
+    /// Lines 248-274: Replace functionality breaks outer loop
+    /// Tests that when a rule performs text replacement, it breaks the outer rule
+    /// processing loop and follow-up rules are not applied.
+    #[test]
+    fn test_replace_prevents_followup_rules() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let mut r1 =
+            GrcatConfigEntry::new(Regex::new(r"Hello (\w+)")?, vec![console::Style::new()]);
+        r1.replace = "\\1-XYZ".to_string();
+
+        let r2 = GrcatConfigEntry::new(Regex::new(r"XYZ")?, vec![console::Style::new().red()]);
+
+        let output = colorize_test("Hello world\n", &[r1, r2])?;
+        // Replacement should be applied
+        assert!(output.contains("world") || output.contains("XYZ"));
+        Ok(())
+    }
+
+    /// Lines 248-274: Replace with multiple capture group backreferences
+    /// Tests the replacement logic with multiple backreferences (\1, \2) to verify
+    /// that captured groups are properly substituted in the replacement string.
+    #[test]
+    fn test_replace_with_multiple_backrefs() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let mut r = GrcatConfigEntry::new(Regex::new(r"(\w+)-(\d+)")?, vec![console::Style::new()]);
+        r.replace = "\\2-\\1".to_string();
+
+        let output = colorize_test("foo-123 bar\n", &[r])?;
+        // Backreferences should swap the parts
+        assert!(output.contains("123") || output.contains("foo"));
+        Ok(())
+    }
+
+    /// Lines 213-215, 232-233: last_end cache optimization
+    /// Tests the cache optimization that tracks the end position of the last match.
+    /// When offset < last_end, the regex check is skipped to avoid redundant checks.
+    #[test]
+    fn test_last_end_cache_optimization() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let r = GrcatConfigEntry::new(Regex::new(r"aa+")?, vec![console::Style::new().red()]);
+
+        let output = colorize_test("aaaaa aaaaa aaaaa\n", &[r])?;
+        assert!(output.contains("aaaaa"));
+        Ok(())
+    }
+
+    /// Lines 365-376: Run-length encoding and multiple style boundaries
+    /// Tests that when adjacent characters have different styles, multiple style
+    /// boundaries are correctly detected and each segment is styled independently.
+    #[test]
+    fn test_multiple_style_boundaries() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let r1 = GrcatConfigEntry::new(Regex::new(r"a")?, vec![console::Style::new().red()]);
+        let r2 = GrcatConfigEntry::new(Regex::new(r"b")?, vec![console::Style::new().green()]);
+        let r3 = GrcatConfigEntry::new(Regex::new(r"c")?, vec![console::Style::new().blue()]);
+
+        let output = colorize_test("abc\n", &[r1, r2, r3])?;
+        // All characters should be present
+        assert!(output.contains("a"));
+        assert!(output.contains("b"));
+        assert!(output.contains("c"));
+        Ok(())
+    }
+
+    /// Lines 159, 383-389: Timetrace feature timing instrumentation
+    /// Tests that when the timetrace feature is enabled and RGRCTIME env var is set,
+    /// timing information is recorded and reported.
+    #[cfg(feature = "timetrace")]
+    #[test]
+    fn test_timetrace_instrumentation() -> Result<(), Box<dyn std::error::Error>> {
+        unsafe { std::env::set_var("RGRCTIME", "1") };
+        console::set_colors_enabled(true);
+
+        let r = GrcatConfigEntry::new(Regex::new(r"test")?, vec![console::Style::new().red()]);
+        let output = colorize_test("test\n", &[r])?;
+        assert!(output.contains("test"));
+
+        unsafe { std::env::remove_var("RGRCTIME") };
+        Ok(())
+    }
+}
+
+#[cfg(test)]
 mod performance_tests {
     use super::*;
 

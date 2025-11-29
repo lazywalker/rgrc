@@ -205,7 +205,7 @@ fn test_color_mode_clone_semantics() {
     use std::str::FromStr;
 
     let mode1 = rgrc::ColorMode::from_str("off").unwrap();
-    let mode2 = mode1.clone();
+    let mode2 = mode1; // Copy semantics — no need to clone a Copy type
 
     // Both should be equal
     assert_eq!(mode1, mode2);

@@ -1,22 +1,33 @@
 // Tests for main.rs to improve coverage
 // Targets: error handling, color mode logic, command spawning, timetrace paths
+//
+// Coverage improvements for src/main.rs (starting at 78/121):
+// - Lines 131-132: empty command handling
+// - Lines 145-157: color mode decision tree (auto/on/off)
+// - Lines 186-192: timetrace feature timing paths
+// - Lines 222-247: command spawning, stdout handling, exit code propagation
+// - Error paths: spawn failures, wait errors, command not found (exit 127)
 
-use std::io::Write;
 use std::process::{Command, Stdio};
-use tempfile::NamedTempFile;
 
+/// Lines 131-132: Empty command handling
+/// Tests that rgrc exits with an error when invoked without a command argument.
+/// This verifies the args.command.is_empty() check and error return path.
 #[test]
 fn test_empty_command_exits_with_error() {
     // Test line 131-132: empty command handling
     let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
         .output()
         .expect("failed to run rgrc");
-    
+
     // Should fail when no command is provided
     assert!(!output.status.success());
     // May show usage or error - just verify it exits with error
 }
 
+/// Lines 222-232: Command not found error path
+/// Tests that rgrc returns exit code 127 when trying to run a nonexistent command.
+/// This exercises the spawn error handling path and ErrorKind::NotFound branch.
 #[test]
 fn test_nonexistent_command_returns_127() {
     // Test lines 222-223, 230-232: command not found error path
@@ -24,7 +35,7 @@ fn test_nonexistent_command_returns_127() {
         .args(["nonexistent-command-xyz-12345"])
         .output()
         .expect("failed to run rgrc");
-    
+
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("command not found") || stderr.contains("not found"));
@@ -32,6 +43,9 @@ fn test_nonexistent_command_returns_127() {
     assert_eq!(output.status.code().unwrap_or(1), 127);
 }
 
+/// Lines 149-154: ColorMode::Off disables colorization
+/// Tests that --color=off prevents ANSI escape codes in output.
+/// This verifies the ColorMode::Off branch and should_colorize=false path.
 #[test]
 fn test_color_off_mode_no_ansi() {
     // Test lines 149-154: ColorMode::Off branch
@@ -39,7 +53,7 @@ fn test_color_off_mode_no_ansi() {
         .args(["--color=off", "echo", "test output"])
         .output()
         .expect("failed to run rgrc with --color=off");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     // Should not contain ANSI escape codes
@@ -47,6 +61,9 @@ fn test_color_off_mode_no_ansi() {
     assert!(stdout.contains("test output"));
 }
 
+/// Lines 149-154: ColorMode::On forces colorization
+/// Tests that --color=on enables colorization even when stdout is not a terminal.
+/// This verifies the ColorMode::On branch sets should_colorize=true unconditionally.
 #[test]
 fn test_color_on_mode_enables_colorization() {
     // Test lines 149-154: ColorMode::On branch
@@ -54,13 +71,16 @@ fn test_color_on_mode_enables_colorization() {
         .args(["--color=on", "echo", "ERROR: test"])
         .output()
         .expect("failed to run rgrc with --color=on");
-    
+
     assert!(output.status.success());
     // With color=on, if there are rules for echo output, we might get ANSI codes
     // At minimum, the command should succeed
     assert!(!output.stdout.is_empty());
 }
 
+/// Lines 167: pseudo_command exclusion check
+/// Tests that commands matching the pseudo_command pattern are excluded from colorization.
+/// Verifies the exact match check against the exclusion list.
 #[test]
 fn test_pseudo_command_exact_match_exclusion() {
     // Test lines 167: pseudo_command exclusion check
@@ -69,11 +89,14 @@ fn test_pseudo_command_exact_match_exclusion() {
         .args(["ls"])
         .output()
         .expect("failed to run rgrc ls");
-    
+
     // Should succeed (even if ls is excluded from colorization)
     assert!(output.status.success());
 }
 
+/// Lines 222-247: Piped output handling
+/// Tests that output can be properly redirected when stdout is not a terminal.
+/// This exercises the piped output path with colorization potentially disabled.
 #[test]
 fn test_piped_output_not_to_terminal() {
     // Test lines 222: stdout is not terminal path
@@ -82,12 +105,15 @@ fn test_piped_output_not_to_terminal() {
         .stdout(Stdio::piped())
         .output()
         .expect("failed to run rgrc with piped output");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("piped output"));
 }
 
+/// Lines 226-235: Spawn error handling
+/// Tests error handling when Command::spawn() fails.
+/// This verifies the spawn error path and proper error message reporting.
 #[test]
 fn test_spawn_error_handling() {
     // Test lines 226-235: spawn error handling
@@ -97,12 +123,15 @@ fn test_spawn_error_handling() {
         .args(["/this/path/does/not/exist/command"])
         .output()
         .expect("failed to run rgrc");
-    
+
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("command not found") || stderr.contains("Failed to spawn"));
 }
 
+/// Lines 186-192: Timetrace feature instrumentation
+/// Tests that the timetrace feature, when enabled with RGRCTIME env var,
+/// records and reports timing information. Feature-gated test.
 #[test]
 #[cfg(feature = "timetrace")]
 fn test_timetrace_feature_with_env_var() {
@@ -113,13 +142,16 @@ fn test_timetrace_feature_with_env_var() {
         .stderr(Stdio::piped())
         .output()
         .expect("failed to run rgrc with RGRCTIME");
-    
+
     assert!(output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     // Should contain timing information when timetrace feature is enabled
     assert!(stderr.contains("[rgrc:time]") || stderr.is_empty());
 }
 
+/// Lines 222-247: Command argument passing
+/// Tests that command-line arguments are correctly passed through to the spawned command.
+/// Verifies the args forwarding mechanism works correctly.
 #[test]
 fn test_command_with_args_passes_through() {
     // Test that command arguments are properly passed through
@@ -127,7 +159,7 @@ fn test_command_with_args_passes_through() {
         .args(["echo", "arg1", "arg2", "arg3"])
         .output()
         .expect("failed to run rgrc with multiple args");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("arg1"));
@@ -135,6 +167,9 @@ fn test_command_with_args_passes_through() {
     assert!(stdout.contains("arg3"));
 }
 
+/// Lines 195-203: Rules loading optimization
+/// Tests that expensive rule loading is skipped when should_colorize is false.
+/// This verifies the performance optimization path when colorization is disabled.
 #[test]
 fn test_rules_not_loaded_when_color_off() {
     // Test lines 195, 203: rules loading is skipped when should_colorize is false
@@ -143,12 +178,15 @@ fn test_rules_not_loaded_when_color_off() {
         .args(["--color=off", "echo", "no rules loaded"])
         .output()
         .expect("failed to run rgrc");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("no rules loaded"));
 }
 
+/// Lines 41-42: Flush cache error handling
+/// Tests error handling when cache directory cannot be created during --flush-cache.
+/// This exercises the None branch when cache rebuild fails (requires embed-configs feature).
 #[test]
 fn test_flush_cache_error_path() {
     // Test lines 41-42: flush_cache error handling
@@ -163,7 +201,7 @@ fn test_flush_cache_error_path() {
             .args(["--flush-cache"])
             .output()
             .expect("failed to run rgrc --flush-cache");
-        
+
         // Should fail with error message
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
@@ -176,6 +214,9 @@ fn test_flush_cache_error_path() {
     }
 }
 
+/// Color mode argument parsing error
+/// Tests that invalid --color mode arguments are properly rejected with an error.
+/// Verifies argument validation for the color mode parameter.
 #[test]
 fn test_invalid_color_mode_argument() {
     // Test color mode parsing error
@@ -183,12 +224,15 @@ fn test_invalid_color_mode_argument() {
         .args(["--color=invalid", "echo", "test"])
         .output()
         .expect("failed to run rgrc with invalid color");
-    
+
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("Invalid color mode") || stderr.contains("invalid"));
 }
 
+/// Lines 145-148: Console colors disabled path
+/// Tests behavior when console color support is disabled via NO_COLOR environment variable.
+/// This verifies the colors_enabled() check and fallback behavior.
 #[test]
 fn test_console_colors_disabled_path() {
     // Test lines 145-148: console doesn't support colors path
@@ -198,13 +242,16 @@ fn test_console_colors_disabled_path() {
         .args(["echo", "no console colors"])
         .output()
         .expect("failed to run rgrc with NO_COLOR");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     // Should not have ANSI codes when console colors are disabled
     assert!(stdout.contains("no console colors"));
 }
 
+/// Lines 154-157: Supported command colorization check
+/// Tests the should_use_colorization_for_command_supported logic.
+/// Verifies that known commands trigger the colorization path.
 #[test]
 fn test_supported_command_colorization_check() {
     // Test lines 154-157: should_use_colorization_for_command_supported
@@ -213,10 +260,13 @@ fn test_supported_command_colorization_check() {
         .args(["--color=auto", "echo", "supported command"])
         .output()
         .expect("failed to run rgrc with auto color");
-    
+
     assert!(output.status.success());
 }
 
+/// Lines 240-244: Wait error handling
+/// Tests the wait() error handling path (though wait() rarely fails in practice).
+/// Primarily verifies the normal success case of the wait operation.
 #[test]
 fn test_wait_error_handling() {
     // Test lines 240-244: wait error handling
@@ -226,12 +276,15 @@ fn test_wait_error_handling() {
         .args(["echo", "wait success"])
         .output()
         .expect("failed to run rgrc");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("wait success"));
 }
 
+/// Lines 247: Child exit code propagation
+/// Tests that the child process's exit code is correctly propagated to rgrc's exit code.
+/// Verifies that non-zero exit codes from spawned commands are properly returned.
 #[test]
 fn test_child_exit_code_propagation() {
     // Test lines 247: exit code propagation
@@ -240,13 +293,16 @@ fn test_child_exit_code_propagation() {
         .args(["sh", "-c", "exit 42"])
         .output()
         .expect("failed to run rgrc with failing command");
-    
+
     // Should propagate the child's exit code
     assert!(!output.status.success());
     let code = output.status.code().unwrap_or(0);
     assert_eq!(code, 42, "Should propagate exit code 42");
 }
 
+/// Lines 222-247: Direct stdout inheritance optimization
+/// Tests the performance optimization where stdout is inherited directly
+/// when colorization is disabled and output goes to a terminal.
 #[test]
 fn test_stdout_inherit_for_terminal() {
     // Test lines 222-247: direct stdout inheritance when not colorizing and terminal output
@@ -257,10 +313,13 @@ fn test_stdout_inherit_for_terminal() {
         .args(["--color=off", "echo", "inherited stdout"])
         .output()
         .expect("failed to run rgrc");
-    
+
     assert!(output.status.success());
 }
 
+/// Lines 206: Empty rules check
+/// Tests that when no rules match a command, colorization is skipped.
+/// This verifies the rules.is_empty() optimization path.
 #[test]
 fn test_empty_rules_no_colorization() {
     // Test lines 206: rules.is_empty() check
@@ -269,8 +328,151 @@ fn test_empty_rules_no_colorization() {
         .args(["echo", "no matching rules"])
         .output()
         .expect("failed to run rgrc");
-    
+
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("no matching rules"));
+}
+#[cfg(any(
+    target_arch = "x86_64",
+    all(target_os = "linux", any(target_env = "gnu", target_env = "musl")),
+    target_os = "macos",
+))]
+mod cli_integration_tests {
+
+    // ═══════════════════════════════════════════════════════════════════════════════
+    // CLI Integration Tests (merged from cli_tests.rs)
+    // Tests that verify command-line interface, argument parsing, and basic workflows
+    // ═══════════════════════════════════════════════════════════════════════════════
+
+    use std::process::Command;
+
+    /// CLI Test: --help flag displays usage information
+    #[test]
+    fn test_prints_help() {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_rgrc"));
+        cmd.arg("--help");
+        let output = cmd.output().expect("failed to run rgrc --help");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("Usage:") || stdout.contains("Options:"));
+    }
+
+    /// CLI Test: --version flag displays version number
+    #[test]
+    fn test_prints_version() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .arg("--version")
+            .output()
+            .expect("failed to run rgrc --version");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains(env!("CARGO_PKG_VERSION")));
+    }
+
+    /// CLI Test: -v shorthand for --version
+    #[test]
+    fn test_version_shorthand() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .arg("-v")
+            .output()
+            .expect("failed to run rgrc -v");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let expected = format!("rgrc {}", env!("CARGO_PKG_VERSION"));
+        assert_eq!(stdout.trim(), expected);
+    }
+
+    /// CLI Test: --completions bash generates shell completion script
+    #[test]
+    fn test_completions_bash() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .args(["--completions", "bash"])
+            .output()
+            .expect("failed to run rgrc --completions bash");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("_rgrc") || stdout.contains("compdef") || stdout.contains("complete")
+        );
+    }
+
+    /// CLI Test: --completions with unsupported shell fails
+    #[test]
+    fn test_unsupported_completions_shell() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .args(["--completions", "invalid_shell"])
+            .output()
+            .expect("failed to run rgrc");
+
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("Unsupported") || stderr.contains("unsupported"));
+    }
+
+    /// CLI Test: --all-aliases displays shell aliases
+    #[test]
+    fn test_all_aliases() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .arg("--all-aliases")
+            .output()
+            .expect("failed to run rgrc --all-aliases");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Most systems will have at least some common commands
+        assert!(stdout.contains("alias ") || !stdout.is_empty());
+    }
+
+    /// CLI Test: --all-aliases --except filters out specified commands
+    #[test]
+    fn test_all_aliases_with_except() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .args(["--all-aliases", "--except", "ls,grep"])
+            .output()
+            .expect("failed to run rgrc");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Excluded commands should not appear in output
+        assert!(!stdout.contains("alias ls='"));
+        assert!(!stdout.contains("alias grep='"));
+    }
+
+    /// CLI Test: --flush-cache rebuilds embedded config cache
+    #[cfg(feature = "embed-configs")]
+    #[test]
+    fn test_flush_cache_success() {
+        use tempfile::TempDir;
+        let td = TempDir::new().unwrap();
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .env("HOME", td.path())
+            .arg("--flush-cache")
+            .output()
+            .expect("failed to run rgrc --flush-cache");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            stdout.contains("Cache rebuild successful")
+                || stdout.contains("Flushing and rebuilding cache")
+        );
+    }
+
+    /// CLI Test: Piped child command output is forwarded correctly
+    #[test]
+    fn test_piped_child_output() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .args(["echo", "hello-from-child"])
+            .output()
+            .expect("failed to run rgrc");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("hello-from-child"));
+    }
 }

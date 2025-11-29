@@ -155,16 +155,16 @@ mod tests {
 
     #[test]
     fn test_line_buffered_writer_error_handling() {
-        use std::io::{Error, ErrorKind};
+        use std::io::Error;
 
         // Create a writer that always fails
         struct FailingWriter;
         impl std::io::Write for FailingWriter {
             fn write(&mut self, _buf: &[u8]) -> std::io::Result<usize> {
-                Err(Error::new(ErrorKind::Other, "Simulated write error"))
+                Err(Error::other("Simulated write error"))
             }
             fn flush(&mut self) -> std::io::Result<()> {
-                Err(Error::new(ErrorKind::Other, "Simulated flush error"))
+                Err(Error::other("Simulated flush error"))
             }
         }
 

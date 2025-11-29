@@ -44,7 +44,7 @@ use fancy_regex::Regex;
 /// **Foreground colors:**
 /// - `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
 ///
-pub fn style_from_str(text: &str) -> Result<console::Style, ()> {
+pub fn style_from_str(text: &str) -> Result<console::Style, String> {
     text.split(' ')
         .try_fold(console::Style::new(), |style, word| {
             // Handle ANSI escape sequences like "\033[38;5;140m"
@@ -99,8 +99,10 @@ pub fn style_from_str(text: &str) -> Result<console::Style, ()> {
 
                 // Unknown keyword - log and return error
                 _ => {
-                    println!("unhandled style: {}", word);
-                    Err(())
+                    // Return a descriptive error (used in callers/tests to detect invalid styles)
+                    let msg = format!("unhandled style: {}", word);
+                    println!("{}", msg);
+                    Err(msg)
                 }
             }
         })
@@ -160,7 +162,7 @@ pub fn style_from_str(text: &str) -> Result<console::Style, ()> {
 /// assert!(styles_from_str("bold red,invalid_color,green").is_err());
 /// ```
 #[allow(dead_code)]
-pub fn styles_from_str(text: &str) -> Result<Vec<console::Style>, ()> {
+pub fn styles_from_str(text: &str) -> Result<Vec<console::Style>, String> {
     text.split(',').map(style_from_str).collect()
 }
 

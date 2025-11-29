@@ -143,10 +143,10 @@ mod grcat_config_reader_tests {
         if let Ok(entries) = std::fs::read_dir(&share_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if let Some(filename) = path.file_name() {
-                    if filename.to_string_lossy().starts_with("conf.") {
-                        conf_files.push(path);
-                    }
+                if let Some(filename) = path.file_name()
+                    && filename.to_string_lossy().starts_with("conf.")
+                {
+                    conf_files.push(path);
                 }
             }
         }
@@ -860,10 +860,10 @@ mod integration_tests {
         if let Ok(entries) = std::fs::read_dir(&share_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if let Some(filename) = path.file_name() {
-                    if filename.to_string_lossy().starts_with("conf.") {
-                        conf_files.push(path);
-                    }
+                if let Some(filename) = path.file_name()
+                    && filename.to_string_lossy().starts_with("conf.")
+                {
+                    conf_files.push(path);
                 }
             }
         }
@@ -902,7 +902,8 @@ mod edge_case_tests {
         for filename in &test_files {
             let conf_path = share_dir.join(filename);
             if conf_path.exists() {
-                let file = File::open(&conf_path).expect(&format!("Should open {}", filename));
+                let file =
+                    File::open(&conf_path).unwrap_or_else(|_| panic!("Should open {}", filename));
                 let reader = BufReader::new(file);
                 let grcat_reader = GrcatConfigReader::new(reader.lines());
 

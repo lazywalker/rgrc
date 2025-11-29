@@ -1,25 +1,14 @@
 // Targeted tests to improve coverage for src/colorizer.rs
 // These tests exercise specific branches identified by tarpaulin coverage analysis
 
+mod common;
+
+use common::{run_colorize, strip_ansi};
 use console::Style;
 use fancy_regex::Regex;
 use rgrc::colorizer::colorize_regex;
 use rgrc::grc::{GrcatConfigEntry, GrcatConfigEntryCount};
 use std::io::Cursor;
-
-// Helper function to run colorize and capture output
-fn run_colorize(input: &str, rules: Vec<GrcatConfigEntry>) -> String {
-    let mut output = Vec::new();
-    let mut reader = Cursor::new(input.as_bytes());
-    colorize_regex(&mut reader, &mut output, &rules).unwrap();
-    String::from_utf8(output).unwrap()
-}
-
-// Helper to strip ANSI codes for assertion
-fn strip_ansi(s: &str) -> String {
-    let re = regex::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
-    re.replace_all(s, "").to_string()
-}
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // Tests targeting uncovered lines in colorizer.rs
@@ -33,7 +22,7 @@ fn timetrace_env_var_handling() {
     unsafe {
         std::env::set_var("RGRCTIME", "1");
     }
-    
+
     let rules = vec![GrcatConfigEntry {
         regex: Regex::new(r"test").unwrap(),
         colors: vec![Style::new().red()],
@@ -41,10 +30,10 @@ fn timetrace_env_var_handling() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     let result = run_colorize("test line\ntest", rules);
     assert!(strip_ansi(&result).contains("test"));
-    
+
     unsafe {
         std::env::remove_var("RGRCTIME");
     }
@@ -61,7 +50,7 @@ fn replace_with_backrefs_modifies_line() {
         replace: "\\1=\\2".to_string(), // Replace with = separator
         skip: false,
     }];
-    
+
     let result = run_colorize("server:8080 test", rules);
     // Replace should transform text and break outer loop (line 273)
     // The replace logic is executed (lines 251-273)
@@ -73,16 +62,14 @@ fn replace_with_backrefs_modifies_line() {
 /// Lines 248-274: Replace with multiple capture groups and break outer loop
 #[test]
 fn replace_breaks_outer_loop_and_restarts() {
-    let rules = vec![
-        GrcatConfigEntry {
-            regex: Regex::new(r"(\d+)\.(\d+)").unwrap(),
-            colors: vec![Style::new().cyan()],
-            count: GrcatConfigEntryCount::More,
-            replace: "\\1_\\2".to_string(), // Replace dot with underscore
-            skip: false,
-        },
-    ];
-    
+    let rules = vec![GrcatConfigEntry {
+        regex: Regex::new(r"(\d+)\.(\d+)").unwrap(),
+        colors: vec![Style::new().cyan()],
+        count: GrcatConfigEntryCount::More,
+        replace: "\\1_\\2".to_string(), // Replace dot with underscore
+        skip: false,
+    }];
+
     let result = run_colorize("version 1.2.3 test", rules);
     let stripped = strip_ansi(&result);
     // Just verify replace logic runs (lines 251-273) and breaks outer loop
@@ -101,7 +88,7 @@ fn zero_width_lookahead_prevents_infinite_loop() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     // This should complete without infinite loop (offset+=1 on zero-width)
     let result = run_colorize("abc123def", rules);
     // Just verify it doesn't hang and produces output
@@ -119,7 +106,7 @@ fn word_boundary_zero_width_advances_correctly() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     let result = run_colorize("one two three", rules);
     // Multiple word boundaries should be found without infinite loop
     assert!(strip_ansi(&result).contains("one two three"));
@@ -136,7 +123,7 @@ fn style_range_bounds_check_prevents_panic() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     // Short line to test bounds checking
     let result = run_colorize("test", rules);
     assert!(strip_ansi(&result).contains("test"));
@@ -152,7 +139,7 @@ fn run_length_encoding_merges_consecutive_same_style() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     // Multiple digit sequences should each be styled as one segment
     let result = run_colorize("123 456 789", rules);
     let stripped = strip_ansi(&result);
@@ -169,7 +156,7 @@ fn final_segment_output_for_partial_styling() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     // Only "hello" is styled, " world" should still be output
     let result = run_colorize("hello world", rules);
     let stripped = strip_ansi(&result);
@@ -186,7 +173,7 @@ fn cache_optimization_skips_overlapping_regions() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     // Multiple matches should use cache optimization to skip redundant checks
     let result = run_colorize("123 456 789 012", rules);
     let stripped = strip_ansi(&result);
@@ -205,7 +192,7 @@ fn capture_group_index_out_of_colors_bounds() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     let result = run_colorize("time 12:34:56 test", rules);
     // Should still work, just doesn't style the extra capture groups
     assert!(strip_ansi(&result).contains("12:34:56"));
@@ -221,7 +208,7 @@ fn last_end_tracking_updates_correctly() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     // Multiple word matches should update last_end progressively
     let result = run_colorize("abc def ghi jkl", rules);
     let stripped = strip_ansi(&result);
@@ -238,7 +225,7 @@ fn count_once_matches_only_first_occurrence() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     let result = run_colorize("test test test", rules);
     // All three "test" words should appear but count=once limits to first match
     assert!(strip_ansi(&result).contains("test"));
@@ -263,7 +250,7 @@ fn count_stop_prevents_subsequent_rules() {
             skip: false,
         },
     ];
-    
+
     let result = run_colorize("stop here now", rules);
     // "stop" should match, but "here" rule should not run due to Stop
     assert!(strip_ansi(&result).contains("stop here now"));
@@ -279,7 +266,7 @@ fn no_match_breaks_while_loop() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     // No match should cause break and output unchanged line
     let result = run_colorize("abc def", rules);
     assert_eq!(strip_ansi(&result).trim(), "abc def");
@@ -295,7 +282,7 @@ fn empty_style_ranges_outputs_line_unchanged() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     // No match -> empty style_ranges -> fast path
     let result = run_colorize("some text here", rules);
     assert_eq!(strip_ansi(&result).trim(), "some text here");
@@ -311,7 +298,7 @@ fn style_application_respects_line_length_bounds() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     let result = run_colorize("x", rules); // Very short line
     assert_eq!(strip_ansi(&result).trim(), "x");
 }
@@ -335,7 +322,7 @@ fn style_boundary_at_position_zero_handled() {
             skip: false,
         },
     ];
-    
+
     let result = run_colorize("word123", rules);
     assert!(strip_ansi(&result).contains("word123"));
 }
@@ -359,7 +346,7 @@ fn multiple_style_boundaries_tracked_correctly() {
             skip: false,
         },
     ];
-    
+
     let result = run_colorize("aXbXaXb", rules);
     // Multiple style boundaries (red a, default X, blue b, etc.)
     assert!(strip_ansi(&result).contains("aXbXaXb"));
@@ -384,7 +371,7 @@ fn skip_rule_is_ignored_in_processing() {
             skip: false,
         },
     ];
-    
+
     let result = run_colorize("skip process", rules);
     // "skip" rule is ignored, only "process" rule runs
     assert!(strip_ansi(&result).contains("skip process"));
@@ -400,7 +387,7 @@ fn offset_advances_past_match_end() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     // Each digit should match separately (offset advances by 1)
     let result = run_colorize("1a2b3c", rules);
     assert!(strip_ansi(&result).contains("1a2b3c"));
@@ -416,7 +403,7 @@ fn rule_matched_once_flag_stops_matching() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     let result = run_colorize("abc", rules);
     // Only first character should match due to count=once
     assert!(strip_ansi(&result).contains("abc"));
@@ -436,7 +423,7 @@ fn multiple_capture_groups_iterate_correctly() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     let result = run_colorize("host:8080", rules);
     // Both capture groups should be styled
     assert!(strip_ansi(&result).contains("host:8080"));
@@ -462,7 +449,7 @@ fn empty_line_fast_path_writes_newline_only() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     // Input with multiple empty lines between content
     let result = run_colorize("test\n\n\nmore", rules);
     let lines: Vec<&str> = result.lines().collect();
@@ -475,7 +462,7 @@ fn empty_line_fast_path_writes_newline_only() {
 /// and offset is advanced to a position still behind last_end
 #[test]
 fn cache_skip_when_offset_behind_last_end() {
-    // Regex with lookahead: (\w+)(?=\s\d) 
+    // Regex with lookahead: (\w+)(?=\s\d)
     // The full match is just the word, but if we had multiple captures this could trigger the cache
     // Actually, the cache skip occurs when the full match ends but a capture group went further
     // Let's use a simpler case: a regex that might match empty and advance by +1
@@ -485,12 +472,16 @@ fn cache_skip_when_offset_behind_last_end() {
         // Actually, let me use: (?=\w)(\w)(\w+)?
         // Group 0 matches minimum 1 char, but group 2 can extend further
         regex: Regex::new(r"(?=\w)(\w)(\w+)?").unwrap(),
-        colors: vec![Style::new().blue(), Style::new().red(), Style::new().green()],
+        colors: vec![
+            Style::new().blue(),
+            Style::new().red(),
+            Style::new().green(),
+        ],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
         skip: false,
     }];
-    
+
     let result = run_colorize("test word", rules);
     assert!(strip_ansi(&result).contains("test"));
 }
@@ -504,7 +495,7 @@ fn timetrace_feature_increments_counter_and_reports() {
     unsafe {
         std::env::set_var("RGRCTIME", "1");
     }
-    
+
     let rules = vec![GrcatConfigEntry {
         regex: Regex::new(r"line").unwrap(),
         colors: vec![Style::new().cyan()],
@@ -512,12 +503,12 @@ fn timetrace_feature_increments_counter_and_reports() {
         replace: String::new(),
         skip: false,
     }];
-    
+
     // Process multiple lines to increment lines_processed (line 159)
     let result = run_colorize("line 1\nline 2\nline 3", rules);
     assert!(strip_ansi(&result).contains("line"));
     // The timetrace end report (line 383) should also execute
-    
+
     unsafe {
         std::env::remove_var("RGRCTIME");
     }

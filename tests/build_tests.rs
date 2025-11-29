@@ -34,7 +34,7 @@ fn test_generated_embedded_configs_consistency() {
 
     // Spot-check a commonly expected config
     assert!(
-        EMBEDDED_CONFIG_NAMES.iter().any(|&s| s == "conf.ping"),
+        EMBEDDED_CONFIG_NAMES.contains(&"conf.ping"),
         "Expected conf.ping to be embedded"
     );
 }

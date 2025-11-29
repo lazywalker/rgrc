@@ -381,14 +381,12 @@ where
     }
 
     #[cfg(feature = "timetrace")]
-    if record_time {
-        if let Some(s) = overall_start {
-            eprintln!(
-                "[rgrc:time] colorizer total processed {} lines in {:?}",
-                lines_processed,
-                s.elapsed()
-            );
-        }
+    if let Some(s) = overall_start.filter(|_| record_time) {
+        eprintln!(
+            "[rgrc:time] colorizer total processed {} lines in {:?}",
+            lines_processed,
+            s.elapsed()
+        );
     }
 
     Ok(())

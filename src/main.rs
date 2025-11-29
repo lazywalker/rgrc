@@ -266,10 +266,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     #[cfg(feature = "timetrace")]
-    if record_time {
-        if let Some(start) = t0 {
-            eprintln!("[rgrc:time] spawn child: {:?}", start.elapsed());
-        }
+    if let Some(start) = t0.filter(|_| record_time) {
+        eprintln!("[rgrc:time] spawn child: {:?}", start.elapsed());
     }
 
     // Colorization is enabled, read from the piped stdout, apply colorization
