@@ -174,3 +174,65 @@ fn last_end_cache_avoids_redundant_checks() {
     // Ensure output contains original tokens and function returns promptly
     assert!(out.contains("aaaaa"));
 }
+
+#[test]
+fn replace_with_multiple_backrefs() {
+    console::set_colors_enabled(true);
+
+    // rule that captures two groups and replaces them with swapped values
+    let mut r = GrcatConfigEntry::new(
+        Regex::new(r"(\w+)-(\d+)").unwrap(),
+        vec![console::Style::new()],
+    );
+    r.replace = "\\2-\\1".to_string();
+
+    let out = run_colorize("foo-123 bar\n", &[r]);
+    let cleaned = strip_ansi(&out);
+    assert!(cleaned.contains("123-foo"));
+}
+
+#[test]
+fn many_adjacent_style_boundaries_produce_multiple_segments() {
+    console::set_colors_enabled(true);
+
+    // Create rules that style single characters differently to force many boundaries
+    let r1 = GrcatConfigEntry::new(Regex::new(r"a").unwrap(), vec![console::Style::new().red()]);
+    let r2 = GrcatConfigEntry::new(
+        Regex::new(r"b").unwrap(),
+        vec![console::Style::new().green()],
+    );
+    let r3 = GrcatConfigEntry::new(
+        Regex::new(r"c").unwrap(),
+        vec![console::Style::new().blue()],
+    );
+
+    let input = "abc\n";
+    let out = run_colorize(input, &[r1, r2, r3]);
+
+    // After styling there should still be the original characters present and ANSI escapes
+    let cleaned = strip_ansi(&out);
+    assert_eq!(cleaned.trim(), "abc");
+    assert!(out.contains("\x1b["));
+}
+
+// Exercise timetrace path when built with the feature enabled
+#[cfg(feature = "timetrace")]
+#[test]
+fn timetrace_records_timings_when_enabled() {
+    // Ensure the RGRCTIME env var is set so we hit the timing code paths
+    // set_var/remove_var are treated as unsafe in some build configurations
+    unsafe { std::env::set_var("RGRCTIME", "1") };
+    console::set_colors_enabled(true);
+
+    let r = GrcatConfigEntry::new(
+        Regex::new(r"test").unwrap(),
+        vec![console::Style::new().red()],
+    );
+    let out = run_colorize("test\n", &[r]);
+
+    // Should run and produce output
+    assert!(out.contains("test"));
+
+    // Clean up env var
+    unsafe { std::env::remove_var("RGRCTIME") };
+}

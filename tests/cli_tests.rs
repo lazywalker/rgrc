@@ -104,4 +104,44 @@ mod test {
         let stdout2 = String::from_utf8_lossy(&out2.stdout);
         assert_eq!(stdout2.trim(), expected);
     }
+
+    #[test]
+    fn unsupported_completions_shell_fails() {
+        let mut cmd = assert_cmd::cargo::cargo_bin_cmd!("rgrc");
+        cmd.args(["--completions", "nope"]);
+        cmd.assert().failure().stderr(predicate::str::contains(
+            "Unsupported shell for completions",
+        ));
+    }
+
+    #[test]
+    fn invalid_color_arg_causes_error_exit() {
+        let mut cmd = assert_cmd::cargo::cargo_bin_cmd!("rgrc");
+        cmd.args(["--color=invalid", "echo"]);
+        cmd.assert()
+            .failure()
+            .stderr(predicate::str::contains("Invalid color mode"));
+    }
+
+    #[test]
+    fn piped_child_command_outputs_same_text() {
+        // With piped stdout the binary should spawn the child and forward output
+        let mut cmd = assert_cmd::cargo::cargo_bin_cmd!("rgrc");
+        cmd.args(["echo", "hello-from-child"]);
+        let assert = cmd.assert().success();
+        assert.stdout(predicate::str::contains("hello-from-child"));
+    }
+
+    #[test]
+    fn all_aliases_with_except_filters_out_names() {
+        let mut cmd = assert_cmd::cargo::cargo_bin_cmd!("rgrc");
+        cmd.args(["--all-aliases", "--except", "ls,grep"]);
+        cmd.assert()
+            .success()
+            // Ensure excluded names are not printed
+            .stdout(predicate::str::contains("alias ls='").not())
+            .stdout(predicate::str::contains("alias grep='").not())
+            // And we still expect some alias lines in the output
+            .stdout(predicate::str::contains("alias "));
+    }
 }

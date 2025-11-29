@@ -45,23 +45,18 @@ jobs:
     - name: Install cargo-tarpaulin
       run: |
         rustup component add llvm-tools-preview || true
-        cargo install cargo-tarpaulin --version 0.25.0 || true
+        cargo install cargo-tarpaulin --version 0.34 || true
     - name: Generate coverage report (tarpaulin)
       run: |
         # produce an XML report for codecov (tarpaulin will create tarpaulin-report.xml)
         # fail the job on errors so uploads only run on valid reports
         cargo tarpaulin --out Xml
-    - name: Show coverage files
-      run: |
-        echo "Coverage files in repo root and target/tarpaulin:"
-        ls -lah ./tarpaulin-report.xml || true
-        ls -lah target/tarpaulin || true
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: |
-          ./tarpaulin-report.xml
+          ./cobertura.xml
           target/tarpaulin/*.json
         verbose: true
         fail_ci_if_error: true
