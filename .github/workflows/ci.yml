@@ -43,29 +43,24 @@ jobs:
     - uses: actions/checkout@v4
     - name: Build
       run: cargo build --all-features --verbose
-    - name: Install cargo-tarpaulin
+    - name: Install cargo-llvm-cov
       run: |
-        rustup component add llvm-tools-preview || true
-        cargo install cargo-tarpaulin --version 0.34.1 || true
-    - name: Generate coverage report (tarpaulin)
+        rustup component add llvm-tools-preview
+        cargo install cargo-llvm-cov
+    - name: Generate coverage report (llvm-cov)
       run: |
-        # produce an XML report for codecov (tarpaulin will create tarpaulin-report.xml)
-        # fail the job on errors so uploads only run on valid reports
+        # Generate coverage report in Codecov JSON format
         # --all-features: enable all features including timetrace and embed-configs
         # --workspace: include all crates in the workspace
-        # --timeout 120: allow 2 minutes per test (some integration tests are slow)
-        # --all-targets: test all targets (ensures binary is built for integration tests)
-        # Note: --follow-exec would track subprocess coverage but causes segfaults with CLI tests
-        # Main.rs coverage is lower because CLI integration tests spawn rgrc as subprocess
-        # which tarpaulin cannot track without --follow-exec. This is a known limitation.
-        cargo tarpaulin --all-features --workspace --timeout 120 --all-targets --out Xml
+        # --codecov: output in Codecov JSON format
+        # cargo-llvm-cov uses LLVM's native coverage instrumentation which accurately
+        # tracks coverage across subprocesses, unlike tarpaulin
+        cargo llvm-cov --all-features --workspace --codecov --output-path codecov.json
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        files: |
-          ./cobertura.xml
-          target/tarpaulin/*.json
+        files: codecov.json
         verbose: true
         fail_ci_if_error: true
     - name: Check format
