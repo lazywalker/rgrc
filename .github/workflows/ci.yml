@@ -3,8 +3,32 @@ name: CI
 on:
   push:
     branches: [ master ]
+    paths:
+      - '**/*.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'build.rs'
+      - '**/src/**'
+      - 'tests/**'
+      - 'benches/**'
+      - 'examples/**'
+      - 'rust-toolchain'
+      - 'rust-toolchain.toml'
+      - '.cargo/**'
   pull_request:
     branches: [ master ]
+    paths:
+      - '**/*.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - 'build.rs'
+      - '**/src/**'
+      - 'tests/**'
+      - 'benches/**'
+      - 'examples/**'
+      - 'rust-toolchain'
+      - 'rust-toolchain.toml'
+      - '.cargo/**'
 
 env:
   CARGO_TERM_COLOR: always
