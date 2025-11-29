@@ -16,6 +16,10 @@ A fast, Rust-based command-line tool that colorizes the output of other commands
 ## Quick Start
 
 ### Installation
+**Shell (curl):**
+```bash
+curl -sS https://raw.githubusercontent.com/lazywalker/rgrc/master/script/install.sh | sh
+```
 
 **Cargo:**
 ```bash
