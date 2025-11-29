@@ -6,6 +6,7 @@
 [![CI](https://github.com/lazywalker/rgrc/actions/workflows/ci.yml/badge.svg)](https://github.com/lazywalker/rgrc/actions)
 [![crates.io](https://img.shields.io/crates/v/rgrc.svg)](https://crates.io/crates/rgrc)
 [![docs.rs](https://docs.rs/rgrc/badge.svg)](https://docs.rs/rgrc)
+[![codecov](https://codecov.io/gh/lazywalker/rgrc/branch/master/graph/badge.svg)](https://codecov.io/gh/lazywalker/rgrc)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen.svg)](https://github.com/lazywalker/rgrc/network/updates)
 [![Maintenance](https://img.shields.io/maintenance/yes/2025)](https://github.com/lazywalker/rgrc)
 
