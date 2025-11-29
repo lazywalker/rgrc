@@ -61,7 +61,7 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: codecov.json
-        verbose: true
+        verbose: false
         fail_ci_if_error: true
     - name: Check format
       run: cargo fmt -- --check
