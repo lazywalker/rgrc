@@ -503,7 +503,9 @@ if [ "${VERSION}" != "latest" ]; then
   # while the artifact filename uses the plain semantic version (no 'v').
   version_no_v="${VERSION#v}"
   tag="v${version_no_v}"
-  URL="${BASE_URL}/download/${tag}/rgrc-${version_no_v}-${TARGET}.${EXT}"
+  # Releases use a tag of the form "v<version>" but the uploaded asset
+  # filename is unversioned (rgrc-<target>.<ext>). Build the URL accordingly.
+  URL="${BASE_URL}/download/${tag}/rgrc-${TARGET}.${EXT}"
 else
   URL="${BASE_URL}/latest/download/rgrc-${TARGET}.${EXT}"
 fi
