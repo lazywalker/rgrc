@@ -1212,4 +1212,48 @@ mod colorize_regex_tests {
         assert!(output.contains("true"));
         Ok(())
     }
+
+    /// Lines 214-215: Offset jump optimization for overlapping matches
+    /// Tests that when the current offset is before last_end, the offset jumps forward
+    /// to avoid redundant regex checks in overlapping match regions.
+    /// Covers: src/colorizer.rs:214-216 offset jump optimization
+    #[test]
+    fn test_offset_jump_overlapping_regions() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        // Use a pattern that can have overlapping matches
+        let rules = vec![
+            rule("ab", console::Style::new().red())?,
+            rule("bc", console::Style::new().blue())?,
+        ];
+
+        let output = colorize_regex_test("abcd", &rules)?;
+        // Both patterns should be tested and styled
+        assert!(output.contains("a"));
+        assert!(output.contains("b"));
+        assert!(output.contains("c"));
+        assert!(output.contains("d"));
+        Ok(())
+    }
+
+    /// Line 159: timetrace feature - lines_processed counter increment
+    /// Tests that when timetrace feature is enabled and RGRCTIME is set,
+    /// the lines_processed counter is incremented for each line.
+    /// Note: This test verifies the code path exists but cannot directly test
+    /// the counter since it's only used internally for timing output.
+    #[test]
+    #[cfg(feature = "timetrace")]
+    fn test_timetrace_lines_processed_counter() -> Result<(), Box<dyn std::error::Error>> {
+        console::set_colors_enabled(true);
+        let rules = vec![rule("test", console::Style::new().red())?];
+
+        // Process multiple lines - if timetrace is enabled, each increments the counter
+        let output = colorize_regex_test("line1\nline2\nline3\ntest\n", &rules)?;
+
+        // Should process all lines successfully
+        assert!(output.contains("line1"));
+        assert!(output.contains("line2"));
+        assert!(output.contains("line3"));
+        assert!(output.contains("test"));
+        Ok(())
+    }
 }

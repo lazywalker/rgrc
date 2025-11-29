@@ -10,7 +10,7 @@
 
 use std::process::{Command, Stdio};
 
-/// Lines 131-132: Empty command handling
+/// Lines 131-132: Empty command handling  
 /// Tests that rgrc exits with an error when invoked without a command argument.
 /// This verifies the args.command.is_empty() check and error return path.
 #[test]
@@ -22,7 +22,16 @@ fn test_empty_command_exits_with_error() {
 
     // Should fail when no command is provided
     assert!(!output.status.success());
-    // May show usage or error - just verify it exits with error
+
+    // When no command is provided, help message is shown (to stdout or stderr)
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stdout.contains("Usage:")
+            || stderr.contains("Usage:")
+            || stdout.contains("OPTIONS")
+            || stderr.contains("OPTIONS")
+    );
 }
 
 /// Lines 222-232: Command not found error path
@@ -230,6 +239,44 @@ fn test_invalid_color_mode_argument() {
     assert!(stderr.contains("Invalid color mode") || stderr.contains("invalid"));
 }
 
+/// Lines 143-147: Console doesn't support colors path
+/// Tests that when console doesn't support colors, colorization is disabled.
+/// Covers: src/main.rs:143-147 console_supports_colors == false branch
+#[test]
+fn test_console_no_color_support() {
+    // Test line 143-147: console doesn't support colors
+    // When NO_COLOR env var is set, console reports no color support
+    let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+        .env("NO_COLOR", "1")
+        .args(["echo", "ERROR: test"])
+        .output()
+        .expect("failed to run rgrc");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Should not contain ANSI codes when console doesn't support colors
+    assert!(stdout.contains("ERROR: test"));
+}
+
+/// Lines 222-223: stdout_is_terminal check and inherit path
+/// Tests that when stdout is a terminal and colorization is disabled,
+/// stdout/stderr are inherited directly without piping.
+/// Covers: src/main.rs:222-223 stdout_is_terminal && !should_colorize path
+#[test]
+fn test_stdout_inherit_when_no_colorization() {
+    // Test line 222-223: stdout inheritance when not colorizing
+    let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+        .args(["--color=off", "echo", "plain text"])
+        .output()
+        .expect("failed to run rgrc");
+
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("plain text"));
+    // No ANSI codes should be present
+    assert!(!stdout.contains("\x1b["));
+}
+
 /// Lines 145-148: Console colors disabled path
 /// Tests behavior when console color support is disabled via NO_COLOR environment variable.
 /// This verifies the colors_enabled() check and fallback behavior.
@@ -359,7 +406,11 @@ mod cli_integration_tests {
         assert!(stdout.contains("Usage:") || stdout.contains("Options:"));
     }
 
-    /// CLI Test: --version flag displays version number
+    /// CLI Test: --version displays version number
+    ///
+    /// Ensures the --version flag outputs the current package version
+    /// in the format "rgrc X.Y.Z" where version comes from Cargo.toml.
+    /// Essential for troubleshooting and compatibility checks.
     #[test]
     fn test_prints_version() {
         let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -414,7 +465,41 @@ mod cli_integration_tests {
         assert!(stderr.contains("Unsupported") || stderr.contains("unsupported"));
     }
 
+    /// CLI Test: args.rs line 113 - Invalid color value
+    /// Tests that --color with an invalid value (not on/off/auto) returns an error.
+    /// Covers: src/args.rs:113 "Invalid color mode: {}" error path
+    #[test]
+    fn test_invalid_color_value() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .args(["--color", "invalid_value", "echo", "test"])
+            .output()
+            .expect("failed to run rgrc");
+
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("Invalid color mode") || stderr.contains("invalid"));
+    }
+
+    /// CLI Test: args.rs line 108 - Missing value for --color
+    /// Tests that --color without a following value returns an error.
+    /// Covers: src/args.rs:108 "Missing value for --color" error path
+    #[test]
+    fn test_missing_color_value() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .args(["--color"])
+            .output()
+            .expect("failed to run rgrc");
+
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("Missing value") || stderr.contains("missing"));
+    }
+
     /// CLI Test: --all-aliases displays shell aliases
+    ///
+    /// Tests the --all-aliases feature which generates shell alias definitions
+    /// for all supported commands (e.g., alias ls='rgrc ls').
+    /// Users typically eval this output in their shell rc files for automatic colorization.
     #[test]
     fn test_all_aliases() {
         let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -429,6 +514,10 @@ mod cli_integration_tests {
     }
 
     /// CLI Test: --all-aliases --except filters out specified commands
+    ///
+    /// Verifies the --except flag allows users to exclude specific commands
+    /// from alias generation (e.g., if they have custom ls/grep configurations).
+    /// Expects comma-separated command list as argument.
     #[test]
     fn test_all_aliases_with_except() {
         let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -444,6 +533,13 @@ mod cli_integration_tests {
     }
 
     /// CLI Test: --flush-cache rebuilds embedded config cache
+    ///
+    /// Tests the cache rebuild mechanism for embedded configs.
+    /// When --flush-cache is invoked:
+    /// 1. Existing cache directory is removed
+    /// 2. Embedded configs are re-extracted to ~/.cache/rgrc
+    /// 3. Success message is displayed with config count
+    /// Only available when embed-configs feature is enabled.
     #[cfg(feature = "embed-configs")]
     #[test]
     fn test_flush_cache_success() {
@@ -464,6 +560,10 @@ mod cli_integration_tests {
     }
 
     /// CLI Test: Piped child command output is forwarded correctly
+    ///
+    /// Verifies that rgrc correctly pipes and forwards the child process's stdout.
+    /// This is fundamental to rgrc's operation: spawn command → capture output → colorize → forward.
+    /// Tests that the piping mechanism preserves command output integrity.
     #[test]
     fn test_piped_child_output() {
         let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))

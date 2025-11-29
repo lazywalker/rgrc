@@ -251,6 +251,26 @@ fn test_grcat_reader_count_more() {
     }
 }
 
+/// Lines 826-829: Unknown count value triggers warning and defaults to None
+/// Tests that when count field has an unrecognized value (not once/more/stop),
+/// the code prints a warning to stderr and sets count to None (which defaults to More).
+/// Covers: src/grc.rs:826-829 eprintln! path for unknown count values
+#[test]
+fn test_grcat_reader_unknown_count_value() {
+    use std::io::BufReader;
+    let config = "regexp=test\ncolours=red\ncount=unknown_value\n-\n";
+    let reader = BufReader::new(config.as_bytes());
+    let mut grcat_reader = rgrc::grc::GrcatConfigReader::new(reader.lines());
+
+    // This should parse successfully but count will be None (defaults to More)
+    if let Some(entry) = grcat_reader.next() {
+        // When count is None or invalid, it should default to More behavior
+        assert!(matches!(entry.count, GrcatConfigEntryCount::More));
+    } else {
+        panic!("Expected an entry to be parsed");
+    }
+}
+
 /// Replace field parsing with backreferences
 /// Tests that replace=value is correctly parsed and backreferences (\1) are preserved.
 #[test]
