@@ -27,13 +27,10 @@ jobs:
             target: aarch64-unknown-linux-musl
             exe: rgrc
           - os: ubuntu-latest
-            target: arm-unknown-linux-musleabi
+            target: i686-unknown-linux-musl
             exe: rgrc
           - os: ubuntu-latest
             target: arm-unknown-linux-musleabihf
-            exe: rgrc
-          - os: ubuntu-latest
-            target: armv7-unknown-linux-musleabihf
             exe: rgrc
           # MIPS targets are not available in stable Rust
           # - os: ubuntu-latest
@@ -60,8 +57,17 @@ jobs:
           - os: macos-latest
             target: aarch64-apple-darwin
             exe: rgrc
+          - os: ubuntu-latest
+            target: x86_64-unknown-freebsd
+            exe: rgrc
           - os: windows-latest
             target: x86_64-pc-windows-msvc
+            exe: rgrc.exe
+          - os: windows-latest
+            target: i686-pc-windows-msvc
+            exe: rgrc.exe
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
             exe: rgrc.exe
     steps:
       - uses: actions/checkout@v6
@@ -74,10 +80,14 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         run: cargo install --version 0.2.5 cross
       - name: Run tests (Linux)
-        if: matrix.os == 'ubuntu-latest'
+        # Only run tests on linux targets (avoid executing non-Linux binaries like FreeBSD on Ubuntu)
+        if: matrix.os == 'ubuntu-latest' && contains(matrix.target, 'linux')
         run: cross test --target ${{ matrix.target }} --verbose
       - name: Run tests (macOS/Windows)
-        if: matrix.os != 'ubuntu-latest'
+        # Only run tests on macOS/Windows runners when building native x86_64
+        # test binaries. Running ARM64 binaries on x86_64 runners fails
+        # (``This version of %1 is not compatible...`` / os error 216).
+        if: matrix.os != 'ubuntu-latest' && startsWith(matrix.target, 'x86_64')
         run: cargo test --target ${{ matrix.target }} --verbose
       - name: Build release (Linux)
         if: matrix.os == 'ubuntu-latest'
@@ -98,17 +108,63 @@ jobs:
         run: |
           VERSION=$(grep '^version =' Cargo.toml | head -1 | sed 's/version = "\(.*\)"/\1/')
           echo "VERSION=$VERSION" >> $GITHUB_ENV
-      - name: Zip Release
-        uses: TheDoctor0/zip-release@0.6.1
+      - name: Package release (non-Windows)
+        if: matrix.os != 'windows-latest'
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION=${{ env.VERSION }}
+          TARGET=${{ matrix.target }}
+          EXE=${{ matrix.exe }}
+          DIR=target/${{ matrix.target }}/release
+          # Ensure the executable exists
+          ls -lah "$DIR" || true
+          tar czf "$DIR/rgrc-${VERSION}-${TARGET}.tar.gz" -C "$DIR" "$EXE"
+          # Also produce an unversioned archive for the 'latest' download URL
+          cp "$DIR/rgrc-${VERSION}-${TARGET}.tar.gz" "$DIR/rgrc-${TARGET}.tar.gz"
+
+      - name: Package release (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          $VERSION = '${{ env.VERSION }}'
+          $TARGET = '${{ matrix.target }}'
+          $EXE = '${{ matrix.exe }}'
+          $DIR = "target/${{ matrix.target }}/release"
+          # Use ${} to avoid accidental variable-token parsing when followed by punctuation
+          Write-Output "Files in ${DIR}`n"
+          Get-ChildItem -Path $DIR | Write-Output
+          Compress-Archive -Path "$DIR/$EXE" -DestinationPath "$DIR/rgrc-$VERSION-$TARGET.zip" -Force
+          # Also produce an unversioned zip for the 'latest' download URL
+          Copy-Item -Path "$DIR/rgrc-$VERSION-$TARGET.zip" -Destination "$DIR/rgrc-$TARGET.zip" -Force
+
+      - name: Upload artifact (non-Windows)
+        if: matrix.os != 'windows-latest'
+        uses: actions/upload-artifact@v5
         with:
-          type: zip
-          filename: rgrc-${{ env.VERSION }}-${{ matrix.target }}.zip
-          directory: target/${{ matrix.target }}/release/
-          path: ${{ matrix.exe }}
-      - uses: actions/upload-artifact@v5
+          name: rgrc-${{ env.VERSION }}-${{ matrix.target }}.tar.gz
+          path: target/${{ matrix.target }}/release/rgrc-${{ env.VERSION }}-${{ matrix.target }}.tar.gz
+
+      - name: Upload artifact (non-Windows, unversioned)
+        if: matrix.os != 'windows-latest'
+        uses: actions/upload-artifact@v5
         with:
-          name: rgrc-${{ env.VERSION }}-${{ matrix.target }}
+          name: rgrc-${{ matrix.target }}.tar.gz
+          path: target/${{ matrix.target }}/release/rgrc-${{ matrix.target }}.tar.gz
+
+      - name: Upload artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v5
+        with:
+          name: rgrc-${{ env.VERSION }}-${{ matrix.target }}.zip
           path: target/${{ matrix.target }}/release/rgrc-${{ env.VERSION }}-${{ matrix.target }}.zip
+
+      - name: Upload artifact (Windows, unversioned)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v5
+        with:
+          name: rgrc-${{ matrix.target }}.zip
+          path: target/${{ matrix.target }}/release/rgrc-${{ matrix.target }}.zip
   data:
     name: Package data files
     runs-on: ubuntu-latest
