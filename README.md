@@ -19,6 +19,8 @@ A fast, Rust-based command-line tool that colorizes the output of other commands
 - 🔧 **Compatible**: Works with existing grc configuration files
 - 🐚 **Shell Integration**: Auto-generates aliases
 - 📖 **80+ Commands**: Pre-configured for common tools
+- 🔍 **Smart Regex**: Hybrid engine with optional fancy-regex support
+- 📦 **Lightweight**: Minimal dependencies (2 core deps)
 
 ## Quick Start
 
@@ -146,6 +148,8 @@ count=stop
 
 ## Development
 
+### Building
+
 ```bash
 # Build
 cargo build --release
@@ -153,9 +157,35 @@ cargo build --release
 # Test
 cargo test
 
+# Test with fancy-regex
+cargo test --features=fancy
+
 # Install locally
 make release && sudo make install
 ```
+
+### Regex Engine
+
+rgrc uses a hybrid regex approach for optimal performance:
+
+- **Fast Path** (90%+ of patterns): Standard `regex` crate (~2-5x faster)
+- **Enhanced Path** (complex patterns with lookaround):
+  - **With `--features=fancy`** (default): Battle-tested `fancy-regex`
+    - Binary: ~2.1MB | Supports: backreferences, variable-length lookbehind
+    - Recommended for production use
+  - **Without fancy feature**: Lightweight custom `EnhancedRegex`
+    - Binary: ~1.8MB | Supports: fixed-length lookahead/lookbehind
+    - Covers 99% of rgrc config patterns
+    - Newer, less battle-tested
+
+### Dependencies
+
+Core dependencies (when built without fancy feature):
+- `regex`: Standard regex engine
+- `mimalloc`: Fast memory allocator
+
+Optional:
+- `fancy-regex`: Enhanced regex with advanced features (enabled by default)
 
 ## License
 

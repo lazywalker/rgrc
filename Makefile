@@ -14,19 +14,19 @@ ver:
 	@echo Version: ${APP_NAME} v${APP_VERSION}
 
 release: rgrc.1.gz
-	cargo auditable build --release
+	cargo build --release
 	
 minimal: rgrc.1.gz
-	cargo auditable build --profile minimal
+	cargo build --profile minimal
 
 macos:
-	cargo auditable build --release --target x86_64-apple-darwin
+	cargo build --release --target x86_64-apple-darwin
 
 armv7:
-	cargo auditable build --release --target armv7-unknown-linux-musleabihf
+	cargo build --release --target armv7-unknown-linux-musleabihf
 
 linux:
-	cargo auditable build --release --target x86_64-unknown-linux-musl
+	cargo build --release --target x86_64-unknown-linux-musl
 
 bin: macos linux armv7
 	@echo Creating tarball...
@@ -47,10 +47,10 @@ data: rgrc.1.gz
 	@tar cvfz "${TARBALL}/${APP_NAME}-data-${APP_VERSION}.tar.gz" doc/*.gz etc/ share/
 
 lint:
-	cargo clippy --all
+	cargo clippy --all-features
 
 test:
-	cargo test
+	cargo test --all-features
 
 fmt:
 	cargo fmt --all

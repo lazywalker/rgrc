@@ -4,10 +4,9 @@
 mod common;
 
 use common::{run_colorize, strip_ansi};
-use console::Style;
-use fancy_regex::Regex;
 use rgrc::colorizer::colorize_regex;
-use rgrc::grc::{GrcatConfigEntry, GrcatConfigEntryCount};
+use rgrc::grc::{CompiledRegex, GrcatConfigEntry, GrcatConfigEntryCount};
+use rgrc::style::Style;
 use std::io::Cursor;
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -24,7 +23,7 @@ fn timetrace_env_var_handling() {
     }
 
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"test").unwrap(),
+        regex: CompiledRegex::new(r"test").unwrap(),
         colors: vec![Style::new().red()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -44,7 +43,7 @@ fn timetrace_env_var_handling() {
 #[test]
 fn replace_with_backrefs_modifies_line() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"(\w+):(\d+)").unwrap(),
+        regex: CompiledRegex::new(r"(\w+):(\d+)").unwrap(),
         colors: vec![Style::new().red()],
         count: GrcatConfigEntryCount::More,
         replace: "\\1=\\2".to_string(), // Replace with = separator
@@ -63,7 +62,7 @@ fn replace_with_backrefs_modifies_line() {
 #[test]
 fn replace_breaks_outer_loop_and_restarts() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"(\d+)\.(\d+)").unwrap(),
+        regex: CompiledRegex::new(r"(\d+)\.(\d+)").unwrap(),
         colors: vec![Style::new().cyan()],
         count: GrcatConfigEntryCount::More,
         replace: "\\1_\\2".to_string(), // Replace dot with underscore
@@ -82,7 +81,7 @@ fn replace_breaks_outer_loop_and_restarts() {
 fn zero_width_lookahead_prevents_infinite_loop() {
     // Positive lookahead (?=\d) is zero-width
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"(?=\d)").unwrap(),
+        regex: CompiledRegex::new(r"(?=\d)").unwrap(),
         colors: vec![Style::new().green()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -100,7 +99,7 @@ fn zero_width_lookahead_prevents_infinite_loop() {
 fn word_boundary_zero_width_advances_correctly() {
     // \b is a zero-width assertion
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"\b").unwrap(),
+        regex: CompiledRegex::new(r"\b").unwrap(),
         colors: vec![Style::new().magenta()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -117,7 +116,7 @@ fn word_boundary_zero_width_advances_correctly() {
 fn style_range_bounds_check_prevents_panic() {
     // Create a rule that might produce an end position beyond line length
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"test").unwrap(),
+        regex: CompiledRegex::new(r"test").unwrap(),
         colors: vec![Style::new().blue(), Style::new().red()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -133,7 +132,7 @@ fn style_range_bounds_check_prevents_panic() {
 #[test]
 fn run_length_encoding_merges_consecutive_same_style() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"\d+").unwrap(),
+        regex: CompiledRegex::new(r"\d+").unwrap(),
         colors: vec![Style::new().yellow()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -150,7 +149,7 @@ fn run_length_encoding_merges_consecutive_same_style() {
 #[test]
 fn final_segment_output_for_partial_styling() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"^hello").unwrap(),
+        regex: CompiledRegex::new(r"^hello").unwrap(),
         colors: vec![Style::new().cyan()],
         count: GrcatConfigEntryCount::Once,
         replace: String::new(),
@@ -167,7 +166,7 @@ fn final_segment_output_for_partial_styling() {
 #[test]
 fn cache_optimization_skips_overlapping_regions() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"\d+").unwrap(),
+        regex: CompiledRegex::new(r"\d+").unwrap(),
         colors: vec![Style::new().green()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -186,7 +185,7 @@ fn cache_optimization_skips_overlapping_regions() {
 fn capture_group_index_out_of_colors_bounds() {
     // Regex has 3 capture groups but we only provide style for group 0
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"(\d+):(\d+):(\d+)").unwrap(),
+        regex: CompiledRegex::new(r"(\d+):(\d+):(\d+)").unwrap(),
         colors: vec![Style::new().red()], // Only one style for group 0
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -202,7 +201,7 @@ fn capture_group_index_out_of_colors_bounds() {
 #[test]
 fn last_end_tracking_updates_correctly() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"[a-z]+").unwrap(),
+        regex: CompiledRegex::new(r"[a-z]+").unwrap(),
         colors: vec![Style::new().blue()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -219,7 +218,7 @@ fn last_end_tracking_updates_correctly() {
 #[test]
 fn count_once_matches_only_first_occurrence() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"test").unwrap(),
+        regex: CompiledRegex::new(r"test").unwrap(),
         colors: vec![Style::new().yellow()],
         count: GrcatConfigEntryCount::Once,
         replace: String::new(),
@@ -236,14 +235,14 @@ fn count_once_matches_only_first_occurrence() {
 fn count_stop_prevents_subsequent_rules() {
     let rules = vec![
         GrcatConfigEntry {
-            regex: Regex::new(r"stop").unwrap(),
+            regex: CompiledRegex::new(r"stop").unwrap(),
             colors: vec![Style::new().red()],
             count: GrcatConfigEntryCount::Stop,
             replace: String::new(),
             skip: false,
         },
         GrcatConfigEntry {
-            regex: Regex::new(r"here").unwrap(),
+            regex: CompiledRegex::new(r"here").unwrap(),
             colors: vec![Style::new().green()],
             count: GrcatConfigEntryCount::More,
             replace: String::new(),
@@ -260,7 +259,7 @@ fn count_stop_prevents_subsequent_rules() {
 #[test]
 fn no_match_breaks_while_loop() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"xyz").unwrap(),
+        regex: CompiledRegex::new(r"xyz").unwrap(),
         colors: vec![Style::new().cyan()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -276,7 +275,7 @@ fn no_match_breaks_while_loop() {
 #[test]
 fn empty_style_ranges_outputs_line_unchanged() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"nomatch").unwrap(),
+        regex: CompiledRegex::new(r"nomatch").unwrap(),
         colors: vec![Style::new().red()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -292,7 +291,7 @@ fn empty_style_ranges_outputs_line_unchanged() {
 #[test]
 fn style_application_respects_line_length_bounds() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r".+").unwrap(),
+        regex: CompiledRegex::new(r".+").unwrap(),
         colors: vec![Style::new().magenta()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -308,14 +307,14 @@ fn style_application_respects_line_length_bounds() {
 fn style_boundary_at_position_zero_handled() {
     let rules = vec![
         GrcatConfigEntry {
-            regex: Regex::new(r"^\w+").unwrap(),
+            regex: CompiledRegex::new(r"^\w+").unwrap(),
             colors: vec![Style::new().red()],
             count: GrcatConfigEntryCount::Once,
             replace: String::new(),
             skip: false,
         },
         GrcatConfigEntry {
-            regex: Regex::new(r"\d+$").unwrap(),
+            regex: CompiledRegex::new(r"\d+$").unwrap(),
             colors: vec![Style::new().blue()],
             count: GrcatConfigEntryCount::Once,
             replace: String::new(),
@@ -332,14 +331,14 @@ fn style_boundary_at_position_zero_handled() {
 fn multiple_style_boundaries_tracked_correctly() {
     let rules = vec![
         GrcatConfigEntry {
-            regex: Regex::new(r"a").unwrap(),
+            regex: CompiledRegex::new(r"a").unwrap(),
             colors: vec![Style::new().red()],
             count: GrcatConfigEntryCount::More,
             replace: String::new(),
             skip: false,
         },
         GrcatConfigEntry {
-            regex: Regex::new(r"b").unwrap(),
+            regex: CompiledRegex::new(r"b").unwrap(),
             colors: vec![Style::new().blue()],
             count: GrcatConfigEntryCount::More,
             replace: String::new(),
@@ -357,14 +356,14 @@ fn multiple_style_boundaries_tracked_correctly() {
 fn skip_rule_is_ignored_in_processing() {
     let rules = vec![
         GrcatConfigEntry {
-            regex: Regex::new(r"skip").unwrap(),
+            regex: CompiledRegex::new(r"skip").unwrap(),
             colors: vec![Style::new().red()],
             count: GrcatConfigEntryCount::More,
             replace: String::new(),
             skip: true, // This rule should be skipped
         },
         GrcatConfigEntry {
-            regex: Regex::new(r"process").unwrap(),
+            regex: CompiledRegex::new(r"process").unwrap(),
             colors: vec![Style::new().green()],
             count: GrcatConfigEntryCount::More,
             replace: String::new(),
@@ -381,7 +380,7 @@ fn skip_rule_is_ignored_in_processing() {
 #[test]
 fn offset_advances_past_match_end() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"\d").unwrap(),
+        regex: CompiledRegex::new(r"\d").unwrap(),
         colors: vec![Style::new().yellow()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -397,7 +396,7 @@ fn offset_advances_past_match_end() {
 #[test]
 fn rule_matched_once_flag_stops_matching() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"\w").unwrap(),
+        regex: CompiledRegex::new(r"\w").unwrap(),
         colors: vec![Style::new().cyan()],
         count: GrcatConfigEntryCount::Once,
         replace: String::new(),
@@ -413,7 +412,7 @@ fn rule_matched_once_flag_stops_matching() {
 #[test]
 fn multiple_capture_groups_iterate_correctly() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"(\w+):(\d+)").unwrap(),
+        regex: CompiledRegex::new(r"(\w+):(\d+)").unwrap(),
         colors: vec![
             Style::new().red(),
             Style::new().blue(),
@@ -443,7 +442,7 @@ fn colorize_returns_ok_on_success() {
 #[test]
 fn empty_line_fast_path_writes_newline_only() {
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"\d+").unwrap(),
+        regex: CompiledRegex::new(r"\d+").unwrap(),
         colors: vec![Style::new().red()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),
@@ -471,7 +470,7 @@ fn cache_skip_when_offset_behind_last_end() {
         // The full match (group 0) is the word, but with specific regex constructs...
         // Actually, let me use: (?=\w)(\w)(\w+)?
         // Group 0 matches minimum 1 char, but group 2 can extend further
-        regex: Regex::new(r"(?=\w)(\w)(\w+)?").unwrap(),
+        regex: CompiledRegex::new(r"(?=\w)(\w)(\w+)?").unwrap(),
         colors: vec![
             Style::new().blue(),
             Style::new().red(),
@@ -497,7 +496,7 @@ fn timetrace_feature_increments_counter_and_reports() {
     }
 
     let rules = vec![GrcatConfigEntry {
-        regex: Regex::new(r"line").unwrap(),
+        regex: CompiledRegex::new(r"line").unwrap(),
         colors: vec![Style::new().cyan()],
         count: GrcatConfigEntryCount::More,
         replace: String::new(),

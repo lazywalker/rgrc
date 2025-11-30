@@ -42,6 +42,7 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::time::Instant;
 
 use crate::grc::GrcatConfigEntry;
+use crate::style::Style;
 
 /// Regex-optimized colorizer with advanced caching and pattern matching optimizations.
 ///
@@ -85,7 +86,7 @@ use crate::grc::GrcatConfigEntry;
 /// ```ignore
 /// use std::io::Cursor;
 /// use fancy_regex::Regex;
-/// use console::Style;
+/// use rgrc::style::Style;
 /// use rgrc::colorizer::colorize_regex;
 /// use rgrc::grc::GrcatConfigEntry;
 ///
@@ -114,8 +115,6 @@ where
     R: Read,
     W: Write,
 {
-    // Ensure colors are enabled for this colorization session
-    console::set_colors_enabled(true);
     #[cfg(feature = "timetrace")]
     let record_time = std::env::var_os("RGRCTIME").is_some();
 
@@ -147,7 +146,7 @@ where
     }
 
     // Default style for unstyled text (no color, no attributes)
-    let default_style = console::Style::new();
+    let default_style = Style::new();
 
     // ═══════════════════════════════════════════════════════════════════════════════
     // PHASE 2: LINE-BY-LINE PROCESSING - Apply colorization rules to each line
@@ -175,7 +174,7 @@ where
         // ═══════════════════════════════════════════════════════════════════════════════
 
         // Vector to collect all (start_pos, end_pos, style) ranges for matched patterns
-        let mut style_ranges: Vec<(usize, usize, &console::Style)> = Vec::new();
+        let mut style_ranges: Vec<(usize, usize, &Style)> = Vec::new();
 
         // Track whether to stop processing the entire line (for count=stop)
         let mut stop_line_processing = false;
@@ -216,13 +215,13 @@ where
                 }
 
                 // Attempt regex match starting from current offset position
-                if let Ok(Some(matches)) = rule.regex.captures_from_pos(&line, offset) {
+                if let Some(matches) = rule.regex.captures_from_pos(&line, offset) {
                     // ═══════════════════════════════════════════════════════════════════════════════
                     // CAPTURE GROUP PROCESSING: Extract each matched subgroup
                     // ═══════════════════════════════════════════════════════════════════════════════
 
                     // Iterate through all capture groups (index 0 = full match, 1+ = subgroups)
-                    for (i, mmatch) in matches.iter().enumerate() {
+                    for (i, mmatch) in matches.iter().into_iter().enumerate() {
                         if let Some(mmatch) = mmatch {
                             let start = mmatch.start();
                             let end = mmatch.end();
@@ -253,7 +252,7 @@ where
                             let mut replacement = rule.replace.clone();
 
                             // Replace \1, \2, etc. with corresponding capture groups
-                            for (i, capture) in matches.iter().enumerate() {
+                            for (i, capture) in matches.iter().into_iter().enumerate() {
                                 if let Some(capture_match) = capture {
                                     let capture_text =
                                         &line[capture_match.start()..capture_match.end()];
@@ -333,7 +332,7 @@ where
 
         // Create per-character style array (one style reference per character)
         // Initialize all characters to default style (unstyled)
-        let mut char_styles: Vec<&console::Style> = vec![&default_style; line.len()];
+        let mut char_styles: Vec<&Style> = vec![&default_style; line.len()];
 
         // Apply all collected style ranges to the character array
         // Later ranges override earlier ones (simple precedence rule)
@@ -361,7 +360,7 @@ where
             if this_style != prev_style {
                 if i > 0 {
                     // Apply previous style to characters from offset to current position
-                    // console::Style::apply_to() generates appropriate ANSI escape codes
+                    // Style::apply_to() generates appropriate ANSI escape codes
                     write!(writer, "{}", prev_style.apply_to(&line[offset..i]))?;
                 }
 

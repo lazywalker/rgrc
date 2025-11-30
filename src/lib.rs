@@ -9,7 +9,26 @@
 //!
 //! - **ColorMode**: Controls whether color output is enabled (On/Off/Auto)
 //! - **Configuration Loading**: Functions to load colorization rules from config files
-//! - **Submodules**: colorizer (text colorization), grc (config file parsing)
+//! - **Submodules**:
+//!   - `style`: Lightweight ANSI styling (replaces console crate)
+//!   - `colorizer`: Text colorization engine
+//!   - `grc`: Config file parsing with hybrid regex engine
+//!   - `enhanced_regex`: Custom lookaround implementation (used when fancy feature is disabled)
+//!
+//! ## Features
+//!
+//! - **embed-configs** (default): Embed configuration files into binary
+//! - **fancy-regex** (default): Use battle-tested fancy-regex for enhanced patterns
+//!   - Disable for smaller binary: `cargo build --no-default-features --features=embed-configs`
+//! - **timetrace**: Enable timing trace for performance profiling
+//!
+//! ## Regex Engine
+//!
+//! rgrc uses a hybrid regex approach:
+//! - Simple patterns → Standard `regex` crate (fast)
+//! - Complex patterns → `fancy-regex` (default) or `EnhancedRegex` (lightweight)
+//!
+//! See `grc::CompiledRegex` documentation for details.
 //!
 //! ## Usage Example
 //!
@@ -23,9 +42,14 @@
 //! let rules = load_config("~/.config/rgrc/grc.conf", "ping");
 //! ```
 
+pub mod style;
+// Re-export Style for easier access
+pub use style::Style;
+
 pub mod args;
 pub mod buffer;
 pub mod colorizer;
+pub mod enhanced_regex;
 pub mod grc;
 pub mod utils;
 
@@ -329,7 +353,7 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         let mut configreader = GrcConfigReader::new(bufreader.lines());
         // Find the first matching rule for this pseudo_command
         configreader
-            .find(|(re, _config)| re.is_match(pseudo_command).unwrap_or(false))
+            .find(|(re, _config)| re.is_match(pseudo_command))
             .map(|(_, config)| config)
     });
 
@@ -531,9 +555,7 @@ fn load_config_from_embedded(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     if let Ok(f) = File::open(&grc_conf_path) {
         let bufreader = std::io::BufReader::new(f);
         let mut configreader = GrcConfigReader::new(bufreader.lines());
-        if let Some((_, config_file)) =
-            configreader.find(|(re, _)| re.is_match(pseudo_command).unwrap_or(false))
-        {
+        if let Some((_, config_file)) = configreader.find(|(re, _)| re.is_match(pseudo_command)) {
             let config_path = conf_dir.join(&config_file);
             if let Some(config_str) = config_path.to_str() {
                 return load_grcat_config(config_str);

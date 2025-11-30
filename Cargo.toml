@@ -1,6 +1,6 @@
 [package]
 name = "rgrc"
-version = "0.4.3"
+version = "0.5.1"
 edition = "2024"
 license = "MIT"
 description = "Rusty Generic Colouriser"
@@ -11,22 +11,31 @@ categories = ["command-line-utilities"]
 readme = "README.md"
 
 [dependencies]
-console = "^0.16.1"
-lazy_static = "^1.5.0"
-fancy-regex = "^0.16.2"
+regex = "^1.12"
 mimalloc = "^0.1.43"
+fancy-regex = { version = "0.16", optional = true }
 
 [dev-dependencies]
 tempfile = "3.0"
-regex = "1"
 assert_cmd = "2"
 assert_fs = "1"
 predicates = "2"
+criterion = "0.5"
+
+[[bench]]
+name = "enhanced_regex_bench"
+harness = false
 
 [features]
+# Default features: embed configs and use EnhancedRegex for enhanced patterns
 default = ["embed-configs"]
+# Embed configuration files into the binary
 embed-configs = []
+# Enable timing trace for performance profiling
 timetrace = []
+# Use battle-tested fancy-regex for enhanced regex (supports backreferences, variable-length lookbehind, etc.)
+# Without this feature, uses lightweight EnhancedRegex (supports fixed-length lookahead/lookbehind only)
+fancy-regex = ["dep:fancy-regex"]
 
 [profile.release]
 panic = "abort"

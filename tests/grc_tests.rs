@@ -3,6 +3,12 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
 // Include the modules from src
+#[path = "../src/style.rs"]
+mod style;
+
+#[path = "../src/enhanced_regex.rs"]
+mod enhanced_regex;
+
 #[path = "../src/grc.rs"]
 mod grc;
 
@@ -52,8 +58,8 @@ mod grc_config_reader_tests {
                 !config_file.is_empty(),
                 "Config file path should not be empty"
             );
-            // Test that regex can match something
-            assert!(regex.is_match("test").is_ok(), "Regex should be valid");
+            // Test that regex can match something (is_match now returns bool directly)
+            let _ = regex.is_match("test"); // Just verify it doesn't panic
         }
 
         println!(
@@ -101,13 +107,9 @@ mod grc_config_reader_tests {
         let reader = BufReader::new(file);
         let grc_reader = GrcConfigReader::new(reader.lines());
 
-        for (regex, config_file) in grc_reader {
-            // Test that each regex can be used for matching
-            assert!(
-                regex.is_match("").is_ok(),
-                "Regex from {} should be valid",
-                config_file
-            );
+        for (regex, _config_file) in grc_reader {
+            // Test that each regex can be used for matching (is_match now returns bool directly)
+            let _ = regex.is_match(""); // Just verify it doesn't panic
         }
     }
 
@@ -241,7 +243,7 @@ mod grcat_config_reader_tests {
 
         // Verify each entry has valid regex
         for entry in &entries {
-            assert!(entry.regex.is_match("").is_ok(), "Regex should be valid");
+            let _ = entry.regex.is_match(""); // Just verify it doesn't panic
         }
 
         println!("conf.ls contains {} pattern entries", entries.len());
@@ -304,7 +306,7 @@ mod grcat_config_reader_tests {
         let mut total_regexes_tested = 0;
 
         for conf_file in &conf_files {
-            let filename = conf_file.file_name().unwrap().to_string_lossy();
+            let _filename = conf_file.file_name().unwrap().to_string_lossy();
 
             if let Ok(file) = File::open(conf_file) {
                 let reader = BufReader::new(file);
@@ -312,10 +314,8 @@ mod grcat_config_reader_tests {
 
                 for entry in grcat_reader {
                     // Test that each regex can match an empty string without errors
-                    match entry.regex.is_match("") {
-                        Ok(_) => total_regexes_tested += 1,
-                        Err(e) => panic!("Invalid regex in {}: {:?}", filename, e),
-                    }
+                    let _ = entry.regex.is_match(""); // is_match now returns bool directly
+                    total_regexes_tested += 1;
                 }
 
                 files_tested += 1;
@@ -335,19 +335,15 @@ mod grcat_config_reader_tests {
         let conf_files = get_all_conf_files();
 
         for conf_file in &conf_files {
-            let filename = conf_file.file_name().unwrap().to_string_lossy();
+            let _filename = conf_file.file_name().unwrap().to_string_lossy();
 
             if let Ok(file) = File::open(conf_file) {
                 let reader = BufReader::new(file);
                 let grcat_reader = GrcatConfigReader::new(reader.lines());
 
                 for entry in grcat_reader {
-                    // Each entry should have a valid regex
-                    assert!(
-                        entry.regex.is_match("").is_ok(),
-                        "Entry in {} has invalid regex",
-                        filename
-                    );
+                    // Each entry should have a valid regex (is_match now returns bool directly)
+                    let _ = entry.regex.is_match(""); // Just verify it doesn't panic
 
                     // Colors vector can be empty (default) or contain styles
                     // Just verify it's a valid vector
@@ -908,12 +904,8 @@ mod edge_case_tests {
                 let grcat_reader = GrcatConfigReader::new(reader.lines());
 
                 for entry in grcat_reader {
-                    // Verify complex regexes are properly parsed
-                    assert!(
-                        entry.regex.is_match("test").is_ok(),
-                        "Complex regex in {} should be valid",
-                        filename
-                    );
+                    // Verify complex regexes are properly parsed (is_match now returns bool directly)
+                    let _ = entry.regex.is_match("test"); // Just verify it doesn't panic
                 }
             }
         }
