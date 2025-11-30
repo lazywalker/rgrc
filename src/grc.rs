@@ -32,6 +32,7 @@
 use std::io::{BufRead, Lines};
 
 use crate::enhanced_regex::EnhancedRegex;
+use crate::style::Style;
 
 /// Custom error type for regex compilation
 #[derive(Debug)]
@@ -183,7 +184,7 @@ impl<'t> Match<'t> {
 /// Parse a single space-separated style keyword and apply it to a Style.
 ///
 /// This function processes grcat-style color and attribute keywords and builds up a composite
-/// `console::Style` object. It handles multiple space-separated style keywords in a single call,
+/// `Style` object. It handles multiple space-separated style keywords in a single call,
 /// applying them sequentially to create combined effects (e.g., bold red text).
 ///
 /// ## Supported Keywords
@@ -191,74 +192,73 @@ impl<'t> Match<'t> {
 /// **Foreground colors:**
 /// - `black`, `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`
 ///
-pub fn style_from_str(text: &str) -> Result<console::Style, String> {
-    text.split(' ')
-        .try_fold(console::Style::new(), |style, word| {
-            // Handle ANSI escape sequences like "\033[38;5;140m"
-            if word.starts_with('"') && word.contains("\\033[") {
-                // Skip ANSI escape codes for now - they're raw color codes
-                return Ok(style);
+pub fn style_from_str(text: &str) -> Result<Style, String> {
+    text.split(' ').try_fold(Style::new(), |style, word| {
+        // Handle ANSI escape sequences like "\033[38;5;140m"
+        if word.starts_with('"') && word.contains("\\033[") {
+            // Skip ANSI escape codes for now - they're raw color codes
+            return Ok(style);
+        }
+        match word {
+            // Empty string or no-op keywords - return style unchanged
+            "" => Ok(style),
+            "unchanged" => Ok(style),
+            "default" => Ok(style),
+            "dark" => Ok(style),
+            "none" => Ok(style),
+
+            // Foreground colors - standard ANSI colors
+            "black" => Ok(style.black()),
+            "red" => Ok(style.red()),
+            "green" => Ok(style.green()),
+            "yellow" => Ok(style.yellow()),
+            "blue" => Ok(style.blue()),
+            "magenta" => Ok(style.magenta()),
+            "cyan" => Ok(style.cyan()),
+            "white" => Ok(style.white()),
+
+            // Background colors - with on_ prefix for background
+            "on_black" => Ok(style.on_black()),
+            "on_red" => Ok(style.on_red()),
+            "on_green" => Ok(style.on_green()),
+            "on_yellow" => Ok(style.on_yellow()),
+            "on_blue" => Ok(style.on_blue()),
+            "on_magenta" => Ok(style.on_magenta()),
+            "on_cyan" => Ok(style.on_cyan()),
+            "on_white" => Ok(style.on_white()),
+
+            // Text attributes - styling options
+            "bold" => Ok(style.bold()),
+            "underline" => Ok(style.underlined()),
+            "italic" => Ok(style.italic()),
+            "blink" => Ok(style.blink()),
+            "reverse" => Ok(style.reverse()),
+
+            // Bright color variants - high-intensity colors
+            "bright_black" => Ok(style.bright().black()),
+            "bright_red" => Ok(style.bright().red()),
+            "bright_green" => Ok(style.bright().green()),
+            "bright_yellow" => Ok(style.bright().yellow()),
+            "bright_blue" => Ok(style.bright().blue()),
+            "bright_magenta" => Ok(style.bright().magenta()),
+            "bright_cyan" => Ok(style.bright().cyan()),
+            "bright_white" => Ok(style.bright().white()),
+
+            // Unknown keyword - log and return error
+            _ => {
+                // Return a descriptive error (used in callers/tests to detect invalid styles)
+                let msg = format!("unhandled style: {}", word);
+                println!("{}", msg);
+                Err(msg)
             }
-            match word {
-                // Empty string or no-op keywords - return style unchanged
-                "" => Ok(style),
-                "unchanged" => Ok(style),
-                "default" => Ok(style),
-                "dark" => Ok(style),
-                "none" => Ok(style),
-
-                // Foreground colors - standard ANSI colors
-                "black" => Ok(style.black()),
-                "red" => Ok(style.red()),
-                "green" => Ok(style.green()),
-                "yellow" => Ok(style.yellow()),
-                "blue" => Ok(style.blue()),
-                "magenta" => Ok(style.magenta()),
-                "cyan" => Ok(style.cyan()),
-                "white" => Ok(style.white()),
-
-                // Background colors - with on_ prefix for background
-                "on_black" => Ok(style.on_black()),
-                "on_red" => Ok(style.on_red()),
-                "on_green" => Ok(style.on_green()),
-                "on_yellow" => Ok(style.on_yellow()),
-                "on_blue" => Ok(style.on_blue()),
-                "on_magenta" => Ok(style.on_magenta()),
-                "on_cyan" => Ok(style.on_cyan()),
-                "on_white" => Ok(style.on_white()),
-
-                // Text attributes - styling options
-                "bold" => Ok(style.bold()),
-                "underline" => Ok(style.underlined()),
-                "italic" => Ok(style.italic()),
-                "blink" => Ok(style.blink()),
-                "reverse" => Ok(style.reverse()),
-
-                // Bright color variants - high-intensity colors
-                "bright_black" => Ok(style.bright().black()),
-                "bright_red" => Ok(style.bright().red()),
-                "bright_green" => Ok(style.bright().green()),
-                "bright_yellow" => Ok(style.bright().yellow()),
-                "bright_blue" => Ok(style.bright().blue()),
-                "bright_magenta" => Ok(style.bright().magenta()),
-                "bright_cyan" => Ok(style.bright().cyan()),
-                "bright_white" => Ok(style.bright().white()),
-
-                // Unknown keyword - log and return error
-                _ => {
-                    // Return a descriptive error (used in callers/tests to detect invalid styles)
-                    let msg = format!("unhandled style: {}", word);
-                    println!("{}", msg);
-                    Err(msg)
-                }
-            }
-        })
+        }
+    })
 }
 
 /// Parse a comma-separated list of style keywords into a vector of Styles.
 ///
 /// This function processes a comma-separated style specification string (as used in grcat config)
-/// and converts it into a vector of `console::Style` objects. Each comma-separated section is
+/// and converts it into a vector of `Style` objects. Each comma-separated section is
 /// passed individually to `style_from_str()` for parsing.
 ///
 /// ## Format
@@ -309,7 +309,7 @@ pub fn style_from_str(text: &str) -> Result<console::Style, String> {
 /// assert!(styles_from_str("bold red,invalid_color,green").is_err());
 /// ```
 #[allow(dead_code)]
-pub fn styles_from_str(text: &str) -> Result<Vec<console::Style>, String> {
+pub fn styles_from_str(text: &str) -> Result<Vec<Style>, String> {
     text.split(',').map(style_from_str).collect()
 }
 
@@ -723,7 +723,7 @@ impl<A: BufRead> GrcatConfigReader<A> {
 /// ## Structure
 ///
 /// - **regex** - A compiled `fancy_regex::Regex` pattern to match against output text
-/// - **colors** - A vector of `console::Style` objects corresponding to capture groups
+/// - **colors** - A vector of `Style` objects corresponding to capture groups
 ///
 /// ## Semantics
 ///
@@ -745,7 +745,7 @@ impl<A: BufRead> GrcatConfigReader<A> {
 ///
 /// ```ignore
 /// use fancy_regex::Regex;
-/// use console::Style;
+/// use rgrc::style::Style;
 /// use rgrc::grc::GrcatConfigEntry;
 ///
 /// let regex = Regex::new(r"^(ERROR|WARN) (\d+ms)$").unwrap();
@@ -806,7 +806,7 @@ pub struct GrcatConfigEntry {
     /// The compiled regex pattern (hybrid: fast standard regex or fancy-regex)
     pub regex: CompiledRegex,
     /// Styles to apply to capture groups (index 0 = group 1, index 1 = group 2, etc.)
-    pub colors: Vec<console::Style>,
+    pub colors: Vec<Style>,
     /// If true, this rule should be ignored at runtime (treated as disabled).
     pub skip: bool,
     /// How many times to apply this rule per line (Once/More/Stop).
@@ -833,7 +833,7 @@ impl GrcatConfigEntry {
     ///
     /// ```ignore
     /// use fancy_regex::Regex;
-    /// use console::Style;
+    /// use rgrc::style::Style;
     /// use rgrc::grc::GrcatConfigEntry;
     ///
     /// let regex = Regex::new(r"^(ERROR|WARN) (\d+ms)$").unwrap();
@@ -844,7 +844,7 @@ impl GrcatConfigEntry {
     /// let entry = GrcatConfigEntry::new(regex, colors);
     /// ```
     #[allow(dead_code)]
-    pub fn new(regex: CompiledRegex, colors: Vec<console::Style>) -> Self {
+    pub fn new(regex: CompiledRegex, colors: Vec<Style>) -> Self {
         GrcatConfigEntry {
             regex,
             colors,
@@ -870,7 +870,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
     /// 2. **Parse key=value pairs**: Loop through consecutive alphanumeric lines
     /// 3. **Extract keys**: Parse "regexp=..." and "colours=..." assignments
     /// 4. **Validate regex**: Compile the regexp string; skip entry if invalid
-    /// 5. **Parse styles**: Convert colour specification to console::Style vector
+    /// 5. **Parse styles**: Convert colour specification to Style vector
     /// 6. **Check boundaries**: Use `following()` to detect end of entry
     /// 7. **Return or skip**: Yield entry if valid regex found, otherwise skip
     ///
@@ -932,7 +932,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
         while let Some(line) = self.next_alphanumeric() {
             ln = line;
             let mut regex: Option<CompiledRegex> = None;
-            let mut colors: Option<Vec<console::Style>> = None;
+            let mut colors: Option<Vec<Style>> = None;
             let mut skip: Option<bool> = None;
             let mut count: Option<GrcatConfigEntryCount> = None;
             let mut replace: Option<String> = None;

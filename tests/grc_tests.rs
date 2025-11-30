@@ -3,6 +3,9 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
 // Include the modules from src
+#[path = "../src/style.rs"]
+mod style;
+
 #[path = "../src/enhanced_regex.rs"]
 mod enhanced_regex;
 

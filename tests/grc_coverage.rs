@@ -199,7 +199,7 @@ fn test_grcat_reader_empty_colours_vector() {
 #[test]
 fn test_grcat_config_entry_new() {
     let regex = CompiledRegex::new(r"test").unwrap();
-    let style = console::Style::new().red();
+    let style = rgrc::style::Style::new().red();
     let entry = GrcatConfigEntry::new(regex, vec![style]);
 
     assert_eq!(entry.count, GrcatConfigEntryCount::More);

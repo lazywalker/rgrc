@@ -9,7 +9,7 @@
 //!
 //! - **ColorMode**: Controls whether color output is enabled (On/Off/Auto)
 //! - **Configuration Loading**: Functions to load colorization rules from config files
-//! - **Submodules**: colorizer (text colorization), grc (config file parsing)
+//! - **Submodules**: style (ANSI styling), colorizer (text colorization), grc (config file parsing)
 //!
 //! ## Usage Example
 //!
@@ -22,6 +22,10 @@
 //! // Load colorization rules for a specific command
 //! let rules = load_config("~/.config/rgrc/grc.conf", "ping");
 //! ```
+
+pub mod style;
+// Re-export Style for easier access
+pub use style::Style;
 
 pub mod args;
 pub mod buffer;

@@ -4,9 +4,9 @@
 mod common;
 
 use common::{run_colorize, strip_ansi};
-use console::Style;
 use rgrc::colorizer::colorize_regex;
 use rgrc::grc::{CompiledRegex, GrcatConfigEntry, GrcatConfigEntryCount};
+use rgrc::style::Style;
 use std::io::Cursor;
 
 // ═══════════════════════════════════════════════════════════════════════════════

@@ -136,23 +136,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let color_mode = args.color;
     let command_name = args.command.first().unwrap();
 
-    // First check if console supports colors at all
-    // If not, treat as Off mode - no colorization, skip piping
-    let console_supports_colors = console::colors_enabled();
-
-    let should_colorize = if !console_supports_colors {
-        // Console doesn't support colors, equivalent to Off mode
-        console::set_colors_enabled(false);
-        false
-    } else {
-        // Console supports colors, apply the color mode
-        console::set_colors_enabled(true);
-
-        match color_mode {
-            ColorMode::Off => false,
-            ColorMode::On | ColorMode::Auto => {
-                should_use_colorization_for_command_supported(command_name)
-            }
+    // Determine if we should colorize based on color mode
+    let should_colorize = match color_mode {
+        ColorMode::Off => false,
+        ColorMode::On | ColorMode::Auto => {
+            should_use_colorization_for_command_supported(command_name)
         }
     };
 

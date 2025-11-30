@@ -1,11 +1,4 @@
-// Additional grc parsing and style parsing edge-case tests
-#[path = "../src/enhanced_regex.rs"]
-mod enhanced_regex;
-
-#[path = "../src/grc.rs"]
-mod grc;
-
-use grc::{GrcConfigReader, GrcatConfigEntryCount, GrcatConfigReader};
+use rgrc::grc::{GrcConfigReader, GrcatConfigEntryCount, GrcatConfigReader};
 use std::io::BufRead;
 
 // Note: private helpers style_from_str / styles_from_str are exercised indirectly
