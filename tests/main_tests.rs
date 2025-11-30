@@ -458,7 +458,7 @@ mod cli_integration_tests {
         assert_eq!(stdout.trim(), expected);
     }
 
-    /// CLI Test: --completions bash generates shell completion script
+    /// CLI Test: --completions generates shell completion scripts (space-separated)
     #[test]
     fn test_completions_bash() {
         let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
@@ -471,6 +471,43 @@ mod cli_integration_tests {
         assert!(
             stdout.contains("_rgrc") || stdout.contains("compdef") || stdout.contains("complete")
         );
+    }
+
+    /// CLI Test: --completions=SHELL generates shell completion scripts (equals format)
+    #[test]
+    fn test_completions_with_equals() {
+        // Test zsh with equals format
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .arg("--completions=zsh")
+            .output()
+            .expect("failed to run rgrc --completions=zsh");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("#compdef rgrc"));
+
+        // Test fish with equals format
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .arg("--completions=fish")
+            .output()
+            .expect("failed to run rgrc --completions=fish");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("fish completion"));
+    }
+
+    /// CLI Test: --completions= with empty value should fail
+    #[test]
+    fn test_completions_empty_value() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .arg("--completions=")
+            .output()
+            .expect("failed to run rgrc --completions=");
+
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("Missing value for --completions"));
     }
 
     /// CLI Test: --completions with unsupported shell fails

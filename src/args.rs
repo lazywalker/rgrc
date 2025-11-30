@@ -79,6 +79,32 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
         std::process::exit(1);
     }
 
+    // Helper function to parse argument value from either "--arg value" or "--arg=value"
+    fn parse_arg_value<'a>(
+        args: &'a [String],
+        index: usize,
+        arg_name: &str,
+    ) -> Result<(&'a str, usize), String> {
+        let arg = args[index].as_str();
+        let prefix = format!("--{}=", arg_name);
+
+        if let Some(value) = arg.strip_prefix(&prefix) {
+            // Handle --arg=value format
+            if value.is_empty() {
+                return Err(format!("Missing value for --{}", arg_name));
+            }
+            Ok((value, index + 1))
+        } else if arg == format!("--{}", arg_name) {
+            // Handle --arg value format
+            if index + 1 >= args.len() {
+                return Err(format!("Missing value for --{}", arg_name));
+            }
+            Ok((args[index + 1].as_str(), index + 2))
+        } else {
+            Err(format!("Unexpected argument format: {}", arg))
+        }
+    }
+
     let mut color = ColorMode::Auto;
     let mut command = Vec::new();
     let mut show_aliases = false;
@@ -91,70 +117,52 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
     let mut i = 0;
     while i < args.len() {
         let arg = args[i].as_str();
-        if let Some(value) = arg.strip_prefix("--color=") {
-            // Handle --color=value format
-            color = match value {
-                "on" => ColorMode::On,
-                "off" => ColorMode::Off,
-                "auto" => ColorMode::Auto,
-                _ => return Err(format!("Invalid color mode: {}", value)),
-            };
-            i += 1;
-        } else {
-            match arg {
-                "--color" => {
-                    if i + 1 >= args.len() {
-                        return Err("Missing value for --color".to_string());
-                    }
-                    color = match args[i + 1].as_str() {
-                        "on" => ColorMode::On,
-                        "off" => ColorMode::Off,
-                        "auto" => ColorMode::Auto,
-                        _ => return Err(format!("Invalid color mode: {}", args[i + 1])),
-                    };
-                    i += 2;
-                }
-                "--aliases" => {
-                    show_aliases = true;
-                    i += 1;
-                }
-                "--all-aliases" => {
-                    show_all_aliases = true;
-                    i += 1;
-                }
-                "--except" => {
-                    if i + 1 >= args.len() {
-                        return Err("Missing value for --except".to_string());
-                    }
-                    // Split comma-separated values
-                    except_aliases.extend(args[i + 1].split(',').map(|s| s.trim().to_string()));
-                    i += 2;
-                }
-                "--flush-cache" => {
-                    flush_cache = true;
-                    i += 1;
-                }
-                "--version" | "-v" => {
-                    show_version = true;
-                    i += 1;
-                }
-                "--help" | "-h" => {
-                    print_help();
-                    std::process::exit(0);
-                }
-                "--completions" => {
-                    // next arg must be the shell name
-                    if i + 1 >= args.len() {
-                        return Err("Missing value for --completions".to_string());
-                    }
-                    show_completions = Some(args[i + 1].clone());
-                    i += 2;
-                }
-                _ => {
-                    // Everything else is treated as command arguments
-                    command.extend_from_slice(&args[i..]);
-                    break;
-                }
+        match arg {
+            arg if arg.starts_with("--color") => {
+                let (value, next_i) = parse_arg_value(&args, i, "color")?;
+                color = match value {
+                    "on" => ColorMode::On,
+                    "off" => ColorMode::Off,
+                    "auto" => ColorMode::Auto,
+                    _ => return Err(format!("Invalid color mode: {}", value)),
+                };
+                i = next_i;
+            }
+            arg if arg.starts_with("--except") => {
+                let (value, next_i) = parse_arg_value(&args, i, "except")?;
+                // Split comma-separated values
+                except_aliases.extend(value.split(',').map(|s| s.trim().to_string()));
+                i = next_i;
+            }
+            arg if arg.starts_with("--completions") => {
+                let (value, next_i) = parse_arg_value(&args, i, "completions")?;
+                show_completions = Some(value.to_string());
+                i = next_i;
+            }
+            "--aliases" => {
+                show_aliases = true;
+                i += 1;
+            }
+            "--all-aliases" => {
+                show_all_aliases = true;
+                i += 1;
+            }
+            "--flush-cache" => {
+                flush_cache = true;
+                i += 1;
+            }
+            "--version" | "-v" => {
+                show_version = true;
+                i += 1;
+            }
+            "--help" | "-h" => {
+                print_help();
+                std::process::exit(0);
+            }
+            _ => {
+                // Everything else is treated as command arguments
+                command.extend_from_slice(&args[i..]);
+                break;
             }
         }
     }
@@ -359,11 +367,59 @@ mod tests {
         let args = result.unwrap();
         assert!(args.show_version);
 
-        // Test --completions
+        // Test --completions with space-separated value
         let result = parse_args_helper(vec!["--completions", "bash"]);
         assert!(result.is_ok());
         let args = result.unwrap();
         assert_eq!(args.show_completions, Some("bash".to_string()));
+
+        // Test --completions with equals sign (--completions=SHELL)
+        let result = parse_args_helper(vec!["--completions=zsh"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.show_completions, Some("zsh".to_string()));
+
+        // Test --completions=fish
+        let result = parse_args_helper(vec!["--completions=fish"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.show_completions, Some("fish".to_string()));
+
+        // Test --completions=ash
+        let result = parse_args_helper(vec!["--completions=ash"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.show_completions, Some("ash".to_string()));
+
+        // Test --color with space-separated value
+        let result = parse_args_helper(vec!["--color", "on", "ls"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.color, ColorMode::On);
+
+        // Test --color with equals sign (--color=value)
+        let result = parse_args_helper(vec!["--color=off", "ls"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.color, ColorMode::Off);
+
+        // Test --color=auto
+        let result = parse_args_helper(vec!["--color=auto", "df"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.color, ColorMode::Auto);
+
+        // Test --except with space-separated value
+        let result = parse_args_helper(vec!["--except", "ls,df", "--all-aliases"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.except_aliases, vec!["ls", "df"]);
+
+        // Test --except with equals sign (--except=value)
+        let result = parse_args_helper(vec!["--except=ls,df,ps", "--all-aliases"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.except_aliases, vec!["ls", "df", "ps"]);
     }
 
     #[test]
@@ -396,6 +452,25 @@ mod tests {
                 .unwrap_err()
                 .contains("Missing value for --completions")
         );
+
+        // Empty value for --completions= should be an error
+        let result = parse_args_helper(vec!["--completions="]);
+        assert!(result.is_err());
+        assert!(
+            result
+                .unwrap_err()
+                .contains("Missing value for --completions")
+        );
+
+        // Empty value for --color= should be an error
+        let result = parse_args_helper(vec!["--color=", "ls"]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Missing value for --color"));
+
+        // Empty value for --except= should be an error
+        let result = parse_args_helper(vec!["--except=", "--all-aliases"]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Missing value for --except"));
     }
 
     // Helper function to test parse_args without std::env::args dependency
