@@ -9,7 +9,26 @@
 //!
 //! - **ColorMode**: Controls whether color output is enabled (On/Off/Auto)
 //! - **Configuration Loading**: Functions to load colorization rules from config files
-//! - **Submodules**: style (ANSI styling), colorizer (text colorization), grc (config file parsing)
+//! - **Submodules**:
+//!   - `style`: Lightweight ANSI styling (replaces console crate)
+//!   - `colorizer`: Text colorization engine
+//!   - `grc`: Config file parsing with hybrid regex engine
+//!   - `enhanced_regex`: Custom lookaround implementation (used when fancy feature is disabled)
+//!
+//! ## Features
+//!
+//! - **embed-configs** (default): Embed configuration files into binary
+//! - **fancy-regex** (default): Use battle-tested fancy-regex for enhanced patterns
+//!   - Disable for smaller binary: `cargo build --no-default-features --features=embed-configs`
+//! - **timetrace**: Enable timing trace for performance profiling
+//!
+//! ## Regex Engine
+//!
+//! rgrc uses a hybrid regex approach:
+//! - Simple patterns → Standard `regex` crate (fast)
+//! - Complex patterns → `fancy-regex` (default) or `EnhancedRegex` (lightweight)
+//!
+//! See `grc::CompiledRegex` documentation for details.
 //!
 //! ## Usage Example
 //!

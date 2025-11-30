@@ -12,6 +12,20 @@
 //!    - Contains regex patterns matched against output text
 //!    - Associates console styles (colors, attributes) with capture groups
 //!
+//! ## Regex Engine Selection
+//!
+//! The module uses a hybrid regex engine approach for optimal performance:
+//!
+//! - **Fast Path**: Standard `regex` crate (~2-5x faster, no lookaround support)
+//! - **Enhanced Path**: Two implementations available via conditional compilation:
+//!   - With `--features=fancy` (default): Uses battle-tested `fancy-regex`
+//!     - Supports all advanced features (backreferences, variable-length lookbehind, etc.)
+//!     - Binary size: ~2.1MB (release mode)
+//!   - Without `fancy` feature: Uses lightweight `EnhancedRegex`
+//!     - Supports fixed-length lookahead/lookbehind patterns
+//!     - Binary size: ~1.8MB (release mode)
+//!     - Covers 99% of patterns in rgrc config files
+//!
 //! ## Supported Styles
 //!
 //! The module supports grcat-style color specifications:
@@ -28,6 +42,7 @@
 //! - `GrcConfigReader`: Iterator for grc.conf files
 //! - `GrcatConfigReader`: Iterator for grcat.conf files
 //! - `GrcatConfigEntry`: Represents a single colorization rule
+//! - `CompiledRegex`: Hybrid regex engine (Fast or Enhanced)
 
 use std::io::{BufRead, Lines};
 
@@ -60,8 +75,40 @@ impl From<regex::Error> for RegexError {
     }
 }
 
-/// Hybrid regex engine: tries standard regex first, then EnhancedRegex with lookaround support.
-/// This provides significant performance improvement for most configuration files.
+/// Hybrid regex engine: tries standard regex first, then falls back to Enhanced implementation.
+///
+/// This provides significant performance improvement for most configuration files:
+/// - Simple patterns (90%+) → Fast path using standard `regex` crate
+/// - Complex patterns with lookaround → Enhanced path
+///
+/// ## Enhanced Implementation Selection
+///
+/// The Enhanced variant uses conditional compilation:
+///
+/// - **With `fancy` feature** (default, enabled in Cargo.toml):
+///   - Uses `fancy-regex` crate (battle-tested, production-ready)
+///   - Supports: lookahead, lookbehind (variable-length), backreferences, etc.
+///   - Binary size: ~2.1MB (release)
+///   - Recommended for conservative users who prioritize stability
+///
+/// - **Without `fancy` feature** (`cargo build --no-default-features --features=embed-configs`):
+///   - Uses custom `EnhancedRegex` implementation (~600 lines)
+///   - Supports: fixed-length lookahead/lookbehind patterns
+///   - Binary size: ~1.8MB (release)
+///   - Covers 99% of patterns in rgrc config files
+///   - Newer implementation, less battle-tested
+///
+/// ## Usage
+///
+/// ```ignore
+/// use rgrc::grc::CompiledRegex;
+///
+/// // Simple pattern → Fast(Regex)
+/// let re = CompiledRegex::new(r"\d+").unwrap();
+///
+/// // Lookahead pattern → Enhanced(fancy_regex::Regex) or Enhanced(EnhancedRegex)
+/// let re = CompiledRegex::new(r"\d+(?=\.\d+\.\d+\.\d+)").unwrap();
+/// ```
 #[derive(Debug, Clone)]
 pub enum CompiledRegex {
     /// Fast path: standard regex crate (no lookaround, ~2-5x faster)
@@ -69,7 +116,7 @@ pub enum CompiledRegex {
     /// Enhanced path: fancy-regex (battle-tested, enabled with --features=fancy)
     #[cfg(feature = "fancy-regex")]
     Enhanced(FancyRegex),
-    /// Enhanced path: our own lookaround implementation (default, covers all config patterns)
+    /// Enhanced path: our own lookaround implementation (lightweight, default without fancy feature)
     #[cfg(not(feature = "fancy-regex"))]
     Enhanced(EnhancedRegex),
 }

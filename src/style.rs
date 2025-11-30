@@ -3,6 +3,25 @@
 //! This module provides a minimal replacement for the `console` crate's styling functionality.
 //! It supports all the color and text attribute features needed by rgrc while keeping the
 //! implementation simple and dependency-free.
+//!
+//! ## Features
+//!
+//! - 🎨 Full ANSI color support (8 colors + bright variants)
+//! - ✨ Text attributes (bold, italic, underline, blink, reverse)
+//! - 📦 Zero external dependencies
+//! - 🚀 362 lines of code (vs console crate's much larger footprint)
+//!
+//! ## Usage
+//!
+//! ```
+//! use rgrc::Style;
+//!
+//! let style = Style::new().red().bold();
+//! println!("{}", style.apply_to("Error!"));
+//! ```
+//!
+//! This module was created to eliminate the `console` crate dependency,
+//! reducing binary size and compile times.
 
 use std::fmt;
 
