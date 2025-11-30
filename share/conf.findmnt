@@ -2,8 +2,8 @@
 regexp=\s\/dev(?:\/([^\/ ]+))+
 colours=green, bold green
 -
-# Mount Path
-regexp=(?<=─|-)(?:\/([^\/ ]+))+
+# Mount Path - matches path components after tree branch characters
+regexp=[─-](?:\/([^\/ ]+))+
 colours=unchanged,bold yellow
 -
 # RW

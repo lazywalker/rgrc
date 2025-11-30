@@ -9,12 +9,12 @@ colours=bold red
 count=more
 ========
 # new lines
-regexp=^\>([^\>].*|$)
+regexp=^>([^>].*|$)
 colours=bold green
 count=more
 =======
 # removed lines
-regexp=^\<([^\<].*|$)
+regexp=^<([^<].*|$)
 colours=bold red
 count=more
 =======

@@ -222,27 +222,31 @@ fn validate_conf_files(args: &[String]) {
 /// Validate grc.conf format
 fn validate_grc_content(content: &str, path: &Path, errors: &mut Vec<ValidationError>) {
     let reader = BufReader::new(content.as_bytes());
-    let mut line_num = 0;
-    let mut i = 0;
     let lines: Vec<String> = reader.lines().filter_map(|l| l.ok()).collect();
+    let mut i = 0;
 
     while i < lines.len() {
-        line_num += 1;
         let line = &lines[i];
         let trimmed = line.trim();
+        let line_num = i + 1;
 
         // Skip empty lines and comments
         if trimmed.is_empty() || trimmed.starts_with('#') {
             i += 1;
-            line_num += 1;
+            continue;
+        }
+
+        // Skip separator lines (lines consisting only of = or - characters)
+        if trimmed.chars().all(|c| c == '=' || c == '-') {
+            i += 1;
             continue;
         }
 
         // This is a regex pattern - next line should be the config file
         let regex_pattern = trimmed;
 
-        // Validate regex
-        if let Err(e) = regex::Regex::new(regex_pattern) {
+        // Validate regex using CompiledRegex (supports lookahead/lookbehind)
+        if let Err(e) = rgrc::grc::CompiledRegex::new(regex_pattern) {
             errors.push(ValidationError {
                 path: path.to_path_buf(),
                 line: line_num,
@@ -251,18 +255,24 @@ fn validate_grc_content(content: &str, path: &Path, errors: &mut Vec<ValidationE
                 suggestion: Some("Check regex syntax (escape special characters with \\)".to_string()),
             });
             i += 1;
-            line_num += 1;
             continue;
         }
 
-        // Next line should be config file name
+        // Find next content line (skip comments and empty lines)
         i += 1;
-        line_num += 1;
+        while i < lines.len() {
+            let next_line = lines[i].trim();
+            if next_line.is_empty() || next_line.starts_with('#') || next_line.chars().all(|c| c == '=' || c == '-') {
+                i += 1;
+                continue;
+            }
+            break;
+        }
 
         if i >= lines.len() {
             errors.push(ValidationError {
                 path: path.to_path_buf(),
-                line: line_num - 1,
+                line: line_num,
                 error_type: "FormatError".to_string(),
                 message: "Missing config file reference after regex pattern".to_string(),
                 suggestion: Some("Add config file name on next line, e.g., conf.ping".to_string()),
@@ -271,41 +281,28 @@ fn validate_grc_content(content: &str, path: &Path, errors: &mut Vec<ValidationE
         }
 
         let config_line = lines[i].trim();
-        if config_line.is_empty() || config_line.starts_with('#') {
+        let config_line_num = i + 1;
+
+        // Validate config file reference
+        if !config_line.starts_with("conf.") {
             errors.push(ValidationError {
                 path: path.to_path_buf(),
-                line: line_num,
+                line: config_line_num,
                 error_type: "FormatError".to_string(),
-                message: "Expected config file reference after regex pattern".to_string(),
-                suggestion: Some("Format:\n  regex_pattern\n  conf.name".to_string()),
+                message: format!("Config file should start with 'conf.': {}", config_line),
+                suggestion: Some("Format: conf.name".to_string()),
             });
-            continue;
-        }
-
-        // Check if config file exists
-        let config_path = Path::new(config_line);
-        if !config_path.exists() && !config_line.starts_with("conf.") {
-            // Try in share directory
-            let share_path = Path::new("share").join(config_line);
-            if !share_path.exists() {
-                errors.push(ValidationError {
-                    path: path.to_path_buf(),
-                    line: line_num,
-                    error_type: "FileNotFound".to_string(),
-                    message: format!("Config file not found: {}", config_line),
-                    suggestion: Some(format!("Create {} or check file name", config_line)),
-                });
-            }
         }
 
         i += 1;
-        line_num += 1;
     }
 }
 
-/// Validate conf.* file format
+/// Validate conf.* file format (supports both GRC key=value format and simple format)
 fn validate_conf_content(content: &str, path: &Path, errors: &mut Vec<ValidationError>) {
     let reader = BufReader::new(content.as_bytes());
+    // Regex pattern to parse key=value lines
+    let kv_re = regex::Regex::new(r"^([a-z_]+)\s*=\s*(.*)$").unwrap();
 
     for (line_num, line_result) in reader.lines().enumerate() {
         let line_num = line_num + 1;
@@ -329,53 +326,130 @@ fn validate_conf_content(content: &str, path: &Path, errors: &mut Vec<Validation
             continue;
         }
 
-        // Expected format: regex\s+[style definition]
-        if !trimmed.contains(' ') && !trimmed.contains('\t') {
-            errors.push(ValidationError {
-                path: path.to_path_buf(),
-                line: line_num,
-                error_type: "FormatError".to_string(),
-                message: "Missing style definition (regex must be separated from style by whitespace)".to_string(),
-                suggestion: Some("Format: regex white bold red".to_string()),
-            });
+        // Skip separator lines (lines consisting only of separator characters)
+        if trimmed.chars().all(|c| c == '=' || c == '-' || c == '.' || c == '%') {
             continue;
         }
 
-        // Split regex from styles
-        let parts: Vec<&str> = trimmed.splitn(2, char::is_whitespace).collect();
-        if parts.len() < 2 {
-            continue;
+        // Try to parse as GRC key=value format first
+        if let Some(caps) = kv_re.captures(trimmed) {
+            let key = caps.get(1).unwrap().as_str();
+            let value = caps.get(2).unwrap().as_str();
+
+            match key {
+                "regexp" => {
+                    // Validate regex - try standard regex first, then enhanced
+                    if regex::Regex::new(value).is_err() {
+                        // Try enhanced regex (for lookahead/lookbehind patterns)
+                        if rgrc::grc::CompiledRegex::new(value).is_err() {
+                            errors.push(ValidationError {
+                                path: path.to_path_buf(),
+                                line: line_num,
+                                error_type: "RegexError".to_string(),
+                                message: format!("Invalid regex pattern: {}", value),
+                                suggestion: Some("Check regex syntax (escape special characters with \\)".to_string()),
+                            });
+                        }
+                    }
+                }
+                "colours" | "colors" => {
+                    // Validate colour definitions (comma-separated styles)
+                    validate_colours_definition(value, line_num, path, errors);
+                }
+                "count" => {
+                    // Validate count value
+                    if !["once", "more", "stop", "previous", "block", "unblock"].contains(&value) {
+                        errors.push(ValidationError {
+                            path: path.to_path_buf(),
+                            line: line_num,
+                            error_type: "ValueError".to_string(),
+                            message: format!("Unknown count value: '{}'", value),
+                            suggestion: Some("Valid values: once, more, stop".to_string()),
+                        });
+                    }
+                }
+                "skip" => {
+                    // Validate skip value
+                    let lower = value.to_lowercase();
+                    if !["true", "false", "yes", "no", "1", "0"].contains(&lower.as_str()) {
+                        errors.push(ValidationError {
+                            path: path.to_path_buf(),
+                            line: line_num,
+                            error_type: "ValueError".to_string(),
+                            message: format!("Unknown skip value: '{}'", value),
+                            suggestion: Some("Valid values: true, false, yes, no".to_string()),
+                        });
+                    }
+                }
+                "replace" => {
+                    // Replace value is free-form, no validation needed
+                }
+                _ => {
+                    // Unknown key - this is acceptable, GRC format may have other keys
+                }
+            }
+        } else {
+            // Try simple format: regex whitespace styles
+            if !trimmed.contains(' ') && !trimmed.contains('\t') {
+                errors.push(ValidationError {
+                    path: path.to_path_buf(),
+                    line: line_num,
+                    error_type: "FormatError".to_string(),
+                    message: "Missing style definition (regex must be separated from style by whitespace)".to_string(),
+                    suggestion: Some("Format: regex white bold red".to_string()),
+                });
+                continue;
+            }
+
+            // Split regex from styles
+            let parts: Vec<&str> = trimmed.splitn(2, char::is_whitespace).collect();
+            if parts.len() < 2 {
+                continue;
+            }
+
+            let regex_part = parts[0];
+            let style_part = parts[1];
+
+            // Validate regex
+            if regex::Regex::new(regex_part).is_err() {
+                // Try enhanced regex
+                if rgrc::grc::CompiledRegex::new(regex_part).is_err() {
+                    errors.push(ValidationError {
+                        path: path.to_path_buf(),
+                        line: line_num,
+                        error_type: "RegexError".to_string(),
+                        message: format!("Invalid regex: {}", regex_part),
+                        suggestion: Some("Check regex syntax (escape special characters with \\)".to_string()),
+                    });
+                    continue;
+                }
+            }
+
+            // Validate styles (simple format uses space-separated styles)
+            validate_simple_style_definition(style_part, line_num, path, errors);
         }
-
-        let regex_part = parts[0];
-        let style_part = parts[1];
-
-        // Validate regex
-        if let Err(e) = regex::Regex::new(regex_part) {
-            errors.push(ValidationError {
-                path: path.to_path_buf(),
-                line: line_num,
-                error_type: "RegexError".to_string(),
-                message: format!("Invalid regex: {}", e),
-                suggestion: Some("Check regex syntax (escape special characters with \\)".to_string()),
-            });
-            continue;
-        }
-
-        // Validate styles
-        validate_style_definition(style_part, line_num, path, errors);
     }
 }
 
-/// Validate style definition
-fn validate_style_definition(style_def: &str, line_num: usize, path: &Path, errors: &mut Vec<ValidationError>) {
+/// Validate simple format style definition (space-separated styles on same line as regex)
+fn validate_simple_style_definition(style_def: &str, line_num: usize, path: &Path, errors: &mut Vec<ValidationError>) {
+    // Valid style keywords for simple format (includes hyphenated variants)
     let valid_styles = vec![
+        // No-op keywords
+        "", "unchanged", "default", "dark", "none",
+        // Foreground colors
         "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
-        "bright-black", "bright-red", "bright-green", "bright-yellow",
-        "bright-blue", "bright-magenta", "bright-cyan", "bright-white",
+        // Background colors
         "on_black", "on_red", "on_green", "on_yellow", "on_blue",
         "on_magenta", "on_cyan", "on_white",
+        // Text attributes
         "bold", "dim", "italic", "underline", "blink", "reverse",
+        // Bright color variants (underscore)
+        "bright_black", "bright_red", "bright_green", "bright_yellow",
+        "bright_blue", "bright_magenta", "bright_cyan", "bright_white",
+        // Bright color variants (hyphen - for backward compatibility)
+        "bright-black", "bright-red", "bright-green", "bright-yellow",
+        "bright-blue", "bright-magenta", "bright-cyan", "bright-white",
     ];
 
     for style in style_def.split_whitespace() {
@@ -385,8 +459,50 @@ fn validate_style_definition(style_def: &str, line_num: usize, path: &Path, erro
                 line: line_num,
                 error_type: "StyleError".to_string(),
                 message: format!("Unknown style: '{}'", style),
-                suggestion: Some(format!("Valid styles: {}", valid_styles[0..8].join(", "))),
+                suggestion: Some("Valid styles: black, red, green, yellow, blue, magenta, cyan, white, bold, underline, etc.".to_string()),
             });
+        }
+    }
+}
+
+/// Validate colours definition (comma-separated style groups)
+fn validate_colours_definition(colours_def: &str, line_num: usize, path: &Path, errors: &mut Vec<ValidationError>) {
+    // Valid style keywords (matching grc.rs style_from_str)
+    let valid_styles = vec![
+        // No-op keywords
+        "", "unchanged", "default", "dark", "none",
+        // Foreground colors
+        "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white",
+        // Background colors
+        "on_black", "on_red", "on_green", "on_yellow", "on_blue",
+        "on_magenta", "on_cyan", "on_white",
+        // Text attributes
+        "bold", "dim", "italic", "underline", "blink", "reverse",
+        // Bright color variants
+        "bright_black", "bright_red", "bright_green", "bright_yellow",
+        "bright_blue", "bright_magenta", "bright_cyan", "bright_white",
+    ];
+
+    // Split by comma to get individual style groups (for capture groups)
+    for style_group in colours_def.split(',') {
+        let style_group = style_group.trim();
+        
+        // Skip ANSI escape sequences (e.g., "\033[38;5;140m")
+        if style_group.starts_with('"') && style_group.contains("\\033[") {
+            continue;
+        }
+        
+        // Validate each space-separated style within the group
+        for style in style_group.split_whitespace() {
+            if !valid_styles.contains(&style) {
+                errors.push(ValidationError {
+                    path: path.to_path_buf(),
+                    line: line_num,
+                    error_type: "StyleError".to_string(),
+                    message: format!("Unknown style: '{}'", style),
+                    suggestion: Some("Valid styles: black, red, green, yellow, blue, magenta, cyan, white, bold, underline, etc.".to_string()),
+                });
+            }
         }
     }
 }
