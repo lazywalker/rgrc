@@ -17,9 +17,6 @@ fancy-regex = { version = "0.16", optional = true }
 
 [dev-dependencies]
 tempfile = "3.0"
-assert_cmd = "2"
-assert_fs = "1"
-predicates = "2"
 criterion = "0.5"
 
 [[bench]]
