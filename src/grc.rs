@@ -31,8 +31,12 @@
 
 use std::io::{BufRead, Lines};
 
+#[cfg(not(feature = "fancy-regex"))]
 use crate::enhanced_regex::EnhancedRegex;
 use crate::style::Style;
+#[cfg(feature = "fancy-regex")]
+use fancy_regex::Regex as FancyRegex;
+use regex::Regex;
 
 /// Custom error type for regex compilation
 #[derive(Debug)]
@@ -61,8 +65,12 @@ impl From<regex::Error> for RegexError {
 #[derive(Debug, Clone)]
 pub enum CompiledRegex {
     /// Fast path: standard regex crate (no lookaround, ~2-5x faster)
-    Fast(regex::Regex),
-    /// Enhanced path: our own lookaround implementation (covers all config patterns)
+    Fast(Regex),
+    /// Enhanced path: fancy-regex (battle-tested, enabled with --features=fancy)
+    #[cfg(feature = "fancy-regex")]
+    Enhanced(FancyRegex),
+    /// Enhanced path: our own lookaround implementation (default, covers all config patterns)
+    #[cfg(not(feature = "fancy-regex"))]
     Enhanced(EnhancedRegex),
 }
 
@@ -71,14 +79,25 @@ impl CompiledRegex {
     /// Tries standard regex first, then falls back to EnhancedRegex for lookaround patterns.
     pub fn new(pattern: &str) -> Result<Self, RegexError> {
         // Try standard regex first (fastest, but no lookaround)
-        if let Ok(re) = regex::Regex::new(pattern) {
+        if let Ok(re) = Regex::new(pattern) {
             return Ok(CompiledRegex::Fast(re));
         }
 
-        // Fall back to EnhancedRegex (supports lookaround patterns)
-        EnhancedRegex::new(pattern)
-            .map(CompiledRegex::Enhanced)
-            .map_err(RegexError::from)
+        // Fall back to Enhanced regex implementation
+        #[cfg(feature = "fancy-regex")]
+        {
+            // Use battle-tested fancy-regex when enabled
+            FancyRegex::new(pattern)
+                .map(CompiledRegex::Enhanced)
+                .map_err(|e| RegexError::Syntax(e.to_string()))
+        }
+        #[cfg(not(feature = "fancy-regex"))]
+        {
+            // Use our own EnhancedRegex implementation (default)
+            EnhancedRegex::new(pattern)
+                .map(CompiledRegex::Enhanced)
+                .map_err(RegexError::from)
+        }
     }
 
     /// Check if the regex matches anywhere in the text.
@@ -86,6 +105,9 @@ impl CompiledRegex {
     pub fn is_match(&self, text: &str) -> bool {
         match self {
             CompiledRegex::Fast(re) => re.is_match(text),
+            #[cfg(feature = "fancy-regex")]
+            CompiledRegex::Enhanced(re) => re.is_match(text).unwrap_or(false),
+            #[cfg(not(feature = "fancy-regex"))]
             CompiledRegex::Enhanced(re) => re.is_match(text),
         }
     }
@@ -99,6 +121,15 @@ impl CompiledRegex {
                 re.captures(&text[pos..])
                     .map(|caps| Captures::Fast(caps, pos))
             }
+            #[cfg(feature = "fancy-regex")]
+            CompiledRegex::Enhanced(re) => {
+                // fancy-regex: convert to our Captures format
+                re.captures(&text[pos..])
+                    .ok()
+                    .flatten()
+                    .map(|caps| Captures::Fancy(caps, pos))
+            }
+            #[cfg(not(feature = "fancy-regex"))]
             CompiledRegex::Enhanced(re) => {
                 // EnhancedRegex: convert to our Captures format
                 re.captures_from_pos(text, pos)
@@ -112,6 +143,9 @@ impl CompiledRegex {
     pub fn as_str(&self) -> &str {
         match self {
             CompiledRegex::Fast(re) => re.as_str(),
+            #[cfg(feature = "fancy-regex")]
+            CompiledRegex::Enhanced(re) => re.as_str(),
+            #[cfg(not(feature = "fancy-regex"))]
             CompiledRegex::Enhanced(re) => re.as_str(),
         }
     }
@@ -122,6 +156,8 @@ impl CompiledRegex {
 #[allow(dead_code)]
 pub enum Captures<'t> {
     Fast(regex::Captures<'t>, usize), // offset for position adjustment
+    #[cfg(feature = "fancy-regex")]
+    Fancy(fancy_regex::Captures<'t>, usize), // fancy-regex captures with offset
 }
 
 impl<'t> Captures<'t> {
@@ -130,6 +166,8 @@ impl<'t> Captures<'t> {
     pub fn get(&self, index: usize) -> Option<Match<'t>> {
         match self {
             Captures::Fast(caps, offset) => caps.get(index).map(|m| Match::Fast(m, *offset)),
+            #[cfg(feature = "fancy-regex")]
+            Captures::Fancy(caps, offset) => caps.get(index).map(|m| Match::Fancy(m, *offset)),
         }
     }
 
@@ -138,6 +176,8 @@ impl<'t> Captures<'t> {
     pub fn len(&self) -> usize {
         match self {
             Captures::Fast(caps, _) => caps.len(),
+            #[cfg(feature = "fancy-regex")]
+            Captures::Fancy(caps, _) => caps.len(),
         }
     }
 
@@ -161,6 +201,8 @@ impl<'t> Captures<'t> {
 #[allow(dead_code)]
 pub enum Match<'t> {
     Fast(regex::Match<'t>, usize), // offset for position adjustment
+    #[cfg(feature = "fancy-regex")]
+    Fancy(fancy_regex::Match<'t>, usize), // fancy-regex match with offset
 }
 
 impl<'t> Match<'t> {
@@ -169,6 +211,8 @@ impl<'t> Match<'t> {
     pub fn start(&self) -> usize {
         match self {
             Match::Fast(m, offset) => m.start() + offset,
+            #[cfg(feature = "fancy-regex")]
+            Match::Fancy(m, offset) => m.start() + offset,
         }
     }
 
@@ -177,6 +221,8 @@ impl<'t> Match<'t> {
     pub fn end(&self) -> usize {
         match self {
             Match::Fast(m, offset) => m.end() + offset,
+            #[cfg(feature = "fancy-regex")]
+            Match::Fancy(m, offset) => m.end() + offset,
         }
     }
 }
@@ -437,7 +483,7 @@ impl<A: BufRead> GrcConfigReader<A> {
         // But NOT:
         // - "^ping" (regex line)
         // - "conf.ping" (config path line)
-        let re = regex::Regex::new("^[- \t]*(#|$)").unwrap();
+        let re = Regex::new("^[- \t]*(#|$)").unwrap();
         for line in &mut self.inner {
             match line {
                 Ok(line2) => {
@@ -493,7 +539,7 @@ impl<A: BufRead> GrcConfigReader<A> {
 /// }
 /// ```
 impl<A: BufRead> Iterator for GrcConfigReader<A> {
-    type Item = (regex::Regex, String);
+    type Item = (Regex, String);
 
     /// Return the next (regex, config_file_path) pair from the grc.conf file.
     ///
@@ -513,7 +559,7 @@ impl<A: BufRead> Iterator for GrcConfigReader<A> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(regexp) = self.next_content_line() {
             if let Some(filename) = self.next_content_line() {
-                if let Ok(re) = regex::Regex::new(&regexp) {
+                if let Ok(re) = Regex::new(&regexp) {
                     // Successfully compiled regex, return the rule pair
                     Some((re, filename))
                 } else {
@@ -656,7 +702,7 @@ impl<A: BufRead> GrcatConfigReader<A> {
     /// 3. `"regexp=^WARN"`
     fn next_alphanumeric(&mut self) -> Option<String> {
         // Pattern ^[a-zA-Z0-9] matches lines starting with a letter or digit
-        let alphanumeric = regex::Regex::new("^[a-zA-Z0-9]").unwrap();
+        let alphanumeric = Regex::new("^[a-zA-Z0-9]").unwrap();
         for line in (&mut self.inner).flatten() {
             // Skip non-matching lines (comments, blanks)
             if alphanumeric.is_match(&line) {
@@ -698,7 +744,7 @@ impl<A: BufRead> GrcatConfigReader<A> {
     ///   - Any line starting with non-alphanumeric: "---", "$", etc.
     fn following(&mut self) -> Option<String> {
         // Pattern ^[a-zA-Z0-9] matches lines starting with a letter or digit
-        let alphanumeric = regex::Regex::new("^[a-zA-Z0-9]").unwrap();
+        let alphanumeric = Regex::new("^[a-zA-Z0-9]").unwrap();
         if let Some(Ok(line)) = self.inner.next() {
             // If line starts with alphanumeric, it's part of this entry
             if alphanumeric.is_match(&line) {
@@ -926,7 +972,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
         // - "regexp=^ERROR"
         // - "colours = bold red, yellow"
         // - "key = value with spaces"
-        let re = regex::Regex::new("^([a-z_]+)\\s*=\\s*(.*)$").unwrap();
+        let re = Regex::new("^([a-z_]+)\\s*=\\s*(.*)$").unwrap();
         let mut ln: String;
 
         while let Some(line) = self.next_alphanumeric() {

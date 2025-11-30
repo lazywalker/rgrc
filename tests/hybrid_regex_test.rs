@@ -56,8 +56,9 @@ fn test_lookbehind_pattern_uses_enhanced() {
 }
 
 #[test]
+#[cfg(not(feature = "fancy-regex"))]
 fn test_backreference_fails() {
-    // Pattern with backreference is not supported
+    // Pattern with backreference is not supported by EnhancedRegex
     let pattern = r"(\w+)\s+\1";
     let compiled = CompiledRegex::new(pattern);
 
@@ -67,6 +68,32 @@ fn test_backreference_fails() {
         "Backreference pattern should fail to compile"
     );
     println!("✓ Backreference pattern correctly fails to compile (not supported)");
+}
+
+#[test]
+#[cfg(feature = "fancy-regex")]
+fn test_backreference_works_with_fancy() {
+    // Pattern with backreference is supported by fancy-regex
+    let pattern = r"(\w+)\s+\1";
+    let compiled = CompiledRegex::new(pattern);
+
+    // With fancy-regex, backreferences should work
+    assert!(
+        compiled.is_ok(),
+        "Backreference pattern should compile with fancy-regex"
+    );
+    println!("✓ Backreference pattern works with fancy-regex");
+
+    let regex = compiled.unwrap();
+    // Test that it actually matches duplicated words
+    assert!(
+        regex.is_match("hello hello"),
+        "Should match duplicated word"
+    );
+    assert!(
+        !regex.is_match("hello world"),
+        "Should not match different words"
+    );
 }
 
 #[test]

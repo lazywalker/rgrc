@@ -13,6 +13,7 @@ readme = "README.md"
 [dependencies]
 regex = "^1.12"
 mimalloc = "^0.1.43"
+fancy-regex = { version = "0.16", optional = true }
 
 [dev-dependencies]
 tempfile = "3.0"
@@ -26,9 +27,10 @@ name = "enhanced_regex_bench"
 harness = false
 
 [features]
-default = ["embed-configs"]
+default = ["embed-configs", "fancy-regex"]
 embed-configs = []
 timetrace = []
+fancy-regex = ["dep:fancy-regex"]
 
 [profile.release]
 panic = "abort"
