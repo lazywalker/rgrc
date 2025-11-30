@@ -47,6 +47,7 @@ pub enum CompiledRegex {
 impl CompiledRegex {
     /// Compile a regex pattern, automatically selecting the fastest engine.
     /// Tries standard regex first, falls back to fancy-regex if needed.
+    #[allow(clippy::result_large_err)]
     pub fn new(pattern: &str) -> Result<Self, fancy_regex::Error> {
         // Try standard regex first (faster but limited features)
         match regex::Regex::new(pattern) {
@@ -59,6 +60,7 @@ impl CompiledRegex {
     }
 
     /// Check if the regex matches anywhere in the text.
+    #[allow(clippy::result_large_err)]
     pub fn is_match(&self, text: &str) -> Result<bool, fancy_regex::Error> {
         match self {
             CompiledRegex::Fast(re) => Ok(re.is_match(text)),
@@ -67,18 +69,24 @@ impl CompiledRegex {
     }
 
     /// Find all capture groups starting from the given position.
-    pub fn captures_from_pos<'t>(&self, text: &'t str, pos: usize) -> Result<Option<Captures<'t>>, fancy_regex::Error> {
+    #[allow(clippy::result_large_err)]
+    pub fn captures_from_pos<'t>(
+        &self,
+        text: &'t str,
+        pos: usize,
+    ) -> Result<Option<Captures<'t>>, fancy_regex::Error> {
         match self {
             CompiledRegex::Fast(re) => {
                 // Standard regex: convert to our Captures format
-                Ok(re.captures(&text[pos..])
+                Ok(re
+                    .captures(&text[pos..])
                     .map(|caps| Captures::Fast(caps, pos)))
-            },
+            }
             CompiledRegex::Fancy(re) => {
                 // Fancy regex: use native captures_from_pos
                 re.captures_from_pos(text, pos)
                     .map(|opt| opt.map(Captures::Fancy))
-            },
+            }
         }
     }
 
@@ -102,12 +110,8 @@ impl<'t> Captures<'t> {
     /// Get a capture group by index (0 = full match, 1+ = groups).
     pub fn get(&self, index: usize) -> Option<Match<'t>> {
         match self {
-            Captures::Fast(caps, offset) => {
-                caps.get(index).map(|m| Match::Fast(m, *offset))
-            },
-            Captures::Fancy(caps) => {
-                caps.get(index).map(Match::Fancy)
-            },
+            Captures::Fast(caps, offset) => caps.get(index).map(|m| Match::Fast(m, *offset)),
+            Captures::Fancy(caps) => caps.get(index).map(Match::Fancy),
         }
     }
 
@@ -117,6 +121,11 @@ impl<'t> Captures<'t> {
             Captures::Fast(caps, _) => caps.len(),
             Captures::Fancy(caps) => caps.len(),
         }
+    }
+
+    /// Check if there are no capture groups.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Iterate over all capture groups by index.

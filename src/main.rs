@@ -183,7 +183,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Load rules if colorization is needed
     #[cfg(feature = "timetrace")]
-    let t_load_start = if record_time { Some(Instant::now()) } else { None };
+    let t_load_start = if record_time {
+        Some(Instant::now())
+    } else {
+        None
+    };
 
     let rules: Vec<GrcatConfigEntry> = if should_colorize {
         load_rules_for_command(&pseudo_command)
@@ -192,14 +196,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     #[cfg(feature = "timetrace")]
-    if let Some(start) = t_load_start {
-        if record_time {
-            eprintln!(
-                "[rgrc:time] load_rules_for_command: {:} in {:?}",
-                &pseudo_command,
-                start.elapsed()
-            );
-        }
+    if let Some(start) = t_load_start.filter(|_| record_time) {
+        eprintln!(
+            "[rgrc:time] load_rules_for_command: {:} in {:?}",
+            &pseudo_command,
+            start.elapsed()
+        );
     }
 
     // Spawn the command with appropriate stdout handling

@@ -33,7 +33,10 @@ fn rule(
     pattern: &str,
     style: console::Style,
 ) -> Result<GrcatConfigEntry, Box<dyn std::error::Error>> {
-    Ok(GrcatConfigEntry::new(CompiledRegex::new(pattern)?, vec![style]))
+    Ok(GrcatConfigEntry::new(
+        CompiledRegex::new(pattern)?,
+        vec![style],
+    ))
 }
 
 #[cfg(test)]
@@ -722,7 +725,10 @@ mod advanced_features_tests {
         );
         r1.count = GrcatConfigEntryCount::Stop;
 
-        let r2 = GrcatConfigEntry::new(CompiledRegex::new(r"Boom")?, vec![console::Style::new().blue()]);
+        let r2 = GrcatConfigEntry::new(
+            CompiledRegex::new(r"Boom")?,
+            vec![console::Style::new().blue()],
+        );
 
         let output = colorize_test("ERROR: Boom Boom\n", &[r1, r2])?;
         // Because r1 has count=Stop, only the first ERROR match is handled
@@ -736,10 +742,16 @@ mod advanced_features_tests {
     #[test]
     fn test_count_once_allows_other_rules() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let mut r1 = GrcatConfigEntry::new(CompiledRegex::new(r"o")?, vec![console::Style::new().green()]);
+        let mut r1 = GrcatConfigEntry::new(
+            CompiledRegex::new(r"o")?,
+            vec![console::Style::new().green()],
+        );
         r1.count = GrcatConfigEntryCount::Once;
 
-        let r2 = GrcatConfigEntry::new(CompiledRegex::new(r"boo")?, vec![console::Style::new().blue()]);
+        let r2 = GrcatConfigEntry::new(
+            CompiledRegex::new(r"boo")?,
+            vec![console::Style::new().blue()],
+        );
 
         let output = colorize_test("foo boo\n", &[r1, r2])?;
         // Both words should be present (at least one 'o' from foo and 'boo')
@@ -754,11 +766,16 @@ mod advanced_features_tests {
     #[test]
     fn test_replace_prevents_followup_rules() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let mut r1 =
-            GrcatConfigEntry::new(CompiledRegex::new(r"Hello (\w+)")?, vec![console::Style::new()]);
+        let mut r1 = GrcatConfigEntry::new(
+            CompiledRegex::new(r"Hello (\w+)")?,
+            vec![console::Style::new()],
+        );
         r1.replace = "\\1-XYZ".to_string();
 
-        let r2 = GrcatConfigEntry::new(CompiledRegex::new(r"XYZ")?, vec![console::Style::new().red()]);
+        let r2 = GrcatConfigEntry::new(
+            CompiledRegex::new(r"XYZ")?,
+            vec![console::Style::new().red()],
+        );
 
         let output = colorize_test("Hello world\n", &[r1, r2])?;
         // Replacement should be applied
@@ -772,7 +789,10 @@ mod advanced_features_tests {
     #[test]
     fn test_replace_with_multiple_backrefs() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let mut r = GrcatConfigEntry::new(CompiledRegex::new(r"(\w+)-(\d+)")?, vec![console::Style::new()]);
+        let mut r = GrcatConfigEntry::new(
+            CompiledRegex::new(r"(\w+)-(\d+)")?,
+            vec![console::Style::new()],
+        );
         r.replace = "\\2-\\1".to_string();
 
         let output = colorize_test("foo-123 bar\n", &[r])?;
@@ -787,7 +807,10 @@ mod advanced_features_tests {
     #[test]
     fn test_last_end_cache_optimization() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let r = GrcatConfigEntry::new(CompiledRegex::new(r"aa+")?, vec![console::Style::new().red()]);
+        let r = GrcatConfigEntry::new(
+            CompiledRegex::new(r"aa+")?,
+            vec![console::Style::new().red()],
+        );
 
         let output = colorize_test("aaaaa aaaaa aaaaa\n", &[r])?;
         assert!(output.contains("aaaaa"));
@@ -800,9 +823,16 @@ mod advanced_features_tests {
     #[test]
     fn test_multiple_style_boundaries() -> Result<(), Box<dyn std::error::Error>> {
         console::set_colors_enabled(true);
-        let r1 = GrcatConfigEntry::new(CompiledRegex::new(r"a")?, vec![console::Style::new().red()]);
-        let r2 = GrcatConfigEntry::new(CompiledRegex::new(r"b")?, vec![console::Style::new().green()]);
-        let r3 = GrcatConfigEntry::new(CompiledRegex::new(r"c")?, vec![console::Style::new().blue()]);
+        let r1 =
+            GrcatConfigEntry::new(CompiledRegex::new(r"a")?, vec![console::Style::new().red()]);
+        let r2 = GrcatConfigEntry::new(
+            CompiledRegex::new(r"b")?,
+            vec![console::Style::new().green()],
+        );
+        let r3 = GrcatConfigEntry::new(
+            CompiledRegex::new(r"c")?,
+            vec![console::Style::new().blue()],
+        );
 
         let output = colorize_test("abc\n", &[r1, r2, r3])?;
         // All characters should be present
@@ -821,7 +851,10 @@ mod advanced_features_tests {
         unsafe { std::env::set_var("RGRCTIME", "1") };
         console::set_colors_enabled(true);
 
-        let r = GrcatConfigEntry::new(CompiledRegex::new(r"test")?, vec![console::Style::new().red()]);
+        let r = GrcatConfigEntry::new(
+            CompiledRegex::new(r"test")?,
+            vec![console::Style::new().red()],
+        );
         let output = colorize_test("test\n", &[r])?;
         assert!(output.contains("test"));
 

@@ -47,10 +47,10 @@ data: rgrc.1.gz
 	@tar cvfz "${TARBALL}/${APP_NAME}-data-${APP_VERSION}.tar.gz" doc/*.gz etc/ share/
 
 lint:
-	cargo clippy --all
+	cargo clippy --all-features
 
 test:
-	cargo test
+	cargo test --all-features
 
 fmt:
 	cargo fmt --all
