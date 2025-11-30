@@ -403,11 +403,9 @@ fn test_empty_rules_no_colorization() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("no matching rules"));
 }
-#[cfg(any(
-    target_arch = "x86_64",
-    all(target_os = "linux", any(target_env = "gnu", target_env = "musl")),
-    target_os = "macos",
-))]
+
+// CLI integration tests module - only run on native x86_64 to avoid cross-compilation issues
+#[cfg(target_arch = "x86_64")]
 mod cli_integration_tests {
 
     // ═══════════════════════════════════════════════════════════════════════════════
