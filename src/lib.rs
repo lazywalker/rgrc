@@ -330,7 +330,7 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         let mut configreader = GrcConfigReader::new(bufreader.lines());
         // Find the first matching rule for this pseudo_command
         configreader
-            .find(|(re, _config)| re.is_match(pseudo_command).unwrap_or(false))
+            .find(|(re, _config)| re.is_match(pseudo_command))
             .map(|(_, config)| config)
     });
 
@@ -532,9 +532,7 @@ fn load_config_from_embedded(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     if let Ok(f) = File::open(&grc_conf_path) {
         let bufreader = std::io::BufReader::new(f);
         let mut configreader = GrcConfigReader::new(bufreader.lines());
-        if let Some((_, config_file)) =
-            configreader.find(|(re, _)| re.is_match(pseudo_command).unwrap_or(false))
-        {
+        if let Some((_, config_file)) = configreader.find(|(re, _)| re.is_match(pseudo_command)) {
             let config_path = conf_dir.join(&config_file);
             if let Some(config_str) = config_path.to_str() {
                 return load_grcat_config(config_str);

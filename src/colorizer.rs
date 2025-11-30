@@ -216,7 +216,7 @@ where
                 }
 
                 // Attempt regex match starting from current offset position
-                if let Ok(Some(matches)) = rule.regex.captures_from_pos(&line, offset) {
+                if let Some(matches) = rule.regex.captures_from_pos(&line, offset) {
                     // ═══════════════════════════════════════════════════════════════════════════════
                     // CAPTURE GROUP PROCESSING: Extract each matched subgroup
                     // ═══════════════════════════════════════════════════════════════════════════════

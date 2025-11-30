@@ -31,75 +31,75 @@
 
 use std::io::{BufRead, Lines};
 
-use fancy_regex::Regex as FancyRegex;
 use crate::enhanced_regex::EnhancedRegex;
 
-/// Hybrid regex engine: tries to use EnhancedRegex (self-implemented lookaround support),
-/// falls back to fancy-regex for complex patterns that EnhancedRegex can't handle.
-/// This provides 2-5x performance improvement for ~80% of configuration files.
+/// Custom error type for regex compilation
+#[derive(Debug)]
+pub enum RegexError {
+    Syntax(String),
+}
+
+impl std::fmt::Display for RegexError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RegexError::Syntax(msg) => write!(f, "Regex syntax error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for RegexError {}
+
+impl From<regex::Error> for RegexError {
+    fn from(err: regex::Error) -> Self {
+        RegexError::Syntax(err.to_string())
+    }
+}
+
+/// Hybrid regex engine: tries standard regex first, then EnhancedRegex with lookaround support.
+/// This provides significant performance improvement for most configuration files.
 #[derive(Debug, Clone)]
 pub enum CompiledRegex {
     /// Fast path: standard regex crate (no lookaround, ~2-5x faster)
     Fast(regex::Regex),
-    /// Enhanced path: our own lookaround implementation (covers 80% of fancy patterns)
+    /// Enhanced path: our own lookaround implementation (covers all config patterns)
     Enhanced(EnhancedRegex),
-    /// Fallback: fancy-regex for complex patterns (rare edge cases)
-    Fancy(FancyRegex),
 }
 
 impl CompiledRegex {
     /// Compile a regex pattern, automatically selecting the fastest engine.
-    /// Tries standard regex first, then EnhancedRegex, falls back to fancy-regex if needed.
-    #[allow(clippy::result_large_err)]
-    pub fn new(pattern: &str) -> Result<Self, fancy_regex::Error> {
+    /// Tries standard regex first, then falls back to EnhancedRegex for lookaround patterns.
+    pub fn new(pattern: &str) -> Result<Self, RegexError> {
         // Try standard regex first (fastest, but no lookaround)
         if let Ok(re) = regex::Regex::new(pattern) {
             return Ok(CompiledRegex::Fast(re));
         }
 
-        // Try EnhancedRegex (supports common lookaround patterns)
-        if let Ok(re) = EnhancedRegex::new(pattern) {
-            return Ok(CompiledRegex::Enhanced(re));
-        }
-
-        // Fall back to fancy-regex for complex patterns
-        FancyRegex::new(pattern).map(CompiledRegex::Fancy)
+        // Fall back to EnhancedRegex (supports lookaround patterns)
+        EnhancedRegex::new(pattern)
+            .map(CompiledRegex::Enhanced)
+            .map_err(RegexError::from)
     }
 
     /// Check if the regex matches anywhere in the text.
-    #[allow(clippy::result_large_err)]
-    pub fn is_match(&self, text: &str) -> Result<bool, fancy_regex::Error> {
+    pub fn is_match(&self, text: &str) -> bool {
         match self {
-            CompiledRegex::Fast(re) => Ok(re.is_match(text)),
-            CompiledRegex::Enhanced(re) => Ok(re.is_match(text)),
-            CompiledRegex::Fancy(re) => re.is_match(text),
+            CompiledRegex::Fast(re) => re.is_match(text),
+            CompiledRegex::Enhanced(re) => re.is_match(text),
         }
     }
 
     /// Find all capture groups starting from the given position.
-    #[allow(clippy::result_large_err)]
-    pub fn captures_from_pos<'t>(
-        &self,
-        text: &'t str,
-        pos: usize,
-    ) -> Result<Option<Captures<'t>>, fancy_regex::Error> {
+    pub fn captures_from_pos<'t>(&self, text: &'t str, pos: usize) -> Option<Captures<'t>> {
         match self {
             CompiledRegex::Fast(re) => {
                 // Standard regex: convert to our Captures format
-                Ok(re
-                    .captures(&text[pos..])
-                    .map(|caps| Captures::Fast(caps, pos)))
+                re.captures(&text[pos..])
+                    .map(|caps| Captures::Fast(caps, pos))
             }
             CompiledRegex::Enhanced(re) => {
                 // EnhancedRegex: convert to our Captures format
-                Ok(re
-                    .captures_from_pos(text, pos)
-                    .map(|caps| Captures::Fast(caps, 0)))
-            }
-            CompiledRegex::Fancy(re) => {
-                // Fancy regex: use native captures_from_pos
                 re.captures_from_pos(text, pos)
-                    .map(|opt| opt.map(Captures::Fancy))
+                    .map(|caps| Captures::Fast(caps, 0))
             }
         }
     }
@@ -109,16 +109,14 @@ impl CompiledRegex {
         match self {
             CompiledRegex::Fast(re) => re.as_str(),
             CompiledRegex::Enhanced(re) => re.as_str(),
-            CompiledRegex::Fancy(re) => re.as_str(),
         }
     }
 }
 
-/// Unified captures interface for both regex engines.
+/// Unified captures interface wrapping regex::Captures.
 #[derive(Debug)]
 pub enum Captures<'t> {
     Fast(regex::Captures<'t>, usize), // offset for position adjustment
-    Fancy(fancy_regex::Captures<'t>),
 }
 
 impl<'t> Captures<'t> {
@@ -126,7 +124,6 @@ impl<'t> Captures<'t> {
     pub fn get(&self, index: usize) -> Option<Match<'t>> {
         match self {
             Captures::Fast(caps, offset) => caps.get(index).map(|m| Match::Fast(m, *offset)),
-            Captures::Fancy(caps) => caps.get(index).map(Match::Fancy),
         }
     }
 
@@ -134,7 +131,6 @@ impl<'t> Captures<'t> {
     pub fn len(&self) -> usize {
         match self {
             Captures::Fast(caps, _) => caps.len(),
-            Captures::Fancy(caps) => caps.len(),
         }
     }
 
@@ -151,11 +147,10 @@ impl<'t> Captures<'t> {
     }
 }
 
-/// Unified match interface for both regex engines.
+/// Unified match interface wrapping regex::Match.
 #[derive(Debug, Clone, Copy)]
 pub enum Match<'t> {
     Fast(regex::Match<'t>, usize), // offset for position adjustment
-    Fancy(fancy_regex::Match<'t>),
 }
 
 impl<'t> Match<'t> {
@@ -163,7 +158,6 @@ impl<'t> Match<'t> {
     pub fn start(&self) -> usize {
         match self {
             Match::Fast(m, offset) => m.start() + offset,
-            Match::Fancy(m) => m.start(),
         }
     }
 
@@ -171,7 +165,6 @@ impl<'t> Match<'t> {
     pub fn end(&self) -> usize {
         match self {
             Match::Fast(m, offset) => m.end() + offset,
-            Match::Fancy(m) => m.end(),
         }
     }
 }
@@ -433,12 +426,12 @@ impl<A: BufRead> GrcConfigReader<A> {
         // But NOT:
         // - "^ping" (regex line)
         // - "conf.ping" (config path line)
-        let re = FancyRegex::new("^[- \t]*(#|$)").unwrap();
+        let re = regex::Regex::new("^[- \t]*(#|$)").unwrap();
         for line in &mut self.inner {
             match line {
                 Ok(line2) => {
                     // If line doesn't match the comment/empty pattern, it's a content line
-                    if !re.is_match(&line2).unwrap() {
+                    if !re.is_match(&line2) {
                         return Some(line2.trim().to_string());
                     }
                 }
@@ -489,7 +482,7 @@ impl<A: BufRead> GrcConfigReader<A> {
 /// }
 /// ```
 impl<A: BufRead> Iterator for GrcConfigReader<A> {
-    type Item = (FancyRegex, String);
+    type Item = (regex::Regex, String);
 
     /// Return the next (regex, config_file_path) pair from the grc.conf file.
     ///
@@ -509,7 +502,7 @@ impl<A: BufRead> Iterator for GrcConfigReader<A> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(regexp) = self.next_content_line() {
             if let Some(filename) = self.next_content_line() {
-                if let Ok(re) = FancyRegex::new(&regexp) {
+                if let Ok(re) = regex::Regex::new(&regexp) {
                     // Successfully compiled regex, return the rule pair
                     Some((re, filename))
                 } else {
@@ -652,10 +645,10 @@ impl<A: BufRead> GrcatConfigReader<A> {
     /// 3. `"regexp=^WARN"`
     fn next_alphanumeric(&mut self) -> Option<String> {
         // Pattern ^[a-zA-Z0-9] matches lines starting with a letter or digit
-        let alphanumeric = FancyRegex::new("^[a-zA-Z0-9]").unwrap();
+        let alphanumeric = regex::Regex::new("^[a-zA-Z0-9]").unwrap();
         for line in (&mut self.inner).flatten() {
             // Skip non-matching lines (comments, blanks)
-            if alphanumeric.is_match(&line).unwrap_or(false) {
+            if alphanumeric.is_match(&line) {
                 return Some(line.trim().to_string());
             }
         }
@@ -694,10 +687,10 @@ impl<A: BufRead> GrcatConfigReader<A> {
     ///   - Any line starting with non-alphanumeric: "---", "$", etc.
     fn following(&mut self) -> Option<String> {
         // Pattern ^[a-zA-Z0-9] matches lines starting with a letter or digit
-        let alphanumeric = FancyRegex::new("^[a-zA-Z0-9]").unwrap();
+        let alphanumeric = regex::Regex::new("^[a-zA-Z0-9]").unwrap();
         if let Some(Ok(line)) = self.inner.next() {
             // If line starts with alphanumeric, it's part of this entry
-            if alphanumeric.is_match(&line).unwrap_or(false) {
+            if alphanumeric.is_match(&line) {
                 Some(line)
             } else {
                 // Non-alphanumeric line marks end of entry
@@ -922,7 +915,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
         // - "regexp=^ERROR"
         // - "colours = bold red, yellow"
         // - "key = value with spaces"
-        let re = FancyRegex::new("^([a-z_]+)\\s*=\\s*(.*)$").unwrap();
+        let re = regex::Regex::new("^([a-z_]+)\\s*=\\s*(.*)$").unwrap();
         let mut ln: String;
 
         while let Some(line) = self.next_alphanumeric() {
@@ -937,7 +930,7 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
             // until we hit a non-alphanumeric line (entry boundary)
             loop {
                 // Parse the key=value pair from current line
-                let cap = re.captures(&ln).unwrap().unwrap();
+                let cap = re.captures(&ln).unwrap();
                 let key = cap.get(1).unwrap().as_str();
                 let value = cap.get(2).unwrap().as_str();
 

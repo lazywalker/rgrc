@@ -19,7 +19,7 @@ fn grcconfigreader_skips_comments_and_handles_incomplete_pair() {
 
     // first yields a valid pair
     let first = r.next().expect("expected first pair");
-    assert!(first.0.is_match("cmd1").unwrap());
+    assert!(first.0.is_match("cmd1")); // is_match now returns bool directly
     assert_eq!(first.1, "conf.cmd1");
 
     // then we hit an incomplete pattern-only rule; iterator should stop (None)

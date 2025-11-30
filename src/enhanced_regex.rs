@@ -23,7 +23,12 @@ pub enum Lookaround {
 
     /// Negative lookahead: (?!pattern)
     /// Asserts that the position is NOT followed by pattern
-    NegAhead { pattern: String, regex: Regex },
+    /// check_at_start: if true, check at match_start instead of match_end
+    NegAhead {
+        pattern: String,
+        regex: Regex,
+        check_at_start: bool,
+    },
 
     /// Negative lookbehind: (?<!pattern)
     /// Asserts that the position is NOT preceded by pattern
@@ -52,6 +57,16 @@ impl Lookaround {
         Ok(Lookaround::NegAhead {
             pattern: pattern.to_string(),
             regex: Regex::new(pattern)?,
+            check_at_start: false,
+        })
+    }
+
+    /// Create a negative lookahead that checks at match start
+    pub fn neg_ahead_at_start(pattern: &str) -> Result<Self, regex::Error> {
+        Ok(Lookaround::NegAhead {
+            pattern: pattern.to_string(),
+            regex: Regex::new(pattern)?,
+            check_at_start: true,
         })
     }
 
@@ -66,7 +81,21 @@ impl Lookaround {
     /// Verify if the lookaround condition is satisfied at the given match position
     pub fn verify(&self, text: &str, match_start: usize, match_end: usize) -> bool {
         match self {
-            Lookaround::Ahead { regex, .. } => {
+            Lookaround::Ahead { regex, pattern } => {
+                // Fast path for common patterns
+                if pattern == r"\s|$" || pattern == r"$|\s" {
+                    // Check if at end or followed by whitespace
+                    if match_end >= text.len() {
+                        return true;
+                    }
+                    let remaining_bytes = text.as_bytes();
+                    if match_end < remaining_bytes.len() {
+                        let ch = remaining_bytes[match_end];
+                        return ch == b' ' || ch == b'\t' || ch == b'\n' || ch == b'\r';
+                    }
+                    return false;
+                }
+
                 // Check if the pattern matches at the position after match_end
                 // For lookahead, we need to check if there's a match starting at match_end
                 let remaining = &text[match_end..];
@@ -91,9 +120,19 @@ impl Lookaround {
                     false
                 }
             }
-            Lookaround::NegAhead { regex, .. } => {
+            Lookaround::NegAhead {
+                regex,
+                check_at_start,
+                ..
+            } => {
                 // Opposite of positive lookahead
-                let remaining = &text[match_end..];
+                // For patterns like ^(?:(?!...)), check at match_start instead of match_end
+                let check_pos = if *check_at_start {
+                    match_start
+                } else {
+                    match_end
+                };
+                let remaining = &text[check_pos..];
                 if let Some(mat) = regex.find(remaining) {
                     // The match should NOT start at position 0
                     mat.start() != 0
@@ -156,16 +195,61 @@ impl EnhancedRegex {
 
     /// Find the first match in the text, starting from position `start`
     pub fn find_from_pos<'t>(&self, text: &'t str, start: usize) -> Option<regex::Match<'t>> {
+        // Fast path: no lookarounds
+        if self.lookarounds.is_empty() {
+            return self.main_regex.find_at(text, start);
+        }
+
         let mut pos = start;
 
         while pos < text.len() {
             if let Some(mat) = self.main_regex.find_at(text, pos) {
-                // Verify all lookaround conditions
-                if self.verify_lookarounds(text, mat.start(), mat.end()) {
+                let match_start = mat.start();
+                let match_end = mat.end();
+
+                // Try this match first
+                if self.verify_lookarounds(text, match_start, match_end) {
                     return Some(mat);
                 }
-                // Move past this match and continue searching
-                pos = mat.start() + 1;
+
+                // Backtrack: try shorter matches from the same start position
+                // This is needed because greedy quantifiers might match too much
+                // Optimize: only backtrack last 5 chars for patterns > 10 chars
+                let min_length = 1;
+                let backtrack_chars = if match_end - match_start > 10 {
+                    5
+                } else {
+                    match_end - match_start - min_length
+                };
+                let backtrack_start = match_end.saturating_sub(backtrack_chars);
+
+                if backtrack_start > match_start {
+                    for try_end in (match_start + min_length..=backtrack_start).rev() {
+                        let substring = &text[match_start..try_end];
+                        // Quick check: does substring match pattern at all?
+                        if let Some(sub_mat) = self.main_regex.find(substring) {
+                            if sub_mat.start() == 0 && sub_mat.end() == substring.len() {
+                                // Valid substring match, verify lookarounds
+                                if self.verify_lookarounds(text, match_start, try_end) {
+                                    // Return the shortened match
+                                    let restricted_text = &text[..try_end];
+                                    if let Some(final_mat) =
+                                        self.main_regex.find_at(restricted_text, match_start)
+                                    {
+                                        if final_mat.start() == match_start
+                                            && final_mat.end() == try_end
+                                        {
+                                            return Some(final_mat);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // No valid match from this start position, try next
+                pos = match_start + 1;
             } else {
                 break;
             }
@@ -207,7 +291,14 @@ impl EnhancedRegex {
     }
 
     /// Verify all lookaround conditions for a match
+    #[inline]
     fn verify_lookarounds(&self, text: &str, match_start: usize, match_end: usize) -> bool {
+        // Fast path: no lookarounds
+        if self.lookarounds.is_empty() {
+            return true;
+        }
+
+        // Check each lookaround
         for lookaround in &self.lookarounds {
             if !lookaround.verify(text, match_start, match_end) {
                 return false;
@@ -222,6 +313,7 @@ impl EnhancedRegex {
     }
 
     /// Get the original pattern string
+    #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
         &self.original_pattern
     }
@@ -247,6 +339,46 @@ impl<'r, 't> Iterator for EnhancedMatches<'r, 't> {
     }
 }
 
+/// Extract lookaround with proper bracket matching
+fn extract_lookaround_content(pattern: &str, start: usize) -> Option<(usize, String)> {
+    let chars: Vec<char> = pattern.chars().collect();
+    if start + 2 >= chars.len() {
+        return None;
+    }
+
+    // Should start with "(?"
+    if chars[start] != '(' || chars[start + 1] != '?' {
+        return None;
+    }
+
+    // Find matching closing paren
+    let mut depth = 1;
+    let mut i = start + 2;
+
+    while i < chars.len() && depth > 0 {
+        match chars[i] {
+            '(' => depth += 1,
+            ')' => depth -= 1,
+            '\\' => i += 1, // Skip escaped char
+            _ => {}
+        }
+        i += 1;
+    }
+
+    if depth == 0 {
+        let inner_start = start + 2; // Skip "(?"
+        // Find where the lookaround type ends
+        let mut type_end = inner_start;
+        while type_end < chars.len() && "=!<".contains(chars[type_end]) {
+            type_end += 1;
+        }
+        let content: String = chars[type_end..i - 1].iter().collect();
+        Some((i, content))
+    } else {
+        None
+    }
+}
+
 /// Parse a regex pattern and extract lookaround assertions
 ///
 /// Returns: (main_pattern, lookarounds)
@@ -255,29 +387,68 @@ fn parse_pattern(pattern: &str) -> Result<(String, Vec<Lookaround>), regex::Erro
     let mut lookarounds = Vec::new();
 
     // Extract lookarounds in order (important for correct behavior)
-    // We need to handle multiple lookarounds in a single pattern
-
-    // Pattern to match lookaround assertions
-    // This handles the most common cases seen in rgrc config files
-    let lookaround_regex = Regex::new(r"\(\?([=!]|<=|<!)((?:[^()]|\([^?][^)]*\))*)\)").unwrap();
+    // We need to handle multiple lookarounds including nested parentheses
 
     // Collect all lookarounds first (we'll remove them in reverse order to maintain positions)
     let mut found_lookarounds = Vec::new();
 
-    for cap in lookaround_regex.captures_iter(pattern) {
-        let full_match = cap.get(0).unwrap();
-        let lookaround_type = cap.get(1).unwrap().as_str();
-        let inner_pattern = cap.get(2).unwrap().as_str();
+    // Manual parsing to handle nested parentheses
+    let chars: Vec<char> = pattern.chars().collect();
+    let mut i = 0;
 
-        let lookaround = match lookaround_type {
-            "=" => Lookaround::ahead(inner_pattern)?,
-            "!" => Lookaround::neg_ahead(inner_pattern)?,
-            "<=" => Lookaround::behind(inner_pattern)?,
-            "<!" => Lookaround::neg_behind(inner_pattern)?,
-            _ => unreachable!(),
-        };
+    while i < chars.len() {
+        if i + 2 < chars.len() && chars[i] == '(' && chars[i + 1] == '?' {
+            // Check lookaround type
+            let lookaround_type = if i + 3 < chars.len() && chars[i + 2] == '<' {
+                if i + 4 < chars.len() {
+                    if chars[i + 3] == '=' {
+                        Some(("<=", 4))
+                    } else if chars[i + 3] == '!' {
+                        Some(("<!", 4))
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else if i + 3 < chars.len() {
+                if chars[i + 2] == '=' {
+                    Some(("=", 3))
+                } else if chars[i + 2] == '!' {
+                    Some(("!", 3))
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
 
-        found_lookarounds.push((full_match.start(), full_match.end(), lookaround));
+            if let Some((type_str, _type_len)) = lookaround_type {
+                if let Some((end_pos, inner_pattern)) = extract_lookaround_content(pattern, i) {
+                    let lookaround = match type_str {
+                        "=" => Lookaround::ahead(&inner_pattern)?,
+                        "!" => {
+                            // Special case: ^(?:(?!...)) should check at match start
+                            let prefix = &pattern[..i];
+                            let is_at_start = prefix.trim_start_matches('^').trim_start() == "(?:";
+                            if is_at_start {
+                                Lookaround::neg_ahead_at_start(&inner_pattern)?
+                            } else {
+                                Lookaround::neg_ahead(&inner_pattern)?
+                            }
+                        }
+                        "<=" => Lookaround::behind(&inner_pattern)?,
+                        "<!" => Lookaround::neg_behind(&inner_pattern)?,
+                        _ => unreachable!(),
+                    };
+
+                    found_lookarounds.push((i, end_pos, lookaround));
+                    i = end_pos;
+                    continue;
+                }
+            }
+        }
+        i += 1;
     }
 
     // Remove lookarounds from the pattern (in reverse order to maintain indices)
@@ -289,6 +460,17 @@ fn parse_pattern(pattern: &str) -> Result<(String, Vec<Lookaround>), regex::Erro
     // Remove lookarounds from pattern (reverse order)
     for (start, end, _) in found_lookarounds.iter().rev() {
         main_pattern.replace_range(*start..*end, "");
+    }
+
+    // Convert lazy quantifiers to greedy when lookarounds are present
+    // This is necessary because we need to try different match lengths
+    // to find one that satisfies the lookaround conditions.
+    // Lazy quantifiers cause find_at to only return the shortest match.
+    if !lookarounds.is_empty() {
+        main_pattern = main_pattern
+            .replace("+?", "+")
+            .replace("*?", "*")
+            .replace("??", "?");
     }
 
     Ok((main_pattern, lookarounds))
@@ -319,7 +501,14 @@ mod tests {
         let re = EnhancedRegex::new(r"\d+(?!\s)").unwrap();
         assert!(re.is_match("123"));
         assert!(re.is_match("123a"));
-        assert!(!re.is_match("123 "));
+        // "123 " should match "12" because greedy \d+ matches "123" first,
+        // lookahead fails (followed by space), then backtracking tries "12"
+        // and succeeds (followed by "3", not a space)
+        assert!(re.is_match("123 "));
+
+        // To test "no match after digits", use a pattern that matches the full string
+        let re2 = EnhancedRegex::new(r"^\d+(?!\s)$").unwrap();
+        assert!(!re2.is_match("123 "));
     }
 
     #[test]
@@ -329,7 +518,7 @@ mod tests {
         assert!(re.is_match("a123"));
         // Note: " 123" actually DOES match "23" (not preceded by space)
         // Even fancy-regex matches this way
-        assert!(re.is_match(" 123")); 
+        assert!(re.is_match(" 123"));
         // To truly test negative lookbehind, check the match position
         if let Some(m) = re.find_from_pos(" 123", 0) {
             // Should match "23", not "123"
