@@ -539,7 +539,8 @@ mod cli_integration_tests {
     /// 1. Existing cache directory is removed
     /// 2. Embedded configs are re-extracted to ~/.cache/rgrc
     /// 3. Success message is displayed with config count
-    /// Only available when embed-configs feature is enabled.
+    ///
+    ///    Only available when embed-configs feature is enabled.
     #[cfg(feature = "embed-configs")]
     #[test]
     fn test_flush_cache_success() {

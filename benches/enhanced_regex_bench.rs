@@ -126,6 +126,36 @@ fn benchmark_fast_path_uppercase(c: &mut Criterion) {
     });
 }
 
+fn benchmark_fast_path_ipv4(c: &mut Criterion) {
+    let pattern = r"\d+(?=\.\d+\.\d+\.\d+)";
+    let regex = CompiledRegex::new(pattern).unwrap();
+    let text = "192.168.1.1 10.0.0.1 172.16.0.1";
+
+    c.bench_function("fast_path_ipv4", |b| {
+        b.iter(|| regex.is_match(black_box(text)));
+    });
+}
+
+fn benchmark_fast_path_size_unit(c: &mut Criterion) {
+    let pattern = r"\d+(?=[KMG]B?)";
+    let regex = CompiledRegex::new(pattern).unwrap();
+    let text = "1024KB 256MB 16GB 512K 2M 1G";
+
+    c.bench_function("fast_path_size_unit", |b| {
+        b.iter(|| regex.is_match(black_box(text)));
+    });
+}
+
+fn benchmark_fast_path_size_unit_simple(c: &mut Criterion) {
+    let pattern = r"\d+(?=[KMGT])";
+    let regex = CompiledRegex::new(pattern).unwrap();
+    let text = "100K 50M 2G 1T";
+
+    c.bench_function("fast_path_size_unit_simple", |b| {
+        b.iter(|| regex.is_match(black_box(text)));
+    });
+}
+
 criterion_group!(
     benches,
     benchmark_lookahead_patterns,
@@ -139,6 +169,9 @@ criterion_group!(
     benchmark_fast_path_end_of_line,
     benchmark_fast_path_month,
     benchmark_fast_path_colon_slash,
-    benchmark_fast_path_uppercase
+    benchmark_fast_path_uppercase,
+    benchmark_fast_path_ipv4,
+    benchmark_fast_path_size_unit,
+    benchmark_fast_path_size_unit_simple
 );
 criterion_main!(benches);

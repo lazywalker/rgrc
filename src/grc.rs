@@ -81,6 +81,7 @@ impl CompiledRegex {
     }
 
     /// Check if the regex matches anywhere in the text.
+    #[allow(dead_code)]
     pub fn is_match(&self, text: &str) -> bool {
         match self {
             CompiledRegex::Fast(re) => re.is_match(text),
@@ -89,6 +90,7 @@ impl CompiledRegex {
     }
 
     /// Find all capture groups starting from the given position.
+    #[allow(dead_code)]
     pub fn captures_from_pos<'t>(&self, text: &'t str, pos: usize) -> Option<Captures<'t>> {
         match self {
             CompiledRegex::Fast(re) => {
@@ -105,6 +107,7 @@ impl CompiledRegex {
     }
 
     /// Get the pattern string for debugging.
+    #[allow(dead_code)]
     pub fn as_str(&self) -> &str {
         match self {
             CompiledRegex::Fast(re) => re.as_str(),
@@ -115,12 +118,14 @@ impl CompiledRegex {
 
 /// Unified captures interface wrapping regex::Captures.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Captures<'t> {
     Fast(regex::Captures<'t>, usize), // offset for position adjustment
 }
 
 impl<'t> Captures<'t> {
     /// Get a capture group by index (0 = full match, 1+ = groups).
+    #[allow(dead_code)]
     pub fn get(&self, index: usize) -> Option<Match<'t>> {
         match self {
             Captures::Fast(caps, offset) => caps.get(index).map(|m| Match::Fast(m, *offset)),
@@ -128,6 +133,7 @@ impl<'t> Captures<'t> {
     }
 
     /// Get the number of capture groups.
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         match self {
             Captures::Fast(caps, _) => caps.len(),
@@ -135,12 +141,14 @@ impl<'t> Captures<'t> {
     }
 
     /// Check if there are no capture groups.
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
 
     /// Iterate over all capture groups by index.
     /// Returns a vector to avoid lifetime issues with closures.
+    #[allow(dead_code)]
     pub fn iter(&'t self) -> Vec<Option<Match<'t>>> {
         let len = self.len();
         (0..len).map(|i| self.get(i)).collect()
@@ -149,12 +157,14 @@ impl<'t> Captures<'t> {
 
 /// Unified match interface wrapping regex::Match.
 #[derive(Debug, Clone, Copy)]
+#[allow(dead_code)]
 pub enum Match<'t> {
     Fast(regex::Match<'t>, usize), // offset for position adjustment
 }
 
 impl<'t> Match<'t> {
     /// Get the start byte position of the match.
+    #[allow(dead_code)]
     pub fn start(&self) -> usize {
         match self {
             Match::Fast(m, offset) => m.start() + offset,
@@ -162,6 +172,7 @@ impl<'t> Match<'t> {
     }
 
     /// Get the end byte position of the match.
+    #[allow(dead_code)]
     pub fn end(&self) -> usize {
         match self {
             Match::Fast(m, offset) => m.end() + offset,

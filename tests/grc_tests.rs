@@ -303,7 +303,7 @@ mod grcat_config_reader_tests {
         let mut total_regexes_tested = 0;
 
         for conf_file in &conf_files {
-            let filename = conf_file.file_name().unwrap().to_string_lossy();
+            let _filename = conf_file.file_name().unwrap().to_string_lossy();
 
             if let Ok(file) = File::open(conf_file) {
                 let reader = BufReader::new(file);
@@ -332,7 +332,7 @@ mod grcat_config_reader_tests {
         let conf_files = get_all_conf_files();
 
         for conf_file in &conf_files {
-            let filename = conf_file.file_name().unwrap().to_string_lossy();
+            let _filename = conf_file.file_name().unwrap().to_string_lossy();
 
             if let Ok(file) = File::open(conf_file) {
                 let reader = BufReader::new(file);

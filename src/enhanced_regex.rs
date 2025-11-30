@@ -19,12 +19,17 @@ pub enum Lookaround {
 
     /// Positive lookbehind: (?<=pattern)
     /// Asserts that the position is preceded by pattern
-    Behind { pattern: String, regex: Regex },
+    Behind {
+        #[allow(dead_code)]
+        pattern: String,
+        regex: Regex,
+    },
 
     /// Negative lookahead: (?!pattern)
     /// Asserts that the position is NOT followed by pattern
     /// check_at_start: if true, check at match_start instead of match_end
     NegAhead {
+        #[allow(dead_code)]
         pattern: String,
         regex: Regex,
         check_at_start: bool,
@@ -32,7 +37,11 @@ pub enum Lookaround {
 
     /// Negative lookbehind: (?<!pattern)
     /// Asserts that the position is NOT preceded by pattern
-    NegBehind { pattern: String, regex: Regex },
+    NegBehind {
+        #[allow(dead_code)]
+        pattern: String,
+        regex: Regex,
+    },
 }
 
 impl Lookaround {
@@ -113,7 +122,7 @@ impl Lookaround {
                         let ch1 = bytes[match_end];
                         let ch2 = bytes[match_end + 1];
                         return (ch1 == b' ' || ch1 == b'\t' || ch1 == b'\n' || ch1 == b'\r')
-                            && (ch2 >= b'A' && ch2 <= b'Z');
+                            && ch2.is_ascii_uppercase();
                     }
                     // Pattern: \s[A-Z][a-z]{2}\s (e.g., " Nov ")
                     r"\s[A-Z][a-z]{2}\s" => {
@@ -127,9 +136,9 @@ impl Lookaround {
                         let ch3 = bytes[match_end + 3];
                         let ch4 = bytes[match_end + 4];
                         return (ch0 == b' ' || ch0 == b'\t')
-                            && (ch1 >= b'A' && ch1 <= b'Z')
-                            && (ch2 >= b'a' && ch2 <= b'z')
-                            && (ch3 >= b'a' && ch3 <= b'z')
+                            && ch1.is_ascii_uppercase()
+                            && ch2.is_ascii_lowercase()
+                            && ch3.is_ascii_lowercase()
                             && (ch4 == b' ' || ch4 == b'\t');
                     }
                     // Pattern: [:/] (colon or slash)
@@ -139,6 +148,49 @@ impl Lookaround {
                         }
                         let ch = text.as_bytes()[match_end];
                         return ch == b':' || ch == b'/';
+                    }
+                    // Pattern: \.\d+\.\d+\.\d+ (IPv4 address continuation)
+                    r"\.\d+\.\d+\.\d+" => {
+                        // Minimum: ".1.1.1" = 6 chars, but could be longer like ".168.1.1" = 8 chars
+                        if match_end + 6 > text.len() {
+                            return false;
+                        }
+                        let bytes = &text.as_bytes()[match_end..];
+                        // Quick check: must start with '.'
+                        if bytes.is_empty() || bytes[0] != b'.' {
+                            return false;
+                        }
+                        // Use regex for full validation (complex pattern)
+                        let remaining = &text[match_end..];
+                        if let Some(mat) = regex.find(remaining) {
+                            return mat.start() == 0;
+                        }
+                        return false;
+                    }
+                    // Pattern: [KMG]B? (size unit like KB, M, GB)
+                    r"[KMG]B?" => {
+                        if match_end >= text.len() {
+                            return false;
+                        }
+                        let bytes = text.as_bytes();
+                        let ch1 = bytes[match_end];
+                        if ch1 == b'K' || ch1 == b'M' || ch1 == b'G' {
+                            // Check if followed by optional 'B'
+                            if match_end + 1 < bytes.len() && bytes[match_end + 1] == b'B' {
+                                return true;
+                            }
+                            // Or just the unit letter
+                            return true;
+                        }
+                        return false;
+                    }
+                    // Pattern: [KMGT] (size unit without B)
+                    "[KMGT]" => {
+                        if match_end >= text.len() {
+                            return false;
+                        }
+                        let ch = text.as_bytes()[match_end];
+                        return ch == b'K' || ch == b'M' || ch == b'G' || ch == b'T';
                     }
                     _ => {
                         // Fall through to regex matching
@@ -276,21 +328,20 @@ impl EnhancedRegex {
                     for try_end in (match_start + min_length..=backtrack_start).rev() {
                         let substring = &text[match_start..try_end];
                         // Quick check: does substring match pattern at all?
-                        if let Some(sub_mat) = self.main_regex.find(substring) {
-                            if sub_mat.start() == 0 && sub_mat.end() == substring.len() {
-                                // Valid substring match, verify lookarounds
-                                if self.verify_lookarounds(text, match_start, try_end) {
-                                    // Return the shortened match
-                                    let restricted_text = &text[..try_end];
-                                    if let Some(final_mat) =
-                                        self.main_regex.find_at(restricted_text, match_start)
-                                    {
-                                        if final_mat.start() == match_start
-                                            && final_mat.end() == try_end
-                                        {
-                                            return Some(final_mat);
-                                        }
-                                    }
+                        if let Some(sub_mat) = self.main_regex.find(substring)
+                            && sub_mat.start() == 0
+                            && sub_mat.end() == substring.len()
+                        {
+                            // Valid substring match, verify lookarounds
+                            if self.verify_lookarounds(text, match_start, try_end) {
+                                // Return the shortened match
+                                let restricted_text = &text[..try_end];
+                                if let Some(final_mat) =
+                                    self.main_regex.find_at(restricted_text, match_start)
+                                    && final_mat.start() == match_start
+                                    && final_mat.end() == try_end
+                                {
+                                    return Some(final_mat);
                                 }
                             }
                         }
@@ -472,29 +523,29 @@ fn parse_pattern(pattern: &str) -> Result<(String, Vec<Lookaround>), regex::Erro
                 None
             };
 
-            if let Some((type_str, _type_len)) = lookaround_type {
-                if let Some((end_pos, inner_pattern)) = extract_lookaround_content(pattern, i) {
-                    let lookaround = match type_str {
-                        "=" => Lookaround::ahead(&inner_pattern)?,
-                        "!" => {
-                            // Special case: ^(?:(?!...)) should check at match start
-                            let prefix = &pattern[..i];
-                            let is_at_start = prefix.trim_start_matches('^').trim_start() == "(?:";
-                            if is_at_start {
-                                Lookaround::neg_ahead_at_start(&inner_pattern)?
-                            } else {
-                                Lookaround::neg_ahead(&inner_pattern)?
-                            }
+            if let Some((type_str, _type_len)) = lookaround_type
+                && let Some((end_pos, inner_pattern)) = extract_lookaround_content(pattern, i)
+            {
+                let lookaround = match type_str {
+                    "=" => Lookaround::ahead(&inner_pattern)?,
+                    "!" => {
+                        // Special case: ^(?:(?!...)) should check at match start
+                        let prefix = &pattern[..i];
+                        let is_at_start = prefix.trim_start_matches('^').trim_start() == "(?:";
+                        if is_at_start {
+                            Lookaround::neg_ahead_at_start(&inner_pattern)?
+                        } else {
+                            Lookaround::neg_ahead(&inner_pattern)?
                         }
-                        "<=" => Lookaround::behind(&inner_pattern)?,
-                        "<!" => Lookaround::neg_behind(&inner_pattern)?,
-                        _ => unreachable!(),
-                    };
+                    }
+                    "<=" => Lookaround::behind(&inner_pattern)?,
+                    "<!" => Lookaround::neg_behind(&inner_pattern)?,
+                    _ => unreachable!(),
+                };
 
-                    found_lookarounds.push((i, end_pos, lookaround));
-                    i = end_pos;
-                    continue;
-                }
+                found_lookarounds.push((i, end_pos, lookaround));
+                i = end_pos;
+                continue;
             }
         }
         i += 1;
