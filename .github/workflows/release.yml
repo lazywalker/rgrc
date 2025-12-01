@@ -101,7 +101,9 @@ jobs:
         uses: crazy-max/ghaction-upx@v1
         with:
           version: v5.0.2
-          files: target/${{ matrix.target }}/release/rgr?
+          files: |
+            target/${{ matrix.target }}/release/rgrc
+            target/${{ matrix.target }}/release/rgrv
           args: -q --best --lzma
       - name: Package release (non-Windows)
         if: matrix.os != 'windows-latest'
@@ -109,7 +111,7 @@ jobs:
         run: |
           set -euo pipefail
           TARGET=${{ matrix.target }}
-          EXE="rgr?"
+          EXE="rgrc rgrv"
           DIR=target/${{ matrix.target }}/release
           # Ensure the executable exists
           ls -lah "$DIR" || true
