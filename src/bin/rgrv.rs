@@ -474,14 +474,53 @@ fn validate_conf_content(content: &str, path: &Path, errors: &mut Vec<Validation
             // Rule separator, continue
             i += 1;
         } else {
-            // Unexpected line format
+            // Support legacy compact format: "pattern <whitespace or tab> style1 style2"
+            // Split on tab first, then on first whitespace if needed.
+            let trimmed = line.trim();
+            let mut pattern = trimmed;
+            let mut style_part: Option<&str> = None;
+
+            // Look for tab separator first (most common in conf files)
+            if let Some(idx) = trimmed.find('\t') {
+                pattern = trimmed[..idx].trim();
+                style_part = Some(trimmed[idx + 1..].trim());
+            } else {
+                // Look for first whitespace
+                if let Some(idx) = trimmed.find(char::is_whitespace) {
+                    pattern = &trimmed[..idx];
+                    style_part = Some(trimmed[idx..].trim());
+                }
+            }
+
+            if let Some(styles) = style_part && !styles.is_empty() {
+                    // Validate regex
+                    if let Err(e) = rgrc::grc::CompiledRegex::new(pattern) {
+                        errors.push(ValidationError {
+                            path: path.to_path_buf(),
+                            line: line_num,
+                            error_type: "RegexError".to_string(),
+                            message: format!("Invalid regex: {}", e),
+                            suggestion: Some(
+                                "Check regex syntax (escape special characters with \\)"
+                                    .to_string(),
+                            ),
+                        });
+                    }
+
+                    // Validate styles on the same line
+                    validate_style_definition(styles, line_num, path, errors);
+                    i += 1;
+                    continue;
+            }
+
+            // If we get here, it's an unexpected line format
             errors.push(ValidationError {
                 path: path.to_path_buf(),
                 line: line_num,
                 error_type: "FormatError".to_string(),
                 message: format!("Unexpected line format: {}", line),
                 suggestion: Some(
-                    "Expected regexp= line or ======= / - / ......... / == separator".to_string(),
+                    "Expected regexp= line or pattern<tab>styles or ======= / - / ......... / == separator".to_string(),
                 ),
             });
             i += 1;
@@ -553,7 +592,9 @@ fn validate_style_definition(
             if trimmed_style.starts_with('"') && trimmed_style.contains("\\033[") {
                 continue;
             }
-            if !valid_styles.contains(&trimmed_style) {
+            // Normalize hyphenated style names to underscored versions
+            let normalized_style = trimmed_style.replace('-', "_");
+            if !valid_styles.contains(&normalized_style.as_str()) {
                 errors.push(ValidationError {
                     path: path.to_path_buf(),
                     line: line_num,

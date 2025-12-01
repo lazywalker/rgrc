@@ -3,7 +3,7 @@ regexp=\s\/dev(?:\/([^\/ ]+))+
 colours=green, bold green
 -
 # Mount Path
-regexp=(?:\/([^\/ ]+))+
+regexp=(?<=─|-)(?:\/([^\/ ]+))+
 colours=unchanged,bold yellow
 -
 # RW

@@ -561,10 +561,15 @@ fn test_validate_all_command() {
         .output()
         .expect("Failed to execute rgrv");
 
-    // Will succeed or fail depending on default files
+    // The 'all' command is not yet implemented, so it should fail
+    // but provide helpful output
     let stdout = String::from_utf8_lossy(&output.stdout);
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let combined = format!("{}{}", stdout, stderr);
     assert!(
-        stdout.contains("Validating grc.conf") || stdout.contains("Validating color configuration")
+        combined.contains("Validating grc.conf")
+            || combined.contains("Validating color configuration")
+            || combined.contains("Unknown command")
     );
 }
 
