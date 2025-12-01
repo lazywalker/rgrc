@@ -75,6 +75,7 @@ priority = "optional"
 assets = [
 	# `target/release` path is special and will be replaced by cargo-deb at build time
 	["target/release/rgrc", "usr/bin/", "755"],
+	["target/release/rgrv", "usr/bin/", "755"],
 	["doc/rgrc.1.gz", "usr/share/man/man1/", "644"],
 	["etc/rgrc.conf", "etc/", "644"],
 	["share/conf.*", "usr/share/rgrc/", "644"],
