@@ -29,6 +29,23 @@
 - **--color**=[on,off,auto]  
   Enable/disable color output (default auto).
 
+- **--completions**=*SHELL*  
+  Print a shell completion script for `SHELL` (supported: `bash`, `zsh`, `fish`, `ash`).
+
+- **--flush-cache**  
+  Flush and rebuild the embedded configuration cache (only available when built with `embed-configs`).
+
+- **--version**, **-v**  
+  Print the installed `rgrc` version and exit.
+
+- **--debug**[=*LEVEL*]  
+  Enable rule-level debug output (only available when the binary is built with the `debug` feature).
+  If provided without a value, behaves like `--debug=1`.
+  Levels:
+  - `0` (Off): Default - No debug output.
+  - `1` (Basic): Show matched rules and counts per line.
+  - `2` (Verbose): Show detailed per-rule information including regex patterns, captures and applied styles.
+
 ## CONFIGURATION FILES
 
 **rgrc** reads its configuration from all of the following locations (same format as **rgrc.conf**), if available. All matching rules are read and used.
