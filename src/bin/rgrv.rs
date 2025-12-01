@@ -492,25 +492,26 @@ fn validate_conf_content(content: &str, path: &Path, errors: &mut Vec<Validation
                 }
             }
 
-            if let Some(styles) = style_part && !styles.is_empty() {
-                    // Validate regex
-                    if let Err(e) = rgrc::grc::CompiledRegex::new(pattern) {
-                        errors.push(ValidationError {
-                            path: path.to_path_buf(),
-                            line: line_num,
-                            error_type: "RegexError".to_string(),
-                            message: format!("Invalid regex: {}", e),
-                            suggestion: Some(
-                                "Check regex syntax (escape special characters with \\)"
-                                    .to_string(),
-                            ),
-                        });
-                    }
+            if let Some(styles) = style_part
+                && !styles.is_empty()
+            {
+                // Validate regex
+                if let Err(e) = rgrc::grc::CompiledRegex::new(pattern) {
+                    errors.push(ValidationError {
+                        path: path.to_path_buf(),
+                        line: line_num,
+                        error_type: "RegexError".to_string(),
+                        message: format!("Invalid regex: {}", e),
+                        suggestion: Some(
+                            "Check regex syntax (escape special characters with \\)".to_string(),
+                        ),
+                    });
+                }
 
-                    // Validate styles on the same line
-                    validate_style_definition(styles, line_num, path, errors);
-                    i += 1;
-                    continue;
+                // Validate styles on the same line
+                validate_style_definition(styles, line_num, path, errors);
+                i += 1;
+                continue;
             }
 
             // If we get here, it's an unexpected line format
