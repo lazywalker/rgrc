@@ -111,13 +111,13 @@ jobs:
         run: |
           set -euo pipefail
           TARGET=${{ matrix.target }}
-          EXE="rgrc rgrv"
+          EXE="${{ matrix.exe }}"
           DIR=target/${{ matrix.target }}/release
           # Ensure the executable exists
           ls -lah "$DIR" || true
           # Create an unversioned archive matching installer expectations:
           # rgrc-<target>.tar.gz
-          tar czf "$DIR/rgrc-${TARGET}.tar.gz" -C "$DIR" "$EXE"
+          tar czf "$DIR/rgrc-${TARGET}.tar.gz" -C "$DIR" rgrc rgrv
 
       - name: Package release (Windows)
         if: matrix.os == 'windows-latest'
