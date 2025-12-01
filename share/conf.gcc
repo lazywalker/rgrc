@@ -31,7 +31,7 @@ colours=yellow
 # stderr to grcat
 #
 # warning
-regexp=[Ww]arning[:\b]
+regexp=[Ww]arning:\b
 colours=white
 .........
 regexp=warning:
@@ -39,7 +39,7 @@ colours=bold yellow
 count=once
 .........
 # error
-regexp=[Ee]rror[:\b]
+regexp=[Ee]rror:\b
 colours=bold white
 .........
 regexp=error:
