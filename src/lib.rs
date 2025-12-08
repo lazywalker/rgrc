@@ -374,15 +374,59 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         for base_path in RESOURCE_PATHS {
             let expanded_path = expand_tilde(base_path);
             let config_path = format!("{}/{}", expanded_path, config);
-            let rules = load_grcat_config(&config_path);
-            if !rules.is_empty() {
-                return rules; // Stop at first match
+            // Use file_exists_and_parse to distinguish "file exists but empty" from "file not found"
+            match file_exists_and_parse(&config_path) {
+                Some(rules) => return rules,           // File found (even if empty) - STOP
+                None => continue,                      // File not found - keep searching
             }
         }
     }
 
     // No configuration found
     Vec::new()
+}
+
+/// Check if a file exists and parse it for colorization rules.
+/// 
+/// Returns:
+/// - `Some(rules)` if file exists (may be empty if file is empty)
+/// - `None` if file does not exist
+/// 
+/// This distinguishes between "file doesn't exist" (None) and 
+/// "file exists but has no rules" (Some([])).
+fn file_exists_and_parse(filename: &str) -> Option<Vec<GrcatConfigEntry>> {
+    // Try to open the file
+    if let Ok(grcat_config_file) = File::open(filename) {
+        let bufreader = std::io::BufReader::new(grcat_config_file);
+        // Parse all rules from the configuration file
+        let configreader = GrcatConfigReader::new(bufreader.lines());
+        let entries: Vec<_> = configreader.collect();
+        // Return Some (even if empty) - file exists
+        return Some(entries);
+    }
+
+    // Fallback to embedded configuration (only when embed-configs is enabled)
+    #[cfg(feature = "embed-configs")]
+    {
+        // Extract config name from path (e.g., "conf.ping" from full path)
+        let config_name = filename;
+
+        // Ensure cache is populated
+        if let Some(cache_dir) = ensure_cache_populated() {
+            let conf_dir = cache_dir.join("conf");
+            let config_path = conf_dir.join(config_name);
+            if let Ok(grcat_config_file) = File::open(&config_path) {
+                let bufreader = std::io::BufReader::new(grcat_config_file);
+                let configreader = GrcatConfigReader::new(bufreader.lines());
+                let entries: Vec<_> = configreader.collect();
+                // Return Some (embedded file found, even if empty)
+                return Some(entries);
+            }
+        }
+    }
+
+    // File not found
+    None
 }
 
 /// Load colorization rules from a grcat.conf-style configuration file.
@@ -941,6 +985,56 @@ mod lib_test {
             has_user,
             "Should load USER pattern from first config file (not SYSTEM)"
         );
+    }
+
+    #[test]
+    fn test_empty_config_file_stops_search() {
+        // Test that an empty config file in a higher-priority directory stops the search
+        // even though it contains no rules. This is the critical bug fix.
+        use tempfile::TempDir;
+
+        // Create temp directories simulating RESOURCE_PATHS priority
+        let user_config_dir = TempDir::new().expect("create user config dir");
+        let system_config_dir = TempDir::new().expect("create system config dir");
+
+        // Create grc.conf files in both directories
+        let user_grc_conf = user_config_dir.path().join("grc.conf");
+        let system_grc_conf = system_config_dir.path().join("grc.conf");
+
+        // Both map testcmd to conf.testcmd
+        std::fs::write(&user_grc_conf, "^testcmd\tconf.testcmd").expect("write user grc.conf");
+        std::fs::write(&system_grc_conf, "^testcmd\tconf.testcmd").expect("write system grc.conf");
+
+        // Create conf.testcmd files
+        let user_conf_file = user_config_dir.path().join("conf.testcmd");
+        let system_conf_file = system_config_dir.path().join("conf.testcmd");
+
+        // User config: EMPTY (no rules)
+        std::fs::write(&user_conf_file, "").expect("write empty user config");
+
+        // System config: has rules
+        std::fs::write(&system_conf_file, "regexp=^SYSTEM\ncolours=red").expect("write system config");
+
+        // The critical test: load_grcat_config with empty file should return empty
+        // and NOT continue searching the next directory
+        let rules_user = load_grcat_config(user_conf_file.to_string_lossy().to_string());
+        assert!(
+            rules_user.is_empty(),
+            "Empty user config file should return no rules (NOT fall back to system)"
+        );
+
+        // Verify system config has rules (to prove it COULD have been loaded)
+        let rules_system = load_grcat_config(system_conf_file.to_string_lossy().to_string());
+        assert!(
+            !rules_system.is_empty(),
+            "System config should have rules"
+        );
+
+        // Verify it has SYSTEM pattern
+        let has_system = rules_system
+            .iter()
+            .any(|rule| rule.regex.as_str().contains("SYSTEM"));
+        assert!(has_system, "System config should contain SYSTEM pattern");
     }
 
     #[test]
