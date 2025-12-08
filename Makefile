@@ -14,7 +14,7 @@ ver:
 	@echo Version: ${APP_NAME} v${APP_VERSION}
 
 release: rgrc.1.gz
-	cargo build --release
+	cargo build --release --no-default-features
 	
 minimal: rgrc.1.gz
 	cargo build --profile minimal
