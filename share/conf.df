@@ -41,4 +41,4 @@ colours=bold red
 ======
 # tmpfs lines
 regexp=^tmpfs.*
-colours=bright_black
+colours=unchanged
