@@ -1,6 +1,6 @@
 [package]
 name = "rgrc"
-version = "0.6.2"
+version = "0.6.3"
 edition = "2024"
 license = "MIT"
 description = "Rusty Generic Colouriser"
@@ -74,9 +74,29 @@ section = "utility"
 priority = "optional"
 assets = [
 	# `target/release` path is special and will be replaced by cargo-deb at build time
-	["target/release/rgrc", "usr/bin/", "755"],
-	["target/release/rgrv", "usr/bin/", "755"],
-	["doc/rgrc.1.gz", "usr/share/man/man1/", "644"],
-	["etc/rgrc.conf", "etc/", "644"],
-	["share/conf.*", "usr/share/rgrc/", "644"],
+	[
+		"target/release/rgrc",
+		"usr/bin/",
+		"755",
+	],
+	[
+		"target/release/rgrv",
+		"usr/bin/",
+		"755",
+	],
+	[
+		"doc/rgrc.1.gz",
+		"usr/share/man/man1/",
+		"644",
+	],
+	[
+		"etc/rgrc.conf",
+		"etc/",
+		"644",
+	],
+	[
+		"share/conf.*",
+		"usr/share/rgrc/",
+		"644",
+	],
 ]
