@@ -1,0 +1,43 @@
+#Title/Header line
+regexp=^;;[\s]+->>HEADER<<-
+colours=bold blue
+-
+#Flags
+regexp=(;; Flags:|qr|rd|ra|aa|tc|ad|cd)
+colours=unchanged,bold cyan
+-
+#Status and ID
+regexp=(status|id):\s+(\S+)
+colours=bold yellow,bold green
+-
+#Section headers
+regexp=^;;[\s]+(QUESTION|ANSWER|AUTHORITY|ADDITIONAL|EDNS|TSIG)[\s]+SECTION:
+colours=bold magenta
+-
+#Query/Answer lines - domain name at start
+regexp=^(?!;;)(\S+\.)\s+(\d+)\s+(\w+)\s+(\w+)\s+
+colours=bright_magenta,cyan,yellow,green
+-
+#IPv4 addresses
+regexp=\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b
+colours=green
+-
+#IPv6 addresses
+regexp=\b([0-9a-fA-F]{1,4}:([0-9a-fA-F]{1,4}:)*([0-9a-fA-F]{1,4})?|::([0-9a-fA-F]{1,4}:)*([0-9a-fA-F]{1,4})?)\b
+colours=dark green
+-
+#TLS session info
+regexp=^;; TLS session
+colours=bold cyan
+-
+#Stats and metadata lines
+regexp=^;; (Received|Time|From|WARNING|ERROR)
+colours=bold yellow
+-
+#Comment lines (general)
+regexp=^;;
+colours=dark cyan
+-
+#Numbers (TTL, size, time)
+regexp=\b(\d+)\b
+colours=bright_cyan

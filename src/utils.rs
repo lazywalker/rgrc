@@ -67,6 +67,7 @@ pub const SUPPORTED_COMMANDS: &[&str] = &[
     "dnf",
     "docker",
     "du",
+    "kdig",
     "dummy",
     "env",
     "esperanto",
