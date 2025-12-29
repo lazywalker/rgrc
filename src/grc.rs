@@ -307,7 +307,7 @@ pub fn style_from_str(text: &str) -> Result<Style, String> {
             "" => Ok(style),
             "unchanged" => Ok(style),
             "default" => Ok(style),
-            "dark" => Ok(style),
+            "dark" => Ok(style.dim()),
             "none" => Ok(style),
 
             // Foreground colors - standard ANSI colors
@@ -336,6 +336,7 @@ pub fn style_from_str(text: &str) -> Result<Style, String> {
             "italic" => Ok(style.italic()),
             "blink" => Ok(style.blink()),
             "reverse" => Ok(style.reverse()),
+            "dim" => Ok(style.dim()),
 
             // Bright color variants - high-intensity colors
             "bright_black" => Ok(style.bright().black()),

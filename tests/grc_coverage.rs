@@ -381,11 +381,26 @@ fn test_style_attributes() {
 /// are accepted without error and don't modify the style.
 #[test]
 fn test_style_noop_keywords() {
-    let noops = vec!["unchanged", "default", "dark", "none", ""];
+    let noops = vec!["unchanged", "default", "none", ""];
     for noop in noops {
         let result = rgrc::grc::style_from_str(noop);
         assert!(result.is_ok(), "No-op keyword '{}' should parse", noop);
     }
+}
+
+#[test]
+fn test_style_dark_aliases_dim() {
+    // "dark" alone should set dim attribute
+    let result = rgrc::grc::style_from_str("dark");
+    assert!(result.is_ok());
+    let style = result.unwrap();
+    assert_eq!(format!("{}", style.apply_to("x")), "\x1b[2mx\x1b[0m");
+
+    // "dark green" should set dim and green
+    let result = rgrc::grc::style_from_str("dark green");
+    assert!(result.is_ok());
+    let style = result.unwrap();
+    assert_eq!(format!("{}", style.apply_to("x")), "\x1b[2;32mx\x1b[0m");
 }
 
 /// Lines 163-177: styles_from_str with comma-separated list
