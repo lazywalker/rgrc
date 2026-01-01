@@ -104,6 +104,7 @@ pub const SUPPORTED_COMMANDS: &[&str] = &[
     "php",
     "ping",
     "ping2",
+    "podman",
     "proftpd",
     "ps",
     "pv",
