@@ -117,6 +117,7 @@ pub const SUPPORTED_COMMANDS: &[&str] = &[
     "stat",
     "sysctl",
     "systemctl",
+    "journalctl",
     "tail",
     "tcpdump",
     "traceroute",
@@ -254,6 +255,8 @@ mod tests {
         assert!(should_use_colorization_for_command_supported("ping"));
         assert!(should_use_colorization_for_command_supported("ls"));
         assert!(should_use_colorization_for_command_supported("df"));
+        // Journalctl support added
+        assert!(should_use_colorization_for_command_supported("journalctl"));
 
         // Test unsupported commands
         assert!(!should_use_colorization_for_command_supported(

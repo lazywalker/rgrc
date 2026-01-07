@@ -571,6 +571,28 @@ mod cli_integration_tests {
         assert!(stdout.contains("alias ") || !stdout.is_empty());
     }
 
+    /// CLI Test: special alias for journalctl
+    ///
+    /// Verifies that alias generation emits a special alias for journalctl:
+    /// alias journalctl='/usr/bin/rgrc journalctl --no-pager | less -R'
+    #[test]
+    fn test_all_aliases_includes_journalctl_special() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .arg("--all-aliases")
+            .output()
+            .expect("failed to run rgrc --all-aliases");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        // Ensure the special alias for journalctl appears in the output
+        assert!(stdout.contains("alias journalctl="));
+        // Should include the generated rgrc path followed by "journalctl --no-pager | less -R"
+        assert!(stdout.contains(&format!(
+            "{} journalctl --no-pager | less -R",
+            env!("CARGO_BIN_EXE_rgrc")
+        )));
+    }
+
     /// CLI Test: --all-aliases --except filters out specified commands
     ///
     /// Verifies the --except flag allows users to exclude specific commands

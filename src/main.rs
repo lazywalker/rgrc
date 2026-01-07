@@ -19,6 +19,27 @@ use std::process::{Command, Stdio};
 #[cfg(feature = "timetrace")]
 use std::time::Instant;
 
+// Helper to centralize BrokenPipe handling.
+// - `handle_box_error` accepts a boxed error (Box<dyn Error>), downcasts to
+//   `std::io::Error` when possible and delegates to `handle_io_error`.
+// - `handle_io_error` exits silently on BrokenPipe, otherwise returns the
+//   error wrapped as `Box<dyn std::error::Error>` for propagation.
+//
+// TODO: Consider refactoring to use a custom error type for more granular control.
+fn handle_box_error(e: Box<dyn std::error::Error>) -> Result<(), Box<dyn std::error::Error>> {
+    match e.downcast::<std::io::Error>() {
+        Ok(io_err) => handle_io_error(*io_err),
+        Err(e) => Err(e),
+    }
+}
+
+fn handle_io_error(e: std::io::Error) -> Result<(), Box<dyn std::error::Error>> {
+    if e.kind() == std::io::ErrorKind::BrokenPipe {
+        std::process::exit(0);
+    }
+    Err(Box::new(e))
+}
+
 // Use mimalloc for faster memory allocation (reduces startup overhead)
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
@@ -119,7 +140,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // 2. Either we're generating all aliases (--all-aliases) OR the command exists in PATH (which::which)
             if !except_set.contains(cmd as &str) && (args.show_all_aliases || command_exists(cmd)) {
                 // Print shell alias in the format: alias CMD='grc CMD';
-                println!("alias {}='{} {}'", cmd, grc, cmd);
+                if cmd == &"journalctl" {
+                    // Special alias: run rgrc as wrapper so rgrc can control paging and coloring
+                    println!("alias {}='{} journalctl --no-pager | less -R'", cmd, grc);
+                } else {
+                    println!("alias {}='{} {}'", cmd, grc, cmd);
+                }
             }
         }
         std::process::exit(0);
@@ -293,23 +319,27 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(feature = "debug")]
     {
         if args.debug_level != DebugLevel::Off {
-            colorize_regex_with_debug(
+            if let Err(e) = colorize_regex_with_debug(
                 &mut buffered_stdout,
                 &mut line_buffered_writer,
                 rules.as_slice(),
                 args.debug_level,
-            )?;
+            ) {
+                handle_box_error(e)?;
+            }
         } else {
             // Measure colorize performance when requested (feature guarded)
             #[cfg(feature = "timetrace")]
             {
                 if record_time {
                     let t_before_colorize = Instant::now();
-                    colorize(
+                    if let Err(e) = colorize(
                         &mut buffered_stdout,
                         &mut line_buffered_writer,
                         rules.as_slice(),
-                    )?;
+                    ) {
+                        handle_box_error(e)?;
+                    }
                     eprintln!("[rgrc:time] colorize: {:?}", t_before_colorize.elapsed());
                 } else {
                     colorize(
@@ -323,11 +353,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             #[cfg(not(feature = "timetrace"))]
             {
                 // Normal path (no instrumentation): just colorize
-                colorize(
+                if let Err(e) = colorize(
                     &mut buffered_stdout,
                     &mut line_buffered_writer,
                     rules.as_slice(),
-                )?;
+                ) {
+                    handle_box_error(e)?;
+                }
             }
         }
     }
@@ -339,34 +371,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         {
             if record_time {
                 let t_before_colorize = Instant::now();
-                colorize(
+                if let Err(e) = colorize(
                     &mut buffered_stdout,
                     &mut line_buffered_writer,
                     rules.as_slice(),
-                )?;
+                ) {
+                    handle_box_error(e)?;
+                }
                 eprintln!("[rgrc:time] colorize: {:?}", t_before_colorize.elapsed());
             } else {
-                colorize(
+                if let Err(e) = colorize(
                     &mut buffered_stdout,
                     &mut line_buffered_writer,
                     rules.as_slice(),
-                )?;
+                ) {
+                    handle_box_error(e)?;
+                }
             }
         }
 
         #[cfg(not(feature = "timetrace"))]
         {
             // Normal path (no instrumentation): just colorize
-            colorize(
+            if let Err(e) = colorize(
                 &mut buffered_stdout,
                 &mut line_buffered_writer,
                 rules.as_slice(),
-            )?;
+            ) {
+                handle_box_error(e)?;
+            };
         }
     }
 
     // Ensure all buffered output is written
-    buffered_writer.flush()?;
+    if let Err(e) = buffered_writer.flush() {
+        handle_io_error(e)?;
+    }
 
     // Wait for the spawned command to complete and propagate its exit code.
     let ecode = child.wait().expect("failed to wait on child");

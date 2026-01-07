@@ -1,0 +1,127 @@
+# Colorization rules for journalctl output
+# Highlights important elements in system journal entries
+
+# === TIMESTAMPS ===
+# Date: Jan, Feb, Mar, etc. - apply before other rules to ensure visibility
+# Match the full timestamp with all components
+regexp=^[A-Z][a-z]{2}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}
+colours=bright_black
+=======
+
+# === PRIORITY LEVELS ===
+# Critical/Emergency (red)
+regexp=\s(EMERG|CRIT|ALERT)\b
+colours=bold red
+-
+# Error (bright red)
+regexp=\s(ERR|ERROR)\b
+colours=red
+-
+# Warning (yellow)
+regexp=\s(WARN|WARNING)\b
+colours=yellow
+-
+# Notice (cyan)
+regexp=\s(NOTICE)\b
+colours=cyan
+-
+# Info (green)
+regexp=\s(INFO)\b
+colours=green
+-
+# Debug (magenta)
+regexp=\s(DEBUG)\b
+colours=magenta
+=======
+
+# === HOSTNAMES ===
+# Hostname format (usually after date-time)
+regexp=\s(\w+)\s+(kernel|systemd|sshd|CRON|sudo)\[
+colours=bright_blue,bright_blue
+=======
+
+# === PROCESS NAMES AND PIDS ===
+# Process[PID]: format (match from after timestamp, not from line start)
+regexp=\s(\w+(?:-\w+)*)\[(\d+)\]:
+colours=bright_yellow,bright_magenta
+=======
+
+# === KERNEL MESSAGES ===
+# Kernel related
+regexp=\b(kernel|BIOS|e820|RAM|APIC|NX|ELF|CMA|CPU|AMD|Intel)\b
+colours=bright_cyan
+=======
+
+# === SYSTEMD MESSAGES ===
+# systemd units
+regexp=\b(session-\d+\.scope|\.service|\.timer|\.socket|\.device)\b
+colours=bright_green
+=======
+
+# === SSH/AUTHENTICATION ===
+# Authentication success
+regexp=\b(Accepted|publickey|pam_unix)\b
+colours=green
+-
+# Authentication failure/errors
+regexp=\b(Failed|Disconnect|closed|error)\b
+colours=red
+=======
+
+# === USER/UID/GID ===
+# User information
+regexp=\buser\s+(\w+)|uid=(\d+)|gid=(\d+)
+colours=default,yellow,bright_magenta,bright_magenta
+=======
+
+# === IP ADDRESSES ===
+# IPv4 addresses
+regexp=\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b
+colours=bright_magenta
+=======
+
+# === PORTS ===
+# Port numbers
+regexp=\bport\s+(\d{4,5})\b
+colours=default,bright_yellow
+=======
+
+# === SPECIAL KEYWORDS ===
+# Status indicators
+regexp=\b(Active|Inactive|enabled|disabled|running|stopped|waiting|deactivated)\b
+colours=green
+-
+# Memory/Resource related
+regexp=\b(memory|cache|usable|reserved|ACPI|NVS)\b
+colours=bright_cyan
+-
+# UUIDs
+regexp=\b([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b
+colours=bright_magenta
+=======
+
+# === SSH KEY TYPES ===
+regexp=\b(RSA|ECDSA|ED25519|DSA)\b
+colours=bright_yellow
+=======
+
+# === ERRORS/WARNINGS (General) ===
+# Common error indicators
+regexp=\b(error|error:|Error|ERROR|fatal|panic|segmentation|fault|abort)\b
+colours=bold red
+-
+# Warning indicators
+regexp=\b(warn|warning|Warning|WARNING)\b
+colours=bold yellow
+=======
+
+# === MAC ADDRESSES ===
+regexp=([0-9a-fA-F]{2}:){5}[0-9a-fA-F]{2}
+colours=bright_magenta
+=======
+
+# === COMMAND EXECUTION ===
+# Command output
+regexp=\bCMD\s+\((.+)\)
+colours=default,bright_yellow
+=======
