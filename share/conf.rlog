@@ -1,0 +1,153 @@
+# Modern log file colorization configuration (rust/go/...)
+# Optimized for Rust applications using tracing/env_logger
+# GO log formats also be supported
+
+# Timestamp (dim) - must match entire timestamp to prevent other rules from interfering
+regexp=^([0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+[+\-][0-9]{2}:[0-9]{2})
+colours=dim
+count=once
+======
+
+# Log Levels with spacing
+regexp=\s+(INFO|ERROR|WARN)\s+
+colours=green bold
+count=more
+======
+regexp=\s+DEBUG\s+
+colours=blue bold
+count=more
+======
+regexp=\s+TRACE\s+
+colours=magenta bold
+count=more
+======
+
+# Log source name - just the word and colon after spaces and log level
+regexp=\s+(lazydns|forward|plugins)(:)
+colours=dim,dim
+======
+
+# Module paths (dim italic) - format: lazydns::plugin::builder:
+# Only match complete paths with :: (double colon), not single colon patterns
+regexp=\b([a-zA-Z_]\w*(?:::[a-zA-Z_]\w*)+):
+colours=dim italic
+======
+
+# Key: value pairs (simple values after colon, without quotes)
+# Only match specific keys like 'rdata:' or 'ttl:' followed by values
+regexp=\b(rdata|ttl|answer):\s+([a-zA-Z_]\w+)
+colours=dim,dim
+======
+
+# IP addresses (cyan)
+regexp=\b([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})\b
+colours=cyan
+======
+
+# IPv6 addresses (cyan) - avoid matching timestamps by requiring hex digits or multiple colons
+regexp=\b([0-9a-fA-F]{1,4}:){2,7}[0-9a-fA-F]{1,4}\b
+colours=cyan
+======
+
+# Port numbers after IP addresses (bright cyan)
+regexp=([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}):([0-9]{1,5})\b
+colours=cyan,bright_cyan
+======
+
+# Domain names (green)
+regexp=\b([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\b
+colours=green
+======
+
+# URLs (bright_blue)
+regexp=\b(https?://[^\s\]]+)
+colours=bright_blue
+======
+
+# Numbers (yellow)
+regexp=\b([0-9]+)\s+(bytes|answers|questions|upstreams)
+colours=yellow
+======
+
+# Key-value pairs (key=value format) - key in cyan
+regexp=\b(\w+)=
+colours=cyan
+======
+
+# Quoted strings in key-value pairs
+regexp="([^"]+)"
+colours=yellow
+======
+
+# JSON: numbers in structures (only within brackets/braces)
+regexp=[\[{,]\s*"?\w+"?\s*:\s*(-?\d+\.?\d*)
+colours=none,cyan
+======
+
+# JSON: booleans
+regexp=\b(true|false|null)\b
+colours=magenta
+======
+
+# Brackets, braces and parentheses
+regexp=([\[\]{}()])
+colours=bright_black
+======
+
+# Function/plugin names in quotes - exclude if part of module path (surrounded by ::)
+regexp=\b(plugin|name|qname|qtype|upstream|server)\b(?!::)(?<!::)
+colours=blue
+======
+
+# DNS query types
+regexp=\b(A|AAAA|CNAME|MX|NS|PTR|SOA|TXT|SRV|IN)\b
+colours=bright_magenta
+======
+
+# Status messages
+regexp=\b(success|successful|initialized|started|listening|finished)\b
+colours=green
+======
+regexp=\b(failed|error|timeout|refused)\b
+colours=red
+======
+
+# Parenthesized content
+regexp=\(([^)]+)\)
+colours=blue
+======
+
+# File paths
+regexp=\s(/[\w/\.\-]+)
+colours=blue
+======
+
+# Configuration loaded message
+regexp=^(Configuration loaded successfully)
+colours=green bold
+======
+
+# Version numbers
+regexp=\bVersion:\s+([0-9\.]+)
+colours=none,bright_cyan
+======
+
+# Byte counts
+regexp=\b(\d+)\s+bytes
+colours=yellow
+======
+
+# Query/Response IDs
+regexp=\bID\s+(\d+)
+colours=none,bright_yellow
+======
+
+# TTL values
+regexp=\bttl:\s+(\d+)
+colours=none,yellow
+======
+
+# Resource Records (rdata)
+regexp=\brdata:\s+([A-Z]+)\(([^\)]+)\)
+colours=none,bright_magenta,cyan
+======
