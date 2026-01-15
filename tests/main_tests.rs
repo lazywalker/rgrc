@@ -14,7 +14,7 @@
 
 use std::process::{Command, Stdio};
 
-/// Lines 131-132: Empty command handling  
+/// Lines 131-132: Empty command handling
 /// Tests that rgrc exits with an error when invoked without a command argument.
 /// This verifies the args.command.is_empty() check and error return path.
 #[test]
@@ -577,7 +577,14 @@ mod cli_integration_tests {
     /// alias journalctl='/usr/bin/rgrc journalctl --no-pager | less -R'
     #[test]
     fn test_all_aliases_includes_journalctl_special() {
-        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+        let exe_path = env!("CARGO_BIN_EXE_rgrc");
+        // Get the filename (e.g., "rgrc") so the test doesn't break if the project is renamed
+        let exe_name = std::path::Path::new(exe_path)
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or("rgrc");
+
+        let output = Command::new(exe_path)
             .arg("--all-aliases")
             .output()
             .expect("failed to run rgrc --all-aliases");
@@ -586,11 +593,9 @@ mod cli_integration_tests {
         let stdout = String::from_utf8_lossy(&output.stdout);
         // Ensure the special alias for journalctl appears in the output
         assert!(stdout.contains("alias journalctl="));
-        // Should include the generated rgrc path followed by "journalctl --no-pager | less -R"
-        assert!(stdout.contains(&format!(
-            "{} journalctl --no-pager | less -R",
-            env!("CARGO_BIN_EXE_rgrc")
-        )));
+
+        let expected = format!("{} journalctl --no-pager | less -R", exe_name);
+        assert!(stdout.contains(&expected));
     }
 
     /// CLI Test: --all-aliases --except filters out specified commands
