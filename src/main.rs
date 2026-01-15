@@ -122,8 +122,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Handle --aliases and --all-aliases flags: generate shell aliases for commands.
     if args.show_aliases || args.show_all_aliases {
-        let grc = std::env::current_exe().unwrap();
-        let grc = grc.display();
+        let grc = std::env::current_exe()
+            .ok()
+            .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into()))
+            .unwrap_or_else(|| "rgrc".to_string());
 
         // Build a set of excluded aliases (split comma-separated entries).
         // This allows users to exclude specific commands from the generated alias list via --except flag.
