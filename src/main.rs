@@ -169,11 +169,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let color_mode = args.color;
     let command_name = args.command.first().unwrap();
 
-    // Determine if we should colorize based on color mode
+    // Detect if stdout is a terminal (TTY)
+    let stdout_is_terminal = io::stdout().is_terminal();
+
+    // Determine if we should colorize based on color mode and TTY status
     let should_colorize = match color_mode {
         ColorMode::Off => false,
-        ColorMode::On | ColorMode::Auto => {
-            should_use_colorization_for_command_supported(command_name)
+        ColorMode::On => should_use_colorization_for_command_supported(command_name),
+        ColorMode::Auto => {
+            stdout_is_terminal && should_use_colorization_for_command_supported(command_name)
         }
     };
 
@@ -233,7 +237,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // let the child process output directly to stdout. This completely avoids any piping overhead.
     // However, when output is piped (e.g., rgrc cmd | other_cmd), we must still use pipes
     // to maintain data flow integrity.
-    let stdout_is_terminal = io::stdout().is_terminal();
     if !should_colorize && stdout_is_terminal {
         cmd.stdout(Stdio::inherit()); // Inherit parent's stdout directly
         cmd.stderr(Stdio::inherit()); // Also inherit stderr for consistency

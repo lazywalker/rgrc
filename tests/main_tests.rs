@@ -661,4 +661,27 @@ mod cli_integration_tests {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("hello-from-child"));
     }
+
+    /// CLI Test: Default (auto) color mode disables colorization when piped
+    /// This test verifies the fix for Issue #12 using the 'id' command.
+    #[test]
+    #[cfg(target_arch = "x86_64")]
+    fn test_auto_color_mode_no_ansi_when_piped() {
+        // 'id' is in SUPPORTED_COMMANDS and has rules in conf.id
+        // Running via .output() ensures stdout is a pipe (non-TTY)
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .arg("id")
+            .output()
+            .expect("failed to run rgrc");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+
+        // If the bug is present, 'id' output will contain ANSI codes (e.g., coloring uid=)
+        // If fixed, it will be plain text because the pipe is detected.
+        assert!(
+            !stdout.contains("\x1b["),
+            "Output should not contain ANSI escape codes when piped to a non-TTY"
+        );
+    }
 }
