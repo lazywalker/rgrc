@@ -3,67 +3,139 @@ name: CI
 on:
   workflow_dispatch:
   push:
-    branches: [ master ]
+    branches: ["master", "v0.*"]
     paths:
-      - '**/*.rs'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'build.rs'
-      - '**/src/**'
-      - 'tests/**'
-      - 'benches/**'
-      - 'examples/**'
-      - 'rust-toolchain'
-      - 'rust-toolchain.toml'
-      - '.cargo/**'
+      - "**/*.rs"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "build.rs"
+      - "**/src/**"
+      - "tests/**"
+      - "benches/**"
+      - "examples/**"
+      - "rust-toolchain"
+      - "rust-toolchain.toml"
+      - ".cargo/**"
   pull_request:
-    branches: [ master ]
+    branches: [master]
     paths:
-      - '**/*.rs'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - 'build.rs'
-      - '**/src/**'
-      - 'tests/**'
-      - 'benches/**'
-      - 'examples/**'
-      - 'rust-toolchain'
-      - 'rust-toolchain.toml'
-      - '.cargo/**'
+      - "**/*.rs"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "build.rs"
+      - "**/src/**"
+      - "tests/**"
+      - "benches/**"
+      - "examples/**"
+      - "rust-toolchain"
+      - "rust-toolchain.toml"
+      - ".cargo/**"
 
 env:
   CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
-  build:
-
-    runs-on: ubuntu-latest
-
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest, macos-14]
+        rust: [stable, beta]
     steps:
-    - uses: actions/checkout@v4
-    - name: Build
-      run: cargo build --all-features --verbose
-    - name: Install cargo-llvm-cov
-      run: |
-        rustup component add llvm-tools-preview
-        cargo install cargo-llvm-cov
-    - name: Generate coverage report (llvm-cov)
-      run: |
-        # Generate coverage report in Codecov JSON format
-        # --all-features: enable all features including timetrace and embed-configs
-        # --workspace: include all crates in the workspace
-        # --codecov: output in Codecov JSON format
-        # cargo-llvm-cov uses LLVM's native coverage instrumentation which accurately
-        # tracks coverage across subprocesses, unlike tarpaulin
-        cargo llvm-cov --all-features --workspace --codecov --output-path codecov.json
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: codecov.json
-        verbose: false
-        fail_ci_if_error: false
-    - name: Check format
-      run: cargo fmt -- --check
-    - name: Check with clippy
-      run: cargo clippy --all-targets --all-features
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust }}
+          components: rustfmt, clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check formatting
+        if: runner.os == 'Linux'
+        run: cargo fmt -- --check
+
+      - name: Run clippy
+        if: runner.os == 'Linux'
+        run: |
+          cargo clippy --all-targets --all-features -- -D warnings
+          cargo clippy --all-targets --no-default-features -- -D warnings
+
+      - name: Run tests
+        run: make test
+
+      - name: Build (all-features)
+        run: cargo build --verbose --all-features
+
+      - name: Build (no-default-features)
+        run: cargo build --verbose --no-default-features
+      
+      # detect unused dependencies
+      - name: Machete
+        if: runner.os == 'Linux'
+        uses: bnjbvr/cargo-machete@main
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-llvm-cov
+        run: |
+          rustup component add llvm-tools-preview
+          cargo install cargo-llvm-cov
+
+      - name: Generate coverage report (llvm-cov)
+        run: |
+          # Generate coverage report in Codecov JSON format
+          # --all-features: enable all features including timetrace and embed-configs
+          # --workspace: include all crates in the workspace
+          # --codecov: output in Codecov JSON format
+          # cargo-llvm-cov uses LLVM's native coverage instrumentation which accurately
+          # tracks coverage across subprocesses, unlike tarpaulin
+          cargo llvm-cov --all-features --workspace --codecov --output-path codecov.json -- --test-threads=1
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: codecov.json
+          verbose: false
+          fail_ci_if_error: false
+
+  docs:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Check documentation
+        run: cargo doc --no-deps --all-features
+        env:
+          RUSTDOCFLAGS: -D warnings
