@@ -575,11 +575,16 @@ mod cache_error_handling_tests {
         // Flush cache - this will create the cache structure
         let result = rgrc::flush_and_rebuild_cache();
 
-        // The conf directory might be empty or not exist, testing unwrap_or(0) path
-        if let Some((cache_dir, count)) = result {
-            // Count could be 0 if conf directory is empty
-            let _ = count; // Just verify it doesn't panic
-            assert!(cache_dir.exists());
+        // With embedded configs, this should succeed and return Some
+        if let Some((cache_dir, _count)) = result {
+            // Cache directory should exist after successful flush
+            assert!(
+                cache_dir.exists(),
+                "Cache directory should exist after flush_and_rebuild_cache"
+            );
+        } else {
+            // If EMBEDDED_CONFIGS is empty, None is acceptable
+            // This can happen in rare cases but is not a failure condition
         }
     }
 }
