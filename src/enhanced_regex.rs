@@ -1137,7 +1137,7 @@ mod tests {
         // The pattern (?<=─|-) will be simplified to (?<=-) by preprocessing
         let result = preprocess_pattern(r"(?<=─|-)(?:\/([^\/ ]+))+");
         // Should handle the variable-length lookbehind
-        assert!(result.len() > 0);
+        assert!(!result.is_empty());
 
         // Should compile
         let re = EnhancedRegex::new(r"(?<=─|-)(?:\/([^\/ ]+))+");

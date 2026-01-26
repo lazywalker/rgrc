@@ -369,7 +369,7 @@ pub fn style_from_str(text: &str) -> Result<Style, String> {
 ///
 /// Comma-separated style specifications are used in grcat.conf files to define styles for
 /// different capture groups in a regex match. For example:
-/// ```ignore
+/// ```text
 /// regexp=^(ERROR|WARN|INFO) (\d+ms)
 /// colours=bold red,yellow,green
 /// ```

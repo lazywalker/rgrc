@@ -174,7 +174,7 @@ mod rgrv {
         writeln!(file, "# Test grc configuration").unwrap();
         writeln!(file, "^ping").unwrap();
         writeln!(file, "conf.ping").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, "^netstat").unwrap();
         writeln!(file, "conf.netstat").unwrap();
         drop(file);
@@ -248,7 +248,7 @@ mod rgrv {
         // Create grc.conf with empty line after pattern
         let mut file = fs::File::create(&grc_conf).unwrap();
         writeln!(file, "^ping").unwrap();
-        writeln!(file, "").unwrap(); // Empty line instead of config file
+        writeln!(file).unwrap(); // Empty line instead of config file
         drop(file);
 
         let output = Command::new(get_rgrv_binary())
@@ -294,7 +294,7 @@ mod rgrv {
         writeln!(file, "# Test configuration").unwrap();
         writeln!(file, r"^\d+\s+bytes\s+from red bold").unwrap();
         writeln!(file, r"time=[\d\.]+ green").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         drop(file);
 
         let output = Command::new(get_rgrv_binary())
@@ -508,11 +508,11 @@ mod rgrv {
 
         // Create conf file with empty lines
         let mut file = fs::File::create(&conf_file).unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, r"^\d+ red").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         writeln!(file, r"^\w+ blue").unwrap();
-        writeln!(file, "").unwrap();
+        writeln!(file).unwrap();
         drop(file);
 
         let output = Command::new(get_rgrv_binary())

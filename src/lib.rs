@@ -929,7 +929,7 @@ mod lib_test {
             .expect("write system config");
 
         // Test load_grcat_config with user config (should return rules from this file)
-        let user_rules = load_grcat_config(user_conf_file.to_string_lossy().to_string());
+        let user_rules = load_grcat_config(user_conf_file.to_string_lossy());
         assert!(
             !user_rules.is_empty(),
             "Should load rules from user config file"
@@ -945,7 +945,7 @@ mod lib_test {
         );
 
         // Test with system config
-        let system_rules = load_grcat_config(system_conf_file.to_string_lossy().to_string());
+        let system_rules = load_grcat_config(system_conf_file.to_string_lossy());
         assert!(
             !system_rules.is_empty(),
             "Should load rules from system config file"
@@ -983,7 +983,7 @@ mod lib_test {
         std::fs::write(&conf_file_2, "regexp=^SYSTEM\ncolours=red").expect("write conf file 2");
 
         // When both files exist, load_grcat_config should return from first found
-        let rules_1 = load_grcat_config(conf_file_1.to_string_lossy().to_string());
+        let rules_1 = load_grcat_config(conf_file_1.to_string_lossy());
         assert!(
             !rules_1.is_empty(),
             "Should load rules from first config file"
@@ -1029,14 +1029,14 @@ mod lib_test {
 
         // The critical test: load_grcat_config with empty file should return empty
         // and NOT continue searching the next directory
-        let rules_user = load_grcat_config(user_conf_file.to_string_lossy().to_string());
+        let rules_user = load_grcat_config(user_conf_file.to_string_lossy());
         assert!(
             rules_user.is_empty(),
             "Empty user config file should return no rules (NOT fall back to system)"
         );
 
         // Verify system config has rules (to prove it COULD have been loaded)
-        let rules_system = load_grcat_config(system_conf_file.to_string_lossy().to_string());
+        let rules_system = load_grcat_config(system_conf_file.to_string_lossy());
         assert!(!rules_system.is_empty(), "System config should have rules");
 
         // Verify it has SYSTEM pattern

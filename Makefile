@@ -47,8 +47,8 @@ data: rgrc.1.gz
 	@tar cvfz "${TARBALL}/${APP_NAME}-data-${APP_VERSION}.tar.gz" doc/*.gz etc/ share/
 
 lint:
-	cargo clippy --all-features
-
+	cargo clippy --all-targets --all-features -- -D warnings
+	
 test:
 	cargo test --all-features
 
@@ -56,7 +56,7 @@ fmt:
 	cargo fmt --all
 
 check: lint fmt
-	@echo "\033[33mcargo lint and fmt done\033[0m"
+	cargo doc --no-deps --package rgrc
 
 man:
 	pandoc --standalone -f markdown -t man doc/rgrc.1.md -o doc/rgrc.1

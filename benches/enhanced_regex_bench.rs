@@ -1,5 +1,6 @@
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use rgrc::grc::CompiledRegex;
+use std::hint::black_box;
 
 fn benchmark_lookahead_patterns(c: &mut Criterion) {
     let pattern = r"\d+(?=\s|$)";
