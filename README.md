@@ -46,6 +46,17 @@ brew install rgrc
 yay -S rgrc
 ```
 
+**Alpine Linux:**
+```bash
+# Enable the testing repository (add edge testing)
+sudo cp /etc/apk/repositories /etc/apk/repositories.bak
+echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" | sudo tee -a /etc/apk/repositories
+sudo apk update
+
+# Install rgrc from the testing repository
+sudo apk add rgrc
+```
+
 ### Usage
 
 ```bash
