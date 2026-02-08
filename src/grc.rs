@@ -597,7 +597,7 @@ impl<A: BufRead> GrcConfigReader<A> {
 /// }
 /// ```
 impl<A: BufRead> Iterator for GrcConfigReader<A> {
-    type Item = (Regex, String);
+    type Item = (CompiledRegex, String);
 
     /// Return the next (regex, config_file_path) pair from the grc.conf file.
     ///
@@ -617,13 +617,13 @@ impl<A: BufRead> Iterator for GrcConfigReader<A> {
     fn next(&mut self) -> Option<Self::Item> {
         if let Some(regexp) = self.next_content_line() {
             if let Some(filename) = self.next_content_line() {
-                if let Ok(re) = Regex::new(&regexp) {
-                    // Successfully compiled regex, return the rule pair
-                    Some((re, filename))
-                } else {
-                    // Malformed regex pattern - log and skip to next rule
-                    // Recursively call self.next() to continue with next entry
-                    self.next()
+                // Try to compile using hybrid CompiledRegex which supports lookarounds
+                match CompiledRegex::new(&regexp) {
+                    Ok(re) => Some((re, filename)),
+                    Err(_) => {
+                        // Malformed regex pattern - skip to next rule
+                        self.next()
+                    }
                 }
             } else {
                 // Pattern without config file - incomplete rule, stop
@@ -1064,7 +1064,8 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
                             }
                         }
                     }
-                    "colours" | "colors" => {
+                    // Accept both British and American spelling, singular/plural
+                    "colours" | "colors" | "colour" => {
                         // Parse comma-separated style keywords into Style vector
                         // Example: "bold red,yellow,cyan" → [Style::new().bold().red(), Style::new().yellow(), Style::new().cyan()]
                         match styles_from_str(value) {

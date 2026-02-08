@@ -362,11 +362,22 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     // First, try to load from filesystem config file
     let filesystem_result = File::open(path).ok().and_then(|f| {
         let bufreader = std::io::BufReader::new(f);
-        let mut configreader = GrcConfigReader::new(bufreader.lines());
-        // Find the first matching rule for this pseudo_command
-        configreader
-            .find(|(re, _config)| re.is_match(pseudo_command))
-            .map(|(_, config)| config)
+        let configreader = GrcConfigReader::new(bufreader.lines());
+        // Iterate each rule so we can optionally log which pattern matched
+        for (re, config) in configreader {
+            if re.is_match(pseudo_command) {
+                if std::env::var_os("RGRC_DEBUG").is_some() {
+                    eprintln!(
+                        "rgrc: matched pattern '{}' in {} for '{}'",
+                        re.as_str(),
+                        path,
+                        pseudo_command
+                    );
+                }
+                return Some(config);
+            }
+        }
+        None
     });
 
     if let Some(config) = filesystem_result {
@@ -374,10 +385,22 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         for base_path in RESOURCE_PATHS {
             let expanded_path = expand_tilde(base_path);
             let config_path = format!("{}/{}", expanded_path, config);
+            if std::env::var_os("RGRC_DEBUG").is_some() {
+                eprintln!("rgrc: checking for config file {}", config_path);
+            }
             // Use file_exists_and_parse to distinguish "file exists but empty" from "file not found"
             match file_exists_and_parse(&config_path) {
-                Some(rules) => return rules, // File found (even if empty) - STOP
-                None => continue,            // File not found - keep searching
+                Some(rules) => {
+                    if std::env::var_os("RGRC_DEBUG").is_some() {
+                        eprintln!(
+                            "rgrc: found config file {} ({} rules)",
+                            config_path,
+                            rules.len()
+                        );
+                    }
+                    return rules; // File found (even if empty) - STOP
+                }
+                None => continue, // File not found - keep searching
             }
         }
     }
@@ -800,11 +823,20 @@ fn load_config_from_embedded(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     // Use load_config to find matching config file
     if let Ok(f) = File::open(&grc_conf_path) {
         let bufreader = std::io::BufReader::new(f);
-        let mut configreader = GrcConfigReader::new(bufreader.lines());
-        if let Some((_, config_file)) = configreader.find(|(re, _)| re.is_match(pseudo_command)) {
-            let config_path = conf_dir.join(&config_file);
-            if let Some(config_str) = config_path.to_str() {
-                return load_grcat_config(config_str);
+        let configreader = GrcConfigReader::new(bufreader.lines());
+        for (re, config_file) in configreader {
+            if re.is_match(pseudo_command) {
+                if std::env::var_os("RGRC_DEBUG").is_some() {
+                    eprintln!(
+                        "rgrc: embedded matched pattern '{}' -> {}",
+                        re.as_str(),
+                        config_file
+                    );
+                }
+                let config_path = conf_dir.join(&config_file);
+                if let Some(config_str) = config_path.to_str() {
+                    return load_grcat_config(config_str);
+                }
             }
         }
     }
