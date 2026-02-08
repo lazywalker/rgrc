@@ -167,8 +167,14 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
     while i < args.len() {
         let arg = args[i].as_str();
         match arg {
-            arg if arg.starts_with("--color") => {
-                let (value, next_i) = parse_arg_value(&args, i, "color")?;
+            arg if arg.starts_with("--color") || arg.starts_with("--colour") => {
+                // Determine which spelling variant was used
+                let arg_name = if arg.starts_with("--colour") {
+                    "colour"
+                } else {
+                    "color"
+                };
+                let (value, next_i) = parse_arg_value(&args, i, arg_name)?;
                 color = match value {
                     "on" => ColorMode::On,
                     "off" => ColorMode::Off,
@@ -339,7 +345,7 @@ fn print_help() {
     println!("Usage: rgrc [OPTIONS] COMMAND [ARGS...]");
     println!();
     println!("Options:");
-    println!("  --color MODE         Override color output (on|off|auto)");
+    println!("  --color, --colour    Override color output (on|off|auto)");
     println!("  --aliases            Output shell aliases for available binaries");
     println!("  --all-aliases        Output all shell aliases");
     println!("  --except CMD,..      Exclude commands from alias generation");
@@ -501,6 +507,27 @@ mod tests {
         let args = result.unwrap();
         assert_eq!(args.color, ColorMode::Auto);
 
+        // Test --colour with equals sign (British spelling)
+        let result = parse_args_helper(vec!["--colour=on", "ls"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.color, ColorMode::On);
+        assert_eq!(args.command, vec!["ls"]);
+
+        // Test --colour with space-separated value (British spelling)
+        let result = parse_args_helper(vec!["--colour", "off", "ping", "-c", "1"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.color, ColorMode::Off);
+        assert_eq!(args.command, vec!["ping", "-c", "1"]);
+
+        // Test --colour=auto (British spelling)
+        let result = parse_args_helper(vec!["--colour=auto", "grep", "pattern"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.color, ColorMode::Auto);
+        assert_eq!(args.command, vec!["grep", "pattern"]);
+
         // Test --except with space-separated value
         let result = parse_args_helper(vec!["--except", "ls,df", "--all-aliases"]);
         assert!(result.is_ok());
@@ -561,6 +588,21 @@ mod tests {
         let result = parse_args_helper(vec!["--color"]);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Missing value for --color"));
+
+        // Test missing value for --colour (British spelling)
+        let result = parse_args_helper(vec!["--colour"]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Missing value for --colour"));
+
+        // Test invalid color mode with --colour (British spelling)
+        let result = parse_args_helper(vec!["--colour=invalid", "echo"]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Invalid color mode"));
+
+        // Test empty value for --colour= (British spelling)
+        let result = parse_args_helper(vec!["--colour=", "ls"]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Missing value for --colour"));
 
         // Test missing value for --except
         let result = parse_args_helper(vec!["--except"]);
