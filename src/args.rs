@@ -91,6 +91,8 @@ pub struct Args {
     pub show_completions: Option<String>,
     /// Debug level for rule matching (0=off, 1=basic, 2=verbose)
     pub debug_level: DebugLevel,
+    /// Explicitly specify config file name (e.g., "df" to load conf.df)
+    pub config: Option<String>,
 }
 
 /// Parse command-line arguments
@@ -158,6 +160,7 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
     let mut flush_cache = false;
     let mut show_version = false;
     let mut show_completions: Option<String> = None;
+    let mut config: Option<String> = None;
     #[cfg(feature = "debug")]
     let mut debug_level = DebugLevel::Off;
     #[cfg(not(feature = "debug"))]
@@ -192,6 +195,22 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
             arg if arg.starts_with("--completions") => {
                 let (value, next_i) = parse_arg_value(&args, i, "completions")?;
                 show_completions = Some(value.to_string());
+                i = next_i;
+            }
+            arg if arg.starts_with("--config") || arg == "-c" => {
+                // Handle both -c value and --config=value formats
+                let arg_name = "config";
+                let (value, next_i) = if arg == "-c" {
+                    // For -c, value must be in next argument
+                    if i + 1 >= args.len() {
+                        return Err("Missing value for -c".to_string());
+                    }
+                    (args[i + 1].as_str(), i + 2)
+                } else {
+                    // For --config, allow both --config value and --config=value
+                    parse_arg_value(&args, i, arg_name)?
+                };
+                config = Some(value.to_string());
                 i = next_i;
             }
             "--aliases" => {
@@ -246,6 +265,7 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
         && !flush_cache
         && !show_version
         && show_completions.is_none()
+        && config.is_none()
     {
         return Err("No command specified".to_string());
     }
@@ -260,6 +280,7 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
         show_version,
         show_completions,
         debug_level,
+        config,
     })
 }
 
@@ -345,6 +366,7 @@ fn print_help() {
     println!("Usage: rgrc [OPTIONS] COMMAND [ARGS...]");
     println!();
     println!("Options:");
+    println!("  --config, -c NAME    Explicit config file name (e.g., df to load conf.df)");
     println!("  --color, --colour    Override color output (on|off|auto)");
     println!("  --aliases            Output shell aliases for available binaries");
     println!("  --all-aliases        Output all shell aliases");
@@ -377,6 +399,8 @@ fn print_help() {
     println!("Examples:");
     println!("  rgrc ping -c 4 google.com");
     println!("  rgrc --color=off ls -la");
+    println!("  echo 'some text' | rgrc -c df     # Apply df config to piped input");
+    println!("  /bin/df | rgrc --config=df        # Colorize output using explicit config");
     #[cfg(feature = "debug")]
     {
         println!("  rgrc --debug=1 id                # Show basic debug info");
@@ -575,6 +599,42 @@ mod tests {
             assert!(result.is_err());
             assert!(result.unwrap_err().contains("Invalid debug level"));
         }
+
+        // Test --config with space-separated value
+        let result = parse_args_helper(vec!["--config", "df"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.config, Some("df".to_string()));
+        assert!(args.command.is_empty());
+
+        // Test --config with equals sign (--config=value)
+        let result = parse_args_helper(vec!["--config=kubectl"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.config, Some("kubectl".to_string()));
+        assert!(args.command.is_empty());
+
+        // Test -c short form
+        let result = parse_args_helper(vec!["-c", "grep"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.config, Some("grep".to_string()));
+        assert!(args.command.is_empty());
+
+        // Test --config with command still works (config takes precedence via path expansion)
+        let result = parse_args_helper(vec!["--config", "ls", "some_data_file.txt"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.config, Some("ls".to_string()));
+        // The remaining "some_data_file.txt" is treated as command argument
+        assert_eq!(args.command, vec!["some_data_file.txt"]);
+
+        // Test -c with --color combination
+        let result = parse_args_helper(vec!["--color=on", "-c", "ps"]);
+        assert!(result.is_ok());
+        let args = result.unwrap();
+        assert_eq!(args.color, ColorMode::On);
+        assert_eq!(args.config, Some("ps".to_string()));
     }
 
     #[test]
@@ -641,6 +701,21 @@ mod tests {
         let result = parse_args_helper(vec!["--except=", "--all-aliases"]);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Missing value for --except"));
+
+        // Test missing value for -c (short form)
+        let result = parse_args_helper(vec!["-c"]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Missing value for -c"));
+
+        // Test missing value for --config
+        let result = parse_args_helper(vec!["--config"]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Missing value for --config"));
+
+        // Test empty value for --config= should be an error
+        let result = parse_args_helper(vec!["--config="]);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Missing value for --config"));
     }
 
     // Helper function to test parse_args without std::env::args dependency

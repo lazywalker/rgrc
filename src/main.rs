@@ -160,6 +160,106 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(0);
     }
 
+    // If --config is specified, read from stdin and colorize using the specified config
+    if let Some(ref config_name) = args.config {
+        let color_mode = args.color;
+
+        // Detect if stdout is a terminal (TTY)
+        let stdout_is_terminal = io::stdout().is_terminal();
+
+        // Determine if we should colorize based on color mode and TTY status
+        let should_colorize = match color_mode {
+            ColorMode::Off => false,
+            ColorMode::On => true,
+            ColorMode::Auto => stdout_is_terminal,
+        };
+
+        if !should_colorize {
+            // Just pass through stdin to stdout without coloring
+            let stdin = io::stdin();
+            let stdout = io::stdout();
+            let mut reader = io::BufReader::new(stdin.lock());
+            let mut writer = io::BufWriter::new(stdout.lock());
+            match io::copy(&mut reader, &mut writer) {
+                Ok(_) => std::process::exit(0),
+                Err(e) => {
+                    if e.kind() != std::io::ErrorKind::BrokenPipe {
+                        eprintln!("Error copying stdin to stdout: {}", e);
+                    }
+                    std::process::exit(0);
+                }
+            }
+        }
+
+        // Load colorization rules for the specified config
+        let rules: Vec<GrcatConfigEntry> = load_rules_for_command(config_name);
+
+        if rules.is_empty() {
+            // No rules found, just pass through
+            let stdin = io::stdin();
+            let stdout = io::stdout();
+            let mut reader = io::BufReader::new(stdin.lock());
+            let mut writer = io::BufWriter::new(stdout.lock());
+            match io::copy(&mut reader, &mut writer) {
+                Ok(_) => std::process::exit(0),
+                Err(e) => {
+                    if e.kind() != std::io::ErrorKind::BrokenPipe {
+                        eprintln!(
+                            "Error: Failed to load rules for config '{}': No matching rules found",
+                            config_name
+                        );
+                    }
+                    std::process::exit(1);
+                }
+            }
+        }
+
+        // Read from stdin and colorize
+        let stdin = io::stdin();
+        let mut buffered_stdin = io::BufReader::with_capacity(64 * 1024, stdin.lock());
+        let mut buffered_stdout = io::BufWriter::with_capacity(64 * 1024, io::stdout());
+        let mut line_buffered_writer = LineBufferedWriter::new(&mut buffered_stdout);
+
+        // Use debug colorizer if debug_level is not Off
+        #[cfg(feature = "debug")]
+        {
+            if args.debug_level != DebugLevel::Off {
+                if let Err(e) = colorize_regex_with_debug(
+                    &mut buffered_stdin,
+                    &mut line_buffered_writer,
+                    rules.as_slice(),
+                    args.debug_level,
+                ) {
+                    handle_box_error(e)?;
+                }
+            } else if let Err(e) = colorize(
+                &mut buffered_stdin,
+                &mut line_buffered_writer,
+                rules.as_slice(),
+            ) {
+                handle_box_error(e)?;
+            }
+        }
+
+        #[cfg(not(feature = "debug"))]
+        {
+            if let Err(e) = colorize(
+                &mut buffered_stdin,
+                &mut line_buffered_writer,
+                rules.as_slice(),
+            ) {
+                handle_box_error(e)?;
+            }
+        }
+
+        // Flush buffered output
+        if let Err(e) = buffered_stdout.flush() {
+            handle_io_error(e)?;
+        }
+
+        std::process::exit(0);
+    }
+
     if args.command.is_empty() {
         eprintln!("No command specified.");
         std::process::exit(1);
