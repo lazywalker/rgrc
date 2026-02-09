@@ -1,28 +1,44 @@
 # Changelog
 
+## v0.6.8
+
+- fix(regex): bugfix #17 kubectl not working properly
+- feat(args): support both --color and --colours mentioned at #18
+- feat(conf): add an option to explicitly specify the conf file and pipling just like grcat #16
+
+## v0.6.7
+
+- fix(color): respect TTY status in auto mode to support piping by @sedlund in #13
+
 ## v0.6.6
+
 - feat: add configuration for tailing modern log files (conf.rlog) with support for Rust/Go log formats and add auto-detection for tail commands on .log files
 - fix: use program name instead of absolute path for aliases to improve portability
 
 ## v0.6.5
+
 - feat: add support for journalctl command with special alias
 - feat: add podman as alias for docker commands
 - fix: prioritize user configuration in load_rules_for_command function
 
 ## v0.6.4
+
 - feat: add "dim" style and treat "dark" as dim attribute
 - fix: change bright_black to use ansi_90 for better visibility on black terminals
 
 ## v0.6.2
+
 - fix: refine config loading logic to handle empty files correctly
 - docs: add documentation for new options like shell completions and debug output
 
 ## v0.6.1
+
 - feat: implement EnhancedRegex preprocessing for improved regex compatibility
 - feat: add rgrv standalone validator for configuration files
 - test: add unit tests for EnhancedRegex preprocessing
 
 ## v0.5.1
+
 - feat: introduce hybrid regex engine with fast path using standard regex and enhanced path with fancy-regex or custom EnhancedRegex
 - feat: replace console crate with custom ANSI style module for zero external dependencies
 - perf: optimize performance with fast-path specialization and increased buffer sizes
@@ -32,6 +48,7 @@
 - fix: resolve regex compilation edge cases and clippy warnings
 
 ## v0.4.3
+
 - feat: add installation script with platform and architecture detection
 - feat: enhance shell completion for commands and files
 - feat: add support for shell completions in command-line arguments
@@ -40,6 +57,7 @@
 - cleanup: remove obsolete zsh completion file
 
 ## v0.4.2
+
 - feat: add support for aarch64 target on macOS in release workflow
 - feat: add support for building .deb packages with Docker and GitHub Actions
 - ci: improve CI workflows with cross toolchain installation and artifact naming
@@ -49,6 +67,7 @@
 - fix: various cache and release fixes
 
 ## v0.4.1
+
 - feat: smart Auto-mode with pseudo-command exclusions for better performance
 - feat: embedded configuration files (embed-configs) for portable binaries
 - feat: performance diagnostics with timetrace feature

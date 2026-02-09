@@ -1,6 +1,7 @@
 # rgrc - Rusty Generic Colouriser
 
 <!-- Repository badges -->
+
 [![Rust](https://img.shields.io/badge/rust-2024--edition-orange)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/lazywalker/rgrc/actions/workflows/ci.yml/badge.svg)](https://github.com/lazywalker/rgrc/actions)
@@ -25,36 +26,42 @@ A fast, Rust-based command-line tool that colorizes the output of other commands
 ## Quick Start
 
 ### Installation
+
 **Shell (curl):**
+
 ```bash
 curl -sS https://raw.githubusercontent.com/lazywalker/rgrc/master/script/install.sh | sh
 ```
 
 **Cargo:**
+
 ```bash
 cargo install rgrc
 ```
 
 **Homebrew:**
+
 ```bash
 brew tap lazywalker/rgrc
 brew install rgrc
 ```
 
 **Arch Linux:**
+
 ```bash
 yay -S rgrc
 ```
 
 **Alpine Linux:**
+
 ```bash
 # Enable the testing repository (add edge testing)
-sudo cp /etc/apk/repositories /etc/apk/repositories.bak
-echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" | sudo tee -a /etc/apk/repositories
-sudo apk update
+doas cp /etc/apk/repositories /etc/apk/repositories.bak
+echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" | doas tee -a /etc/apk/repositories
+doas apk update
 
 # Install rgrc from the testing repository
-sudo apk add rgrc
+doas apk add rgrc
 ```
 
 ### Usage
@@ -86,15 +93,18 @@ docker ps             # automatically colorized
 ## Options
 
 ```bash
-rgrc [OPTIONS] COMMAND [ARGS...]
+Usage: rgrc [OPTIONS] COMMAND [ARGS...]
 
---color=on|off|auto     Control color output (default: auto)
---aliases               Generate shell aliases
---all-aliases           Generate all aliases
---except=CMD,...        Exclude commands from aliases
---completions SHELL     Print completion script (bash|zsh|fish|ash)
---version, -v           Show version
---help, -h              Show help
+Options:
+  --config, -c NAME    Explicit config file name (e.g., df to load conf.df)
+  --color, --colour    Override color output (on|off|auto)
+  --aliases            Output shell aliases for available binaries
+  --all-aliases        Output all shell aliases
+  --except CMD,..      Exclude commands from alias generation
+  --completions SHELL  Print shell completion script for SHELL (bash|zsh|fish|ash)
+  --flush-cache        Flush and rebuild cache directory
+  --help, -h           Show this help message
+  --version, -v        Show installed rgrc version and exit
 ```
 
 ## Configuration
@@ -115,6 +125,7 @@ colours=green
 ```
 
 Add to `~/.rgrc`:
+
 ```
 mycommand
 conf.mycommand
@@ -192,10 +203,12 @@ rgrc uses a hybrid regex approach for optimal performance:
 ### Dependencies
 
 Core dependencies (when built without fancy feature):
+
 - `regex`: Standard regex engine
 - `mimalloc`: Fast memory allocator
 
 Optional:
+
 - `fancy-regex`: Enhanced regex with advanced features (enabled by default)
 
 ## License
