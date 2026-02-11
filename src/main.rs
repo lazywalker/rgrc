@@ -16,7 +16,7 @@ use rgrc::colorize_regex_with_debug;
 
 use std::io::{self, IsTerminal, Write};
 use std::process::{Command, Stdio};
-#[cfg(feature = "timetrace")]
+#[cfg(feature = "debug")]
 use std::time::Instant;
 
 // Helper to centralize BrokenPipe handling.
@@ -297,9 +297,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // OPTIMIZATION: Load colorization rules concurrently with command preparation
     // This allows rule loading (I/O + regex compilation) to happen in parallel
     // with command spawning, reducing perceived latency
-    #[cfg(feature = "timetrace")]
+    #[cfg(feature = "debug")]
     let record_time = std::env::var_os("RGRCTIME").is_some();
-    #[cfg(feature = "timetrace")]
+    #[cfg(feature = "debug")]
     let t0 = if record_time {
         Some(Instant::now())
     } else {
@@ -307,7 +307,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     // Load rules if colorization is needed
-    #[cfg(feature = "timetrace")]
+    #[cfg(feature = "debug")]
     let t_load_start = if record_time {
         Some(Instant::now())
     } else {
@@ -320,7 +320,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Vec::new()
     };
 
-    #[cfg(feature = "timetrace")]
+    #[cfg(feature = "debug")]
     if let Some(start) = t_load_start.filter(|_| record_time) {
         eprintln!(
             "[rgrc:time] load_rules_for_command: {:} in {:?}",
@@ -396,7 +396,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    #[cfg(feature = "timetrace")]
+    #[cfg(feature = "debug")]
     if let Some(start) = t0.filter(|_| record_time) {
         eprintln!("[rgrc:time] spawn child: {:?}", start.elapsed());
     }
@@ -434,7 +434,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         } else {
             // Measure colorize performance when requested (feature guarded)
-            #[cfg(feature = "timetrace")]
+            #[cfg(feature = "debug")]
             {
                 if record_time {
                     let t_before_colorize = Instant::now();
@@ -455,7 +455,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
 
-            #[cfg(not(feature = "timetrace"))]
+            #[cfg(not(feature = "debug"))]
             {
                 // Normal path (no instrumentation): just colorize
                 if let Err(e) = colorize(
@@ -472,7 +472,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(not(feature = "debug"))]
     {
         // Measure colorize performance when requested (feature guarded)
-        #[cfg(feature = "timetrace")]
+        #[cfg(feature = "debug")]
         {
             if record_time {
                 let t_before_colorize = Instant::now();
@@ -495,7 +495,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        #[cfg(not(feature = "timetrace"))]
+        #[cfg(not(feature = "debug"))]
         {
             // Normal path (no instrumentation): just colorize
             if let Err(e) = colorize(

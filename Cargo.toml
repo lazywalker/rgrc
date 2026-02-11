@@ -1,6 +1,6 @@
 [package]
 name = "rgrc"
-version = "0.6.8"
+version = "0.6.9"
 edition = "2024"
 license = "MIT"
 description = "Rusty Generic Colouriser"
@@ -9,9 +9,10 @@ homepage = "https://lazywalker.github.io/rgrc"
 keywords = ["cli", "grc"]
 categories = ["command-line-utilities"]
 readme = "README.md"
+default-run = "rgrc"
 
 [dependencies]
-regex = "^1.12"
+regex-lite = "^0.1.9"
 mimalloc = "^0.1.43"
 fancy-regex = { version = "0.17", optional = true }
 
@@ -28,8 +29,6 @@ harness = false
 default = ["embed-configs"]
 # Embed configuration files into the binary
 embed-configs = []
-# Enable timing trace for performance profiling
-timetrace = []
 # Use battle-tested fancy-regex for enhanced regex (supports backreferences, variable-length lookbehind, etc.)
 # Without this feature, uses lightweight EnhancedRegex (supports fixed-length lookahead/lookbehind only)
 fancy-regex = ["dep:fancy-regex"]

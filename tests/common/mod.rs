@@ -29,7 +29,7 @@ pub fn run_colorize(input: &str, rules: Vec<GrcatConfigEntry>) -> String {
 /// # Returns
 /// The string with all ANSI codes removed
 pub fn strip_ansi(s: &str) -> String {
-    let re = regex::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
+    let re = regex_lite::Regex::new(r"\x1b\[[0-9;]*m").unwrap();
     re.replace_all(s, "").to_string()
 }
 

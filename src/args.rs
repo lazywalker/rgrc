@@ -399,14 +399,16 @@ fn print_help() {
     println!("Examples:");
     println!("  rgrc ping -c 4 google.com");
     println!("  rgrc --color=off ls -la");
+    println!("  rgrc --aliases");
+    println!();
     println!("  echo 'some text' | rgrc -c df     # Apply df config to piped input");
     println!("  /bin/df | rgrc --config=df        # Colorize output using explicit config");
     #[cfg(feature = "debug")]
     {
-        println!("  rgrc --debug=1 id                # Show basic debug info");
-        println!("  rgrc --debug=2 id                # Show verbose debug info");
+        println!();
+        println!("  rgrc --debug=1 id                 # Show basic debug info");
+        println!("  rgrc --debug=2 id                 # Show verbose debug info");
     }
-    println!("  rgrc --aliases");
 }
 
 #[cfg(test)]

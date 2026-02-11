@@ -153,7 +153,7 @@ fn test_spawn_error_handling() {
 /// Tests that the timetrace feature, when enabled with RGRCTIME env var,
 /// records and reports timing information. Feature-gated test.
 #[test]
-#[cfg(all(feature = "timetrace", target_arch = "x86_64"))]
+#[cfg(all(feature = "debug", target_arch = "x86_64"))]
 fn test_timetrace_feature_with_env_var() {
     // Test lines 186-192: timetrace feature paths
     let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))

@@ -754,7 +754,7 @@ mod advanced_features_tests {
     /// Lines 159, 383-389: Timetrace feature timing instrumentation
     /// Tests that when the timetrace feature is enabled and RGRCTIME env var is set,
     /// timing information is recorded and reported.
-    #[cfg(feature = "timetrace")]
+    #[cfg(feature = "debug")]
     #[test]
     fn test_timetrace_instrumentation() -> Result<(), Box<dyn std::error::Error>> {
         unsafe { std::env::set_var("RGRCTIME", "1") };
@@ -1155,7 +1155,7 @@ mod colorize_regex_tests {
     /// Note: This test verifies the code path exists but cannot directly test
     /// the counter since it's only used internally for timing output.
     #[test]
-    #[cfg(feature = "timetrace")]
+    #[cfg(feature = "debug")]
     fn test_timetrace_lines_processed_counter() -> Result<(), Box<dyn std::error::Error>> {
         let rules = vec![rule("test", Style::new().red())?];
 
