@@ -16,33 +16,6 @@
 //!
 //! The module uses a hybrid regex engine approach for optimal performance:
 //!
-//! - **Fast Path**: Standard `regex` crate (~2-5x faster, no lookaround support)
-//! - **Enhanced Path**: Two implementations available via conditional compilation:
-//!   - With `--features=fancy` (default): Uses battle-tested `fancy-regex`
-//!     - Supports all advanced features (backreferences, variable-length lookbehind, etc.)
-//!     - Binary size: ~2.1MB (release mode)
-//!   - Without `fancy` feature: Uses lightweight `EnhancedRegex`
-//!     - Supports fixed-length lookahead/lookbehind patterns
-//!     - Binary size: ~1.8MB (release mode)
-//!     - Covers 99% of patterns in rgrc config files
-//!
-//! ## Supported Styles
-//!
-//! The module supports grcat-style color specifications:
-//! - **Foreground colors**: black, red, green, yellow, blue, magenta, cyan, white
-//! - **Background colors**: on_black, on_red, on_green, on_yellow, on_blue, on_magenta, on_cyan, on_white
-//! - **Attributes**: bold, italic, underline, blink, reverse
-//! - **Brightness**: bright_black, bright_red, ... bright_white
-//! - **Special**: unchanged, default, dark, none
-//!
-//! ## Module Structure
-//!
-//! - `style_from_str()`: Parse a single style keyword
-//! - `styles_from_str()`: Parse comma-separated style list
-//! - `GrcConfigReader`: Iterator for grc.conf files
-//! - `GrcatConfigReader`: Iterator for grcat.conf files
-//! - `GrcatConfigEntry`: Represents a single colorization rule
-//! - `CompiledRegex`: Hybrid regex engine (Fast or Enhanced)
 
 use std::io::{BufRead, Lines};
 

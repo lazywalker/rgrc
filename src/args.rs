@@ -221,20 +221,22 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
                 show_all_aliases = true;
                 i += 1;
             }
-            arg if arg.starts_with("--debug") => {
+            arg if arg.starts_with("--verbose") || arg == "-v" || arg == "-vv" => {
                 #[cfg(feature = "debug")]
                 {
-                    // Handle --debug, --debug=0, --debug=1, --debug=2
-                    if arg == "--debug" {
+                    // Handle --verbose, --verbose=0, --verbose=1, --verbose=2 and -v/-vv
+                    if arg == "-v" || arg == "--verbose" {
                         // Default to Basic level
                         debug_level = DebugLevel::Basic;
-                    } else if let Some(value) = arg.strip_prefix("--debug=") {
+                    } else if arg == "-vv" {
+                        debug_level = DebugLevel::Verbose;
+                    } else if let Some(value) = arg.strip_prefix("--verbose=") {
                         debug_level = value.parse()?;
                     }
                 }
                 #[cfg(not(feature = "debug"))]
                 {
-                    // Debug feature is disabled, ignore debug flag
+                    // Debug feature is disabled, ignore verbose flag
                     let _ = arg;
                 }
                 i += 1;
@@ -243,7 +245,7 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
                 flush_cache = true;
                 i += 1;
             }
-            "--version" | "-v" => {
+            "--version" | "-V" => {
                 show_version = true;
                 i += 1;
             }
@@ -366,30 +368,29 @@ fn print_help() {
     println!("Usage: rgrc [OPTIONS] COMMAND [ARGS...]");
     println!();
     println!("Options:");
-    println!("  --config, -c NAME    Explicit config file name (e.g., df to load conf.df)");
-    println!("  --color, --colour    Override color output (on|off|auto)");
-    println!("  --aliases            Output shell aliases for available binaries");
-    println!("  --all-aliases        Output all shell aliases");
-    println!("  --except CMD,..      Exclude commands from alias generation");
-    println!("  --completions SHELL  Print shell completion script for SHELL (bash|zsh|fish|ash)");
+    println!("  --color, --colour           Override color output (on|off|auto)");
+    println!("  --aliases                   Output shell aliases for available binaries");
+    println!("  --all-aliases               Output all shell aliases");
+    println!("  --except CMD,..             Exclude commands from alias generation");
+    println!(
+        "  --completions SHELL         Print shell completion script for SHELL (bash|zsh|fish|ash)"
+    );
     #[cfg(feature = "embed-configs")]
-    println!("  --flush-cache        Flush and rebuild cache directory");
-    println!("  --help, -h           Show this help message");
-    println!("  --version, -v        Show installed rgrc version and exit");
+    println!("  --flush-cache               Flush and rebuild cache directory");
+    println!("  --config, -c NAME           Explicit config file name (e.g., df to load conf.df)");
+    println!("  --help, -h                  Show this help message");
+    println!("  --version, -V               Show installed rgrc version and exit");
     #[cfg(feature = "debug")]
-    println!("  --debug [LEVEL]      Enable debug mode (0=off, 1=basic, 2=verbose)");
+    println!("  --verbose [LEVEL], -v, -vv  Enable debug mode (0=off, 1=basic, 2=verbose)");
     println!();
     #[cfg(feature = "debug")]
     {
         println!("Debug Levels:");
-        println!("  --debug or --debug=1 (Basic)");
+        println!("  --verbose or --verbose=1 or -v (Basic)");
         println!("    Show matched rules count and style count for each line");
         println!("    Format: [Line N] ✓ Matched M rule(s): #R (S style(s)), ...");
         println!();
-        println!("  --debug=0 (Off)");
-        println!("    Disable debug output (default behavior)");
-        println!();
-        println!("  --debug=2 (Verbose)");
+        println!("  --verbose=2 or -vv (Verbose)");
         println!("    Show detailed matching information including:");
         println!("    - Rule regex patterns");
         println!("    - Matched text with capture groups (space-separated)");
@@ -406,8 +407,8 @@ fn print_help() {
     #[cfg(feature = "debug")]
     {
         println!();
-        println!("  rgrc --debug=1 id                 # Show basic debug info");
-        println!("  rgrc --debug=2 id                 # Show verbose debug info");
+        println!("  rgrc -v id               # Show basic debug info");
+        println!("  rgrc -vv id              # Show verbose debug info");
     }
 }
 
@@ -480,13 +481,13 @@ mod tests {
         let args = result.unwrap();
         assert_eq!(args.command, vec!["--unknown-flag", "echo", "test"]);
         assert!(!args.flush_cache); // default should be false
-        // Test --version and -v
+        // Test --version and -V
         let result = parse_args_helper(vec!["--version"]);
         assert!(result.is_ok());
         let args = result.unwrap();
         assert!(args.show_version);
 
-        let result = parse_args_helper(vec!["-v"]);
+        let result = parse_args_helper(vec!["-V"]);
         assert!(result.is_ok());
         let args = result.unwrap();
         assert!(args.show_version);
@@ -568,36 +569,48 @@ mod tests {
 
         #[cfg(feature = "debug")]
         {
-            // Test --debug flag
-            let result = parse_args_helper(vec!["--debug", "ls"]);
+            // Test --verbose flag (no value -> Basic)
+            let result = parse_args_helper(vec!["--verbose", "ls"]);
             assert!(result.is_ok());
             let args = result.unwrap();
             assert_eq!(args.debug_level, DebugLevel::Basic);
             assert_eq!(args.command, vec!["ls"]);
 
-            // Test --debug=1 flag
-            let result = parse_args_helper(vec!["--debug=1", "ping", "localhost"]);
+            // Test --verbose=1 flag
+            let result = parse_args_helper(vec!["--verbose=1", "ping", "localhost"]);
             assert!(result.is_ok());
             let args = result.unwrap();
             assert_eq!(args.debug_level, DebugLevel::Basic);
             assert_eq!(args.command, vec!["ping", "localhost"]);
 
-            // Test --debug=0 flag (Off)
-            let result = parse_args_helper(vec!["--debug=0", "ls"]);
+            // Test --verbose=0 flag (Off)
+            let result = parse_args_helper(vec!["--verbose=0", "ls"]);
             assert!(result.is_ok());
             let args = result.unwrap();
             assert_eq!(args.debug_level, DebugLevel::Off);
             assert_eq!(args.command, vec!["ls"]);
 
-            // Test --debug=2 flag (Verbose)
-            let result = parse_args_helper(vec!["--debug=2", "cat"]);
+            // Test --verbose=2 flag (Verbose)
+            let result = parse_args_helper(vec!["--verbose=2", "cat"]);
             assert!(result.is_ok());
             let args = result.unwrap();
             assert_eq!(args.debug_level, DebugLevel::Verbose);
             assert_eq!(args.command, vec!["cat"]);
 
-            // Test invalid debug level
-            let result = parse_args_helper(vec!["--debug=3", "ls"]);
+            // Test -v short flag (Basic)
+            let result = parse_args_helper(vec!["-v", "echo", "x"]);
+            assert!(result.is_ok());
+            let args = result.unwrap();
+            assert_eq!(args.debug_level, DebugLevel::Basic);
+
+            // Test -vv short flag (Verbose)
+            let result = parse_args_helper(vec!["-vv", "echo", "y"]);
+            assert!(result.is_ok());
+            let args = result.unwrap();
+            assert_eq!(args.debug_level, DebugLevel::Verbose);
+
+            // Test invalid verbose level
+            let result = parse_args_helper(vec!["--verbose=3", "ls"]);
             assert!(result.is_err());
             assert!(result.unwrap_err().contains("Invalid debug level"));
         }

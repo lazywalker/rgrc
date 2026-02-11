@@ -1,10 +1,11 @@
 # Changelog
 
-# v0.6.9
+## v0.6.9
 
-- refactor(regex): replace regex with rigex-lite to reduce bin size(~1.5MB to 0.7MB) and improve performance
+- refactor(regex): replace regex with rigex-lite to reduce bin size(~1.8MB vs ~0.7MB) and improve performance
 - refactor(feature-gate): merge timetrace and debug features to reduce code complexity
-- feat(bin): add default-run to save our time in dev
+- refactor(debug): use --verbose flag and -v/-vv for different levels of debug output instead of --debug flag
+- feat(bin): add default-run to cargo.toml to save our time in develpment
 
 ## v0.6.8
 
@@ -67,7 +68,7 @@
 - feat: add support for aarch64 target on macOS in release workflow
 - feat: add support for building .deb packages with Docker and GitHub Actions
 - ci: improve CI workflows with cross toolchain installation and artifact naming
-- cli: add --version / -v flag
+- cli: add --version / -V flag
 - docs: add AUR install instructions
 - test: fixes for embedded configs and integration tests
 - fix: various cache and release fixes

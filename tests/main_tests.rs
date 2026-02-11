@@ -448,9 +448,9 @@ mod cli_integration_tests {
     #[test]
     fn test_version_shorthand() {
         let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
-            .arg("-v")
+            .arg("-V")
             .output()
-            .expect("failed to run rgrc -v");
+            .expect("failed to run rgrc -V");
 
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);

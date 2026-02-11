@@ -96,15 +96,15 @@ docker ps             # automatically colorized
 Usage: rgrc [OPTIONS] COMMAND [ARGS...]
 
 Options:
-  --config, -c NAME    Explicit config file name (e.g., df to load conf.df)
   --color, --colour    Override color output (on|off|auto)
   --aliases            Output shell aliases for available binaries
   --all-aliases        Output all shell aliases
   --except CMD,..      Exclude commands from alias generation
   --completions SHELL  Print shell completion script for SHELL (bash|zsh|fish|ash)
   --flush-cache        Flush and rebuild cache directory
+  --config, -c NAME    Explicit config file name (e.g., df to load conf.df)
   --help, -h           Show this help message
-  --version, -v        Show installed rgrc version and exit
+  --version, -V        Show installed rgrc version and exit
 ```
 
 ## Configuration
@@ -167,49 +167,6 @@ count=stop
 
 **Count options**: `once`, `more` (default), `stop`
 **Replace**: Supports `\1`, `\2`, etc.
-
-## Development
-
-### Building
-
-```bash
-# Build
-cargo build --release
-
-# Test
-cargo test
-
-# Test with fancy-regex
-cargo test --features=fancy
-
-# Install locally
-make release && sudo make install
-```
-
-### Regex Engine
-
-rgrc uses a hybrid regex approach for optimal performance:
-
-- **Fast Path** (90%+ of patterns): Standard `regex` crate (~2-5x faster)
-- **Enhanced Path** (complex patterns with lookaround):
-  - **With `--features=fancy`** (default): Battle-tested `fancy-regex`
-    - Binary: ~2.1MB | Supports: backreferences, variable-length lookbehind
-    - Recommended for production use
-  - **Without fancy feature**: Lightweight custom `EnhancedRegex`
-    - Binary: ~1.8MB | Supports: fixed-length lookahead/lookbehind
-    - Covers 99% of rgrc config patterns
-    - Newer, less battle-tested
-
-### Dependencies
-
-Core dependencies (when built without fancy feature):
-
-- `regex`: Standard regex engine
-- `mimalloc`: Fast memory allocator
-
-Optional:
-
-- `fancy-regex`: Enhanced regex with advanced features (enabled by default)
 
 ## License
 

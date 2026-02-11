@@ -125,11 +125,11 @@ mod rgrv {
         assert!(stdout.contains("rgrc-validate"));
     }
 
-    /// Test version command with -v flag
+    /// Test version command with -V flag
     #[test]
     fn test_version_short_flag() {
         let output = Command::new(get_rgrv_binary())
-            .arg("-v")
+            .arg("-V")
             .output()
             .expect("Failed to execute rgrv");
 

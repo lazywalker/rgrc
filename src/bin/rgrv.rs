@@ -21,7 +21,7 @@ fn main() {
         "grc" => validate_grc_config(&args),
         "conf" => validate_conf_files(&args),
         "--help" | "-h" => print_help(&args[0]),
-        "--version" | "-v" => println!("rgrc-validate 0.1.0"),
+        "--version" | "-V" => println!("rgrc-validate 0.1.0"),
         _ => {
             eprintln!("Error: Unknown command '{}'", command);
             print_help(&args[0]);
