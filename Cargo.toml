@@ -11,7 +11,7 @@ categories = ["command-line-utilities"]
 readme = "README.md"
 
 [dependencies]
-regex = "^1.12"
+regex-lite = "^0.1.9"
 mimalloc = "^0.1.43"
 fancy-regex = { version = "0.17", optional = true }
 

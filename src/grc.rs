@@ -52,6 +52,7 @@ use crate::style::Style;
 #[cfg(feature = "fancy-regex")]
 use fancy_regex::Regex as FancyRegex;
 use regex::Regex;
+use regex_lite as regex;
 
 /// Custom error type for regex compilation
 #[derive(Debug)]

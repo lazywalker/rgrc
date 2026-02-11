@@ -34,6 +34,7 @@
 //! - Hybrid engine uses standard `regex` for simple patterns (90%+ of cases)
 
 use regex::Regex;
+use regex_lite as regex;
 use std::fmt;
 
 /// Represents a lookaround assertion (lookahead or lookbehind)
