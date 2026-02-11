@@ -1,6 +1,6 @@
 [package]
 name = "rgrc"
-version = "0.6.8"
+version = "0.6.9"
 edition = "2024"
 license = "MIT"
 description = "Rusty Generic Colouriser"
@@ -9,6 +9,7 @@ homepage = "https://lazywalker.github.io/rgrc"
 keywords = ["cli", "grc"]
 categories = ["command-line-utilities"]
 readme = "README.md"
+default-run = "rgrc"
 
 [dependencies]
 regex-lite = "^0.1.9"
