@@ -1,5 +1,11 @@
 # Changelog
 
+# v0.6.9
+
+- refactor(regex): replace regex with rigex-lite to reduce bin size(~1.5MB to 0.7MB) and improve performance
+- refactor(feature-gate): merge timetrace and debug features to reduce code complexity
+- feat(bin): add default-run to save our time in dev
+
 ## v0.6.8
 
 - fix(regex): bugfix #17 kubectl not working properly
