@@ -38,7 +38,7 @@
 //! - **Replace field support**: Text substitution functionality
 
 use std::io::{BufRead, BufReader, Read, Write};
-#[cfg(feature = "timetrace")]
+#[cfg(feature = "debug")]
 use std::time::Instant;
 
 use crate::grc::GrcatConfigEntry;
@@ -115,17 +115,17 @@ where
     R: Read,
     W: Write,
 {
-    #[cfg(feature = "timetrace")]
+    #[cfg(feature = "debug")]
     let record_time = std::env::var_os("RGRCTIME").is_some();
 
-    #[cfg(feature = "timetrace")]
+    #[cfg(feature = "debug")]
     let overall_start = if record_time {
         Some(Instant::now())
     } else {
         None
     };
 
-    #[cfg(feature = "timetrace")]
+    #[cfg(feature = "debug")]
     let mut lines_processed: usize = 0;
     // ═══════════════════════════════════════════════════════════════════════════════
     // PHASE 1: INPUT PROCESSING - Set up buffered reading and line iteration
@@ -155,7 +155,7 @@ where
     for line in reader {
         // Extract line content, propagating any I/O errors
         let mut line = line?;
-        #[cfg(feature = "timetrace")]
+        #[cfg(feature = "debug")]
         if record_time {
             lines_processed += 1;
         }
@@ -379,7 +379,7 @@ where
         writeln!(writer)?;
     }
 
-    #[cfg(feature = "timetrace")]
+    #[cfg(feature = "debug")]
     if let Some(s) = overall_start.filter(|_| record_time) {
         eprintln!(
             "[rgrc:time] colorizer total processed {} lines in {:?}",

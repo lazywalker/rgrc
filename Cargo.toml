@@ -28,8 +28,6 @@ harness = false
 default = ["embed-configs"]
 # Embed configuration files into the binary
 embed-configs = []
-# Enable timing trace for performance profiling
-timetrace = []
 # Use battle-tested fancy-regex for enhanced regex (supports backreferences, variable-length lookbehind, etc.)
 # Without this feature, uses lightweight EnhancedRegex (supports fixed-length lookahead/lookbehind only)
 fancy-regex = ["dep:fancy-regex"]

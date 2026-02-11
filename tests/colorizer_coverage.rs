@@ -486,10 +486,10 @@ fn cache_skip_when_offset_behind_last_end() {
 }
 
 /// Lines 159, 383: Timetrace feature lines (only covered when feature enabled)
-/// These lines are #[cfg(feature = "timetrace")] gated
+/// These lines are #[cfg(feature = "debug")] gated
 /// When timetrace is enabled, RGRCTIME env var triggers timing output
 #[test]
-#[cfg(feature = "timetrace")]
+#[cfg(feature = "debug")]
 fn timetrace_feature_increments_counter_and_reports() {
     unsafe {
         std::env::set_var("RGRCTIME", "1");
