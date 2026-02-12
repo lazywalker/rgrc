@@ -281,6 +281,7 @@ impl FromStr for ColorMode {
 /// // This will search in RESOURCE_PATHS directories until first match is found
 /// ```
 pub const RESOURCE_PATHS: &[&str] = &[
+    "share", // Development mode: relative to project root (where cargo run is executed)
     "~/.config/rgrc",
     "~/.local/share/rgrc",
     "/usr/local/share/rgrc",
@@ -568,6 +569,7 @@ pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
 /// commands to their colorization profiles. Paths prefixed with ~ are expanded using shellexpand.
 /// Typical flow: try ~/.grc first (user config), then system-wide configs (/etc/grc.conf).
 const CONFIG_PATHS: &[&str] = &[
+    "etc/rgrc.conf", // Development mode: relative to project root when develop with cargo run
     "~/.rgrc",
     "~/.config/rgrc/rgrc.conf",
     "/usr/local/etc/rgrc.conf",

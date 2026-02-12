@@ -1,0 +1,131 @@
+# Colorization for macOS diskutil command
+# Supports: list, info, listFilesystems, activity
+
+# Device paths (diskutil list and info)
+regexp=^/dev/disk\d+[a-z]*\d*
+colours=bold green
+======
+
+# Device identifiers in list output
+regexp=^\s+\d+:\s
+colours=cyan
+======
+
+# Partition types - GUID and APFS schemes
+regexp=(GUID_partition_scheme|APFS Container Scheme|APFS Volume|APFS Snapshot|APFS Container|EFI|Apple_APFS)
+colours=bold magenta
+======
+
+# Disk identifiers wrapped in spaces
+regexp=\s(disk\d+[a-z]*\d*)\s
+colours=bold cyan
+======
+
+# Size measurements - KB/KiB
+regexp=\s\d+([.,]\d+)?\s+(KB|KiB)\b
+colours=green
+======
+
+# Size measurements - MB/MiB
+regexp=\s\d+([.,]\d+)?\s+(MB|MiB)\b
+colours=yellow
+======
+
+# Size measurements - GB/GiB
+regexp=\s\d+([.,]\d+)?\s+(GB|GiB)\b
+colours=bold yellow
+======
+
+# Size measurements - TB/TiB
+regexp=\s\d+([.,]\d+)?\s+(TB|TiB)\b
+colours=bold red
+======
+
+# Bytes measurements
+regexp=\s\d+\s+Bytes\b
+colours=green
+======
+
+# 512-Byte-Units and similar suffixes
+regexp=512-Byte-Units
+colours=cyan
+======
+
+# Mount points (paths starting with /)
+regexp=file://[^\s,]+
+colours=green
+======
+
+# Field labels in info output (label: value)
+regexp=^[A-Z][A-Za-z\s/]+:\s
+colours=bold blue
+======
+
+# Boolean values (Yes/No)
+regexp=\b(Yes|No)\b
+colours=bold green
+======
+
+# File system personalities
+regexp=(APFSX|APFSI|Case-sensitive APFS|Journaled HFS\+|JHFSX|JHFS\+|HFSX|HFS\+|ExFAT|MS-DOS FAT|FAT32|FAT12|FAT16|Free Space)
+colours=magenta
+======
+
+# User visible names in listFilesystems
+regexp=(Mac OS Extended|APFS|ExFAT|可用空间)
+colours=bold magenta
+======
+
+# Aliases notation
+regexp=\(or\)
+colours=cyan
+======
+
+# Activity event types
+regexp=\*\*\*([A-Za-z]+)
+colours=bold cyan
+======
+
+# DAVolumePath values
+regexp=(DAVolumePath\s*=\s*'?)([a-zA-Z:/._-]+|<null>)
+colours=cyan,bold green
+======
+
+# DAVolumeKind values
+regexp=(DAVolumeKind\s*=\s*')([^']+)
+colours=cyan,yellow
+======
+
+# DAVolumeName values
+regexp=(DAVolumeName\s*=\s*')([^']+)
+colours=cyan,bold yellow
+======
+
+# Timestamps
+regexp=Time=\d{8}-\d{2}:\d{2}:\d{2}\.\d+
+colours=bold magenta
+======
+
+# UUID values
+regexp=[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}
+colours=bright_black
+======
+
+# Status keywords
+regexp=(Verified|Enabled|Disabled|Fixed|Removable|PCI-Express|Internal|Physical|synthesized)
+colours=green
+======
+
+# Error/warning keywords
+regexp=(Not applicable|Broken|Locked)
+colours=bold red
+======
+
+# Content and protocol labels
+regexp=\b(Content|Protocol|Media Type|Device Location)\b
+colours=bold blue
+======
+
+# Comment lines
+regexp=^\*{3}.*(interrupted|monitoring|DiskAppeared)
+colours=bright_black

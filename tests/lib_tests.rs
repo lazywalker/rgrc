@@ -168,8 +168,8 @@ fn test_resource_paths_valid_format() {
     let paths = rgrc::RESOURCE_PATHS;
 
     for path in paths {
-        // Each path should be a valid format (start with ~ or /)
-        let valid = path.starts_with('~') || path.starts_with('/');
+        // Each path should be a valid format (start with ~ or /, or 'share' in dev)
+        let valid = path.starts_with('~') || path.starts_with('/') || path == &"share";
         assert!(valid, "Invalid path format: {}", path);
     }
 }

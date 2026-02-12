@@ -64,6 +64,7 @@ pub const SUPPORTED_COMMANDS: &[&str] = &[
     "df",
     "diff",
     "dig",
+    "diskutil",
     "dnf",
     "docker",
     "du",
