@@ -368,25 +368,23 @@ fn print_help() {
     println!("Usage: rgrc [OPTIONS] COMMAND [ARGS...]");
     println!();
     println!("Options:");
-    println!("  --color, --colour           Override color output (on|off|auto)");
-    println!("  --aliases                   Output shell aliases for available binaries");
-    println!("  --all-aliases               Output all shell aliases");
-    println!("  --except CMD,..             Exclude commands from alias generation");
-    println!(
-        "  --completions SHELL         Print shell completion script for SHELL (bash|zsh|fish|ash)"
-    );
+    println!("  --color, --colour    Override color output (on|off|auto)");
+    println!("  --aliases            Output shell aliases for available binaries");
+    println!("  --all-aliases        Output all shell aliases");
+    println!("  --except CMD,..      Exclude commands from alias generation");
+    println!("  --completions SHELL  Print shell completion script for SHELL (bash|zsh|fish|ash)");
     #[cfg(feature = "embed-configs")]
-    println!("  --flush-cache               Flush and rebuild cache directory");
-    println!("  --config, -c NAME           Explicit config file name (e.g., df to load conf.df)");
-    println!("  --help, -h                  Show this help message");
-    println!("  --version, -V               Show installed rgrc version and exit");
+    println!("  --flush-cache        Flush and rebuild cache directory");
+    println!("  --config, -c NAME    Explicit config file name (e.g., df to load conf.df)");
+    println!("  --help, -h           Show this help message");
+    println!("  --version, -V        Show installed rgrc version and exit");
     #[cfg(feature = "debug")]
-    println!("  --verbose [LEVEL], -v, -vv  Enable debug mode (0=off, 1=basic, 2=verbose)");
+    println!("  --verbose, -v, -vv   Enable debug mode (0=off, 1=basic, 2=verbose)");
     println!();
     #[cfg(feature = "debug")]
     {
         println!("Debug Levels:");
-        println!("  --verbose or --verbose=1 or -v (Basic)");
+        println!("  --verbose[=1] or -v (Basic)");
         println!("    Show matched rules count and style count for each line");
         println!("    Format: [Line N] ✓ Matched M rule(s): #R (S style(s)), ...");
         println!();
@@ -402,14 +400,8 @@ fn print_help() {
     println!("  rgrc --color=off ls -la");
     println!("  rgrc --aliases");
     println!();
-    println!("  echo 'some text' | rgrc -c df     # Apply df config to piped input");
-    println!("  /bin/df | rgrc --config=df        # Colorize output using explicit config");
-    #[cfg(feature = "debug")]
-    {
-        println!();
-        println!("  rgrc -v id               # Show basic debug info");
-        println!("  rgrc -vv id              # Show verbose debug info");
-    }
+    println!("  echo 'some text' | rgrc -c df  # Apply df config to piped input");
+    println!("  /bin/df | rgrc --config=df     # Colorize output using explicit config");
 }
 
 #[cfg(test)]

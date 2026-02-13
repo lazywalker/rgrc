@@ -91,33 +91,11 @@ jobs:
         run: cargo test --release --target ${{ matrix.target }} --verbose
       - name: Build release (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: cross build --release --target ${{ matrix.target }}
+        run: cross build --release --features embed-configs,debug --target ${{ matrix.target }}
       - name: Build release (macOS/Windows)
         if: matrix.os != 'ubuntu-latest'
-        run: cargo build --release --target ${{ matrix.target }}
-      - name: Run UPX (non-Windows)
-        # UPX may not support some platforms; ignore errors
-        if: matrix.os != 'windows-latest'
-        continue-on-error: true
-        uses: crazy-max/ghaction-upx@v1
-        with:
-          version: v5.0.2
-          files: |
-            # target/${{ matrix.target }}/release/rgrc
-            target/${{ matrix.target }}/release/rgrv
-          args: -q --best --lzma
+        run: cargo build --release --features embed-configs,debug --target ${{ matrix.target }}
 
-      - name: Run UPX (Windows)
-        # Use .exe paths on Windows runners
-        if: matrix.os == 'windows-latest'
-        continue-on-error: true
-        uses: crazy-max/ghaction-upx@v1
-        with:
-          version: v5.0.2
-          files: |
-            # target\${{ matrix.target }}\release\rgrc.exe
-            target\${{ matrix.target }}\release\rgrv.exe
-          args: -q --best --lzma
       - name: Package release (non-Windows)
         if: matrix.os != 'windows-latest'
         shell: bash
@@ -130,7 +108,7 @@ jobs:
           ls -lah "$DIR" || true
           # Create an unversioned archive matching installer expectations:
           # rgrc-<target>.tar.gz
-          tar czf "$DIR/rgrc-${TARGET}.tar.gz" -C "$DIR" rgrc rgrv
+          tar czf "$DIR/rgrc-${TARGET}.tar.gz" -C "$DIR" rgrc
 
       - name: Package release (Windows)
         if: matrix.os == 'windows-latest'

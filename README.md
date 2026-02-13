@@ -36,7 +36,7 @@ curl -sS https://raw.githubusercontent.com/lazywalker/rgrc/master/script/install
 **Cargo:**
 
 ```bash
-cargo install rgrc
+cargo install rgrc --features embed-configs
 ```
 
 **Homebrew:**
@@ -59,9 +59,20 @@ yay -S rgrc
 doas cp /etc/apk/repositories /etc/apk/repositories.bak
 echo "http://dl-cdn.alpinelinux.org/alpine/edge/testing" | doas tee -a /etc/apk/repositories
 doas apk update
-
-# Install rgrc from the testing repository
 doas apk add rgrc
+```
+
+**NixOS:**
+
+```bash
+nix-shell -p rgrc
+```
+
+**Debian/Ubuntu:**
+
+```bash
+# Download the latest .deb from releases and install
+sudo dpkg -i rgrc_<version>_amd64.deb
 ```
 
 ### Usage

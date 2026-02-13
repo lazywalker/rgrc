@@ -1,5 +1,10 @@
 # Changelog
 
+## v0.6.10
+
+- feat(diskutil): add support for diskutil command (macos)
+- feat(bin): remove rgrv validator from release packaging add keep it for development builds only
+
 ## v0.6.9
 
 - refactor(regex): replace regex with rigex-lite to reduce bin size(~1.8MB vs ~0.7MB) and improve performance

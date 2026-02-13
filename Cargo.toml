@@ -1,6 +1,6 @@
 [package]
 name = "rgrc"
-version = "0.6.9"
+version = "0.6.11"
 edition = "2024"
 license = "MIT"
 description = "Rusty Generic Colouriser"
@@ -26,7 +26,7 @@ harness = false
 
 [features]
 # Default features: embed configs and use EnhancedRegex for enhanced patterns
-default = ["embed-configs"]
+default = []
 # Embed configuration files into the binary
 embed-configs = []
 # Use battle-tested fancy-regex for enhanced regex (supports backreferences, variable-length lookbehind, etc.)
@@ -62,6 +62,7 @@ doc = true
 maintainer = "lazywalker <lazywalkerz@gmail.com>"
 copyright = "2026, lazywalker <lazywalkerz@gmail.com>"
 license-file = ["LICENSE"]
+changelog = "CHANGELOG.md"
 extended-description = """\
 A fast, Rust-based command-line tool \
 that colorizes output from other commands \
@@ -75,11 +76,6 @@ assets = [
 	# `target/release` path is special and will be replaced by cargo-deb at build time
 	[
 		"target/release/rgrc",
-		"usr/bin/",
-		"755",
-	],
-	[
-		"target/release/rgrv",
 		"usr/bin/",
 		"755",
 	],
