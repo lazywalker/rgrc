@@ -6,9 +6,9 @@ colours=default,bold yellow
 regexp=Pulling from ([^\s]+)
 colours=default,bold green
 ======
-# HASH
-regexp=^\w{12}:
-colours=default
+# HASH / Layer ID (12 hex chars)
+regexp=^[a-f0-9]{12}:
+colours=dark
 ======
 # 1_Pulling fs layer
 regexp=Pulling fs layer
@@ -41,3 +41,7 @@ colours=bold green
 # Status Downloaded
 regexp=Downloaded newer image
 colours=bold blue
+======
+# SHA256 Digest
+regexp=sha256:[a-f0-9]{64}
+colours=dark
