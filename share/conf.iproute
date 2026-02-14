@@ -12,7 +12,11 @@ colours=green,bright_green,default,green
 =====
 # Network DEFAULT
 regexp=^default
-colours=on_green bold white
+colours=bold bright_green reverse
+=====
+# Network broadcast/multicast
+regexp=^(?:broadcast|multicast)
+colours=dark green
 =====
 # Local
 regexp=(src)\s(\S+)\s?

@@ -1,0 +1,43 @@
+# priority
+regexp=^\d+:\s
+colours=green
+-
+# from/to all
+regexp=\b(from|to)\s(all)\b
+colours=default,default,italic yellow
+-
+# from/to ipv4
+regexp=\b(from|to)\s(\d+\.\d+\.\d+\.\d+)/?(\d+)?\b
+colours=default,default,yellow,magenta
+-
+# from/to ipv6
+regexp=\b(from|to)\s([0-9a-f:]+)/?(\d+)?\b
+colours=default,default,yellow,magenta
+-
+# fwmark
+regexp=\bfwmark\s(0x[0-9a-f]+)/(0x[0-9a-f]+)\b
+colours=default,bold red,red
+-
+# iif/oif
+regexp=\b[io]if\s(\S+)\b
+colours=default,bold cyan
+-
+# ipproto
+regexp=\bipproto\s(\S+)\b
+colours=default,blue
+-
+# sport/dport
+regexp=\b[sd]port\s(\d+)\b
+colours=default,bright_green
+-
+# lookup
+regexp=\blookup\s(\S+)\b
+colours=default,bold blue
+-
+# suppress_prefixlength
+regexp=\bsuppress_prefixlength\s(\d+)\b
+colours=default,bold yellow
+-
+# unreachable
+regexp=\bunreachable\b
+colours=reverse
