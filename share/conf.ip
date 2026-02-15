@@ -29,7 +29,7 @@ colours=on_blue
 -
 
 # ip range size
-regexp=/\d{1,2}
+regexp=/\d{1,3}\b
 colours=red
 -
 

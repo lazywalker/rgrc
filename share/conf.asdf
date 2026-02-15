@@ -1,0 +1,20 @@
+# plugin
+regexp=^\w+($|\s)
+colours=bold blue
+-
+# version
+regexp=^\s+[\w.]+
+colours=magenta
+-
+# default version
+regexp=^\s\*([\w.]+)
+colours=unchanged, bold magenta
+-
+# Latest option
+regexp=\bmissing\b
+colours=red
+-
+# Latest option
+regexp=\binstalled\b
+colours=green
+

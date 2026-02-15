@@ -1,6 +1,11 @@
 # Changelog
 
-## v0.6.10
+## v0.6.12
+
+- feat(rules): add new asdf, gpg, iprule, json, phpunit commands and update dig, fdisk, id, ifconfig, ip, iproute, last, ls, nmap, ps, uptime from newmaster branch of original grc
+- feat(docker): change container id, layer_id/hash and sha256 digest to dark style
+
+## v0.6.11
 
 - feat(diskutil): add support for diskutil command (macos)
 - feat(bin): remove rgrv validator from release packaging add keep it for development builds only
