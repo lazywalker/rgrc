@@ -13,7 +13,7 @@ default-run = "rgrc"
 
 [dependencies]
 regex-lite = "^0.1.9"
-mimalloc = "^0.1.43"
+mimalloc = "^0.1.49"
 fancy-regex = { version = "0.17", optional = true }
 
 [dev-dependencies]
