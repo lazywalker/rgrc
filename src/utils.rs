@@ -2,6 +2,103 @@
 //!
 //! This module contains various utility functions used throughout the rgrc application.
 
+/// Update the process title so that the wrapped command name is visible in
+/// `ps`, `top`, `tmux` and similar tools.
+///
+/// On Linux this does two things:
+/// 1. Writes to `/proc/self/comm` – changes the short name (max 15 bytes).
+/// 2. Overwrites the original `argv` area with the new title – changes what
+///    appears in `/proc/self/cmdline` and therefore what tmux shows in its
+///    status line.
+///
+/// If either step fails the error is silently ignored since this is a
+/// cosmetic improvement, not a critical operation.
+///
+/// On non-Linux platforms this is a no-op.
+pub fn set_process_title(title: &str) {
+    #[cfg(target_os = "linux")]
+    {
+        use std::io::Write;
+
+        // 1. Update /proc/self/comm (short name, max 15 bytes)
+        let truncated = if title.len() > 15 {
+            &title[..15]
+        } else {
+            title
+        };
+        if let Ok(mut f) = std::fs::File::create("/proc/self/comm") {
+            let _ = f.write_all(truncated.as_bytes());
+        }
+
+        // 2. Overwrite the argv area so /proc/self/cmdline reflects the new title.
+        //    This is what tmux reads to determine the window name.
+        //
+        //    On Linux the original argv strings are laid out contiguously in memory:
+        //        argv0\0argv1\0argv2\0...
+        //    The total size equals the length of /proc/self/cmdline.
+        //
+        //    We locate argv[0]'s start using glibc's `__progname_full`, which
+        //    points somewhere inside argv[0] (at the basename). By scanning
+        //    backwards from it for a NUL byte we find the true start of argv[0].
+        unsafe {
+            // Get total argv buffer size from /proc/self/cmdline
+            let cmdline = match std::fs::read("/proc/self/cmdline") {
+                Ok(c) => c,
+                Err(_) => return,
+            };
+            let total_size = cmdline.len();
+            if total_size == 0 {
+                return;
+            }
+
+            // __progname_full points into argv[0] at the basename
+            unsafe extern "C" {
+                static __progname_full: *mut std::os::raw::c_char;
+            }
+
+            let p = &__progname_full;
+            if p.is_null() || (*p).is_null() {
+                return;
+            }
+
+            // Scan backwards from __progname_full to find the start of argv[0].
+            // argv[0] is the very first string, so the byte just before it
+            // is either the start of the mapped region or uninitialized memory
+            // that should not be '\0' from our string. We look for the first
+            // NUL byte going backwards — but argv[0] starts right after the
+            // preceding NUL (or at the very beginning of the stack args area).
+            let mut start = *p;
+            loop {
+                if start.is_null() {
+                    break;
+                }
+                let prev = start.sub(1);
+                if *prev == 0 {
+                    // prev points to a NUL byte, so start is the beginning
+                    // of an argv string. For argv[0] this is the very first
+                    // string, so we've found it.
+                    break;
+                }
+                start = prev;
+            }
+
+            // Overwrite the entire argv string area with the new title + NUL padding
+            let dst = start as *mut u8;
+            let new_bytes = title.as_bytes();
+            let copy_len = new_bytes.len().min(total_size);
+            std::ptr::copy_nonoverlapping(new_bytes.as_ptr(), dst, copy_len);
+            // Fill the remainder with NUL bytes
+            if total_size > copy_len {
+                std::ptr::write_bytes(dst.add(copy_len), 0u8, total_size - copy_len);
+            }
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let _ = title;
+    }
+}
+
 /// Simple command existence check without external dependencies
 /// Check whether an executable named `cmd` exists on the user's `PATH`.
 ///
@@ -297,5 +394,38 @@ mod tests {
 
         // Empty string should not be excluded
         assert!(!pseudo_command_excluded(""));
+    }
+
+    #[test]
+    fn test_set_process_title() {
+        // On Linux, verify that writing to /proc/self/comm works
+        #[cfg(target_os = "linux")]
+        {
+            set_process_title("test_cmd");
+            let comm = std::fs::read_to_string("/proc/self/comm")
+                .expect("should be able to read /proc/self/comm");
+            assert!(
+                comm.trim() == "test_cmd",
+                "expected 'test_cmd', got '{}'",
+                comm.trim()
+            );
+
+            // Test truncation: names longer than 15 chars should be cut
+            let long_name = "this_is_a_very_long_command_name";
+            set_process_title(long_name);
+            let comm = std::fs::read_to_string("/proc/self/comm")
+                .expect("should be able to read /proc/self/comm");
+            assert_eq!(comm.trim().len(), 15);
+            assert!(comm.trim().starts_with("this_is_a_very_"));
+
+            // Restore process name
+            set_process_title("test_set_proces");
+        }
+
+        // On non-Linux, just ensure it doesn't panic
+        #[cfg(not(target_os = "linux"))]
+        {
+            set_process_title("test_cmd");
+        }
     }
 }
