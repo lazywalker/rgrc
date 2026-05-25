@@ -6,7 +6,10 @@ use rgrc::{
     colorizer::colorize_regex as colorize,
     grc::GrcatConfigEntry,
     load_rules_for_command,
-    utils::{SUPPORTED_COMMANDS, command_exists, should_use_colorization_for_command_supported},
+    utils::{
+        SUPPORTED_COMMANDS, command_exists, set_process_title,
+        should_use_colorization_for_command_supported,
+    },
 };
 
 #[cfg(feature = "debug")]
@@ -276,6 +279,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Apply color mode setting
     let color_mode = args.color;
     let command_name = args.command.first().unwrap();
+
+    // Update process title to show the wrapped command instead of "rgrc"
+    // This makes tmux, ps, top etc. display the actual command being run
+    set_process_title(command_name);
 
     // Detect if stdout is a terminal (TTY)
     let stdout_is_terminal = io::stdout().is_terminal();

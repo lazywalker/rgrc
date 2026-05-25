@@ -1,6 +1,6 @@
 [package]
 name = "rgrc"
-version = "0.6.12"
+version = "0.6.13"
 edition = "2024"
 license = "MIT"
 description = "Rusty Generic Colouriser"
@@ -13,11 +13,11 @@ default-run = "rgrc"
 
 [dependencies]
 regex-lite = "^0.1.9"
-mimalloc = "^0.1.43"
-fancy-regex = { version = "0.17", optional = true }
+mimalloc = "^0.1.52"
+fancy-regex = { version = "0.18", optional = true }
 
 [dev-dependencies]
-tempfile = "3.24"
+tempfile = "3.27"
 criterion = "0.8"
 
 [[bench]]
