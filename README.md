@@ -9,7 +9,7 @@
 [![docs.rs](https://docs.rs/rgrc/badge.svg)](https://docs.rs/rgrc)
 [![codecov](https://codecov.io/gh/lazywalker/rgrc/branch/master/graph/badge.svg)](https://codecov.io/gh/lazywalker/rgrc)
 [![Dependabot](https://img.shields.io/badge/Dependabot-enabled-brightgreen.svg)](https://github.com/lazywalker/rgrc/network/updates)
-[![Maintenance](https://img.shields.io/maintenance/yes/2025)](https://github.com/lazywalker/rgrc)
+[![Maintenance](https://img.shields.io/maintenance/yes/2026)](https://github.com/lazywalker/rgrc)
 
 A fast, Rust-based command-line tool that colorizes the output of other commands using regex-based rules. Drop-in replacement for `grc` with better performance.
 
