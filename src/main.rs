@@ -6,7 +6,10 @@ use rgrc::{
     colorizer::colorize_regex as colorize,
     grc::GrcatConfigEntry,
     load_rules_for_command,
-    utils::{SUPPORTED_COMMANDS, command_exists, set_process_title, should_use_colorization_for_command_supported},
+    utils::{
+        SUPPORTED_COMMANDS, command_exists, set_process_title,
+        should_use_colorization_for_command_supported,
+    },
 };
 
 #[cfg(feature = "debug")]

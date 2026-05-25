@@ -531,56 +531,55 @@ fn fix_invalid_escapes_outside_char_class(pattern: &str) -> String {
                 in_char_class = false;
                 output.push(ch);
             }
-            '\\' if !in_char_class => {
+            '\\' if !in_char_class && i + 1 < chars.len() => {
                 // Outside character class, check what follows the backslash
-                if i + 1 < chars.len() {
-                    let next_ch = chars[i + 1];
-                    match next_ch {
-                        // Invalid escapes outside character classes - treat as literal
-                        '>' | '<' => {
-                            // \> and \< are not valid escapes outside char classes
-                            output.push(next_ch);
-                            i += 1; // Skip the backslash
-                        }
-                        // Valid escapes outside character classes
-                        'n'
-                        | 'r'
-                        | 't'
-                        | '0'..='7'
-                        | 'x'
-                        | 'u'
-                        | 'd'
-                        | 's'
-                        | 'w'
-                        | 'b'
-                        | 'B'
-                        | 'A'
-                        | 'z'
-                        | 'Z'
-                        | '"'
-                        | '\''
-                        | '\\'
-                        | '('
-                        | ')'
-                        | '{'
-                        | '}'
-                        | '.'
-                        | '*'
-                        | '+'
-                        | '?'
-                        | '^'
-                        | '$'
-                        | '|' => {
-                            output.push(ch);
-                        }
-                        // Other characters - keep the escape
-                        _ => {
-                            output.push(ch);
-                        }
+                let next_ch = chars[i + 1];
+                match next_ch {
+                    // Invalid escapes outside character classes - treat as literal
+                    '>' | '<' => {
+                        // \> and \< are not valid escapes outside char classes
+                        output.push(next_ch);
+                        i += 1; // Skip the backslash
                     }
-                } else {
-                    output.push(ch);
+                    // Valid escapes outside character classes
+                    'n'
+                    | 'r'
+                    | 't'
+                    | '0'..='7'
+                    | 'x'
+                    | 'u'
+                    | 'd'
+                    | 's'
+                    | 'w'
+                    | 'b'
+                    | 'B'
+                    | 'A'
+                    | 'z'
+                    | 'Z'
+                    | '"'
+                    | '\''
+                    | '\\'
+                    | '('
+                    | ')'
+                    | '{'
+                    | '}'
+                    | '.'
+                    | '*'
+                    | '+'
+                    | '?'
+                    | '^'
+                    | '$'
+                    | '|' => {
+                        output.push(ch);
+                    }
+                    // Other characters - keep the escape
+                    _ => {
+                        output.push(ch);
+                    }
                 }
+            }
+            '\\' if !in_char_class => {
+                output.push(ch);
             }
             _ => {
                 output.push(ch);
@@ -612,29 +611,28 @@ fn fix_character_class_escapes(pattern: &str) -> String {
                 in_char_class = false;
                 output.push(ch);
             }
-            '\\' if in_char_class => {
+            '\\' if in_char_class && i + 1 < chars.len() => {
                 // Inside character class, check what follows the backslash
-                if i + 1 < chars.len() {
-                    let next_ch = chars[i + 1];
-                    match next_ch {
-                        // Invalid escapes in character classes - treat as literal
-                        '>' | '<' => {
-                            // \> and \< are not valid escapes in char classes
-                            output.push(next_ch);
-                            i += 1; // Skip the backslash
-                        }
-                        // Valid escapes in character classes
-                        'n' | 'r' | 't' | '0'..='7' | 'x' | 'u' | '"' | '\'' | '-' | ']' => {
-                            output.push(ch);
-                        }
-                        // Other characters - keep the escape
-                        _ => {
-                            output.push(ch);
-                        }
+                let next_ch = chars[i + 1];
+                match next_ch {
+                    // Invalid escapes in character classes - treat as literal
+                    '>' | '<' => {
+                        // \> and \< are not valid escapes in char classes
+                        output.push(next_ch);
+                        i += 1; // Skip the backslash
                     }
-                } else {
-                    output.push(ch);
+                    // Valid escapes in character classes
+                    'n' | 'r' | 't' | '0'..='7' | 'x' | 'u' | '"' | '\'' | '-' | ']' => {
+                        output.push(ch);
+                    }
+                    // Other characters - keep the escape
+                    _ => {
+                        output.push(ch);
+                    }
                 }
+            }
+            '\\' if in_char_class => {
+                output.push(ch);
             }
             _ => {
                 output.push(ch);
