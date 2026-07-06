@@ -144,13 +144,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // 1. The command is not in the exclude list, AND
             // 2. Either we're generating all aliases (--all-aliases) OR the command exists in PATH (which::which)
             if !except_set.contains(cmd as &str) && (args.show_all_aliases || command_exists(cmd)) {
-                // Print shell alias in the format: alias CMD='grc CMD';
-                if cmd == &"journalctl" {
-                    // Special alias: run rgrc as wrapper so rgrc can control paging and coloring
-                    println!("alias {}='{} journalctl --no-pager | less -R'", cmd, grc);
-                } else {
-                    println!("alias {}='{} {}'", cmd, grc, cmd);
-                }
+                // plain alias for every command — piping to less in the alias
+                // breaks trailing args like `journalctl -f` (#32)
+                println!("alias {}='{} {}'", cmd, grc, cmd);
             }
         }
         std::process::exit(0);
