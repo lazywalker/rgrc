@@ -344,13 +344,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::new(command_name);
     cmd.args(args.command.iter().skip(1));
 
-    // Optimization: When colorization is not needed AND output goes directly to terminal,
-    // let the child process output directly to stdout. This completely avoids any piping overhead.
-    // However, when output is piped (e.g., rgrc cmd | other_cmd), we must still use pipes
-    // to maintain data flow integrity.
-    if !should_colorize && stdout_is_terminal {
-        cmd.stdout(Stdio::inherit()); // Inherit parent's stdout directly
-        cmd.stderr(Stdio::inherit()); // Also inherit stderr for consistency
+    // When not colorizing, let the child write directly to our stdout.
+    // Going through a pipe here only risks corrupting binary output (e.g.
+    // `docker save > file`, see #31) and adds copying overhead for no gain.
+    if !should_colorize {
+        cmd.stdout(Stdio::inherit());
+        cmd.stderr(Stdio::inherit());
 
         // Spawn and wait for the command
         let mut child = match cmd.spawn() {
