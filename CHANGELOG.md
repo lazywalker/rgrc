@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.6.14
+
+- fix(aliases): drop journalctl less pipeline from alias — `journalctl -f` no longer stalls (#32)
+- fix(output): handle non-UTF-8 output without aborting — `docker save > file` works again (#31)
+
+## v0.6.13
+
+- feat(tmux): set process title to wrapped command (#26)
+
 ## v0.6.12
 
 - feat(rules): add new asdf, gpg, iprule, json, phpunit commands and update dig, fdisk, id, ifconfig, ip, iproute, last, ls, nmap, ps, uptime from newmaster branch of original grc
