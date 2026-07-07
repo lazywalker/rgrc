@@ -1170,3 +1170,41 @@ mod colorize_regex_tests {
         Ok(())
     }
 }
+
+// Non-UTF-8 input must not abort the stream. See #31 — commands like
+// `docker save` emit binary (tar) data that BufRead::lines() used to reject.
+#[cfg(test)]
+mod non_utf8_tests {
+    use super::*;
+    use rgrc::Style;
+
+    fn colorize_bytes(input: &[u8], rules: &[GrcatConfigEntry]) -> String {
+        let mut writer = Vec::new();
+        colorize_regex(&mut &input[..], &mut writer, rules).expect("colorize should not error");
+        String::from_utf8_lossy(&writer).into_owned()
+    }
+
+    #[test]
+    fn invalid_utf8_passthrough_no_rules() {
+        // lone continuation byte 0x80 + valid text
+        let output = colorize_bytes(b"\xff\x80hello\n", &[]);
+        assert!(output.contains('\u{FFFD}'));
+        assert!(output.contains("hello"));
+    }
+
+    #[test]
+    fn invalid_utf8_with_rule_still_colors() {
+        let rules = vec![rule("ok", Style::new().green()).unwrap()];
+        // valid line gets colored, invalid line doesn't abort
+        let output = colorize_bytes(b"ok\n\xff\x80\n", &rules);
+        assert!(output.contains("ok"));
+        assert!(output.contains('\u{FFFD}'));
+    }
+
+    #[test]
+    fn invalid_utf8_preserves_newline_boundaries() {
+        // each "line" (split by \n) is processed independently even if non-UTF-8
+        let output = colorize_bytes(b"\xff\nok\xff\n", &[]);
+        assert_eq!(output.lines().count(), 2);
+    }
+}

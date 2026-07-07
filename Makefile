@@ -48,6 +48,8 @@ data: rgrc.1.gz
 
 lint:
 	cargo clippy --all-targets --all-features -- -D warnings
+	cargo +beta clippy --all-targets --all-features -- -D warnings
+	cargo +beta clippy --all-targets --no-default-features -- -D warnings
 	
 test:
 	cargo test --all-features

@@ -105,6 +105,22 @@ use crate::style::Style;
 ///
 /// // `output` now contains ANSI-styled bytes representing the colored text
 /// ```
+/// Decode a raw line read by `read_until(b'\n')` into a `String`.
+///
+/// Trims the trailing newline (and a preceding `\r` for CRLF), matching what
+/// `BufRead::lines()` returned. Invalid UTF-8 bytes become U+FFFD instead of
+/// erroring, so binary output doesn't abort the stream (#31).
+pub fn decode_line(raw: &[u8]) -> String {
+    let mut end = raw.len();
+    if end > 0 && raw[end - 1] == b'\n' {
+        end -= 1;
+        if end > 0 && raw[end - 1] == b'\r' {
+            end -= 1;
+        }
+    }
+    String::from_utf8_lossy(&raw[..end]).into_owned()
+}
+
 #[allow(dead_code)] // Used in main.rs but may not be detected in all build configurations
 pub fn colorize_regex<R, W>(
     reader: &mut R,
@@ -131,16 +147,27 @@ where
     // PHASE 1: INPUT PROCESSING - Set up buffered reading and line iteration
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    // Wrap input in BufReader to reduce I/O syscall overhead and enable line iteration
-    let reader = BufReader::new(reader).lines();
+    // Wrap input in BufReader to reduce I/O syscall overhead.
+    //
+    // We read with read_until(b'\n') and decode lossily instead of BufRead::lines():
+    // lines() rejects non-UTF-8 input (e.g. `docker save` tar streams, see #31),
+    // while from_utf8_lossy turns invalid bytes into U+FFFD so we keep going.
+    let mut reader = BufReader::new(reader);
+    let mut raw_buf: Vec<u8> = Vec::new();
 
     // ═══════════════════════════════════════════════════════════════════════════════
     // FAST PATH: No rules to apply - stream input directly to output unchanged
     // ═══════════════════════════════════════════════════════════════════════════════
 
     if rules.is_empty() {
-        for line in reader {
-            writeln!(writer, "{}", line?)?;
+        loop {
+            raw_buf.clear();
+            let read = reader.read_until(b'\n', &mut raw_buf)?;
+            if read == 0 {
+                break;
+            }
+            let line = decode_line(&raw_buf);
+            writeln!(writer, "{}", line)?;
         }
         return Ok(());
     }
@@ -152,9 +179,13 @@ where
     // PHASE 2: LINE-BY-LINE PROCESSING - Apply colorization rules to each line
     // ═══════════════════════════════════════════════════════════════════════════════
 
-    for line in reader {
-        // Extract line content, propagating any I/O errors
-        let mut line = line?;
+    loop {
+        raw_buf.clear();
+        let read = reader.read_until(b'\n', &mut raw_buf)?;
+        if read == 0 {
+            break;
+        }
+        let mut line = decode_line(&raw_buf);
         #[cfg(feature = "debug")]
         if record_time {
             lines_processed += 1;

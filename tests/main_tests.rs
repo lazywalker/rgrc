@@ -571,14 +571,14 @@ mod cli_integration_tests {
         assert!(stdout.contains("alias ") || !stdout.is_empty());
     }
 
-    /// CLI Test: special alias for journalctl
+    /// CLI Test: journalctl uses the plain alias, not a less pipeline
     ///
-    /// Verifies that alias generation emits a special alias for journalctl:
-    /// alias journalctl='/usr/bin/rgrc journalctl --no-pager | less -R'
+    /// Earlier journalctl got a special alias appending "--no-pager | less -R",
+    /// but trailing args land in the left side of the pipe, so `journalctl -f`
+    /// fed the never-ending follow stream into less (which waits for EOF). See #32.
     #[test]
-    fn test_all_aliases_includes_journalctl_special() {
+    fn test_all_aliases_journalctl_plain() {
         let exe_path = env!("CARGO_BIN_EXE_rgrc");
-        // Get the filename (e.g., "rgrc") so the test doesn't break if the project is renamed
         let exe_name = std::path::Path::new(exe_path)
             .file_name()
             .and_then(|n| n.to_str())
@@ -591,11 +591,17 @@ mod cli_integration_tests {
 
         assert!(output.status.success());
         let stdout = String::from_utf8_lossy(&output.stdout);
-        // Ensure the special alias for journalctl appears in the output
-        assert!(stdout.contains("alias journalctl="));
 
-        let expected = format!("{} journalctl --no-pager | less -R", exe_name);
-        assert!(stdout.contains(&expected));
+        // journalctl must use the same plain form as every other command.
+        let expected = format!("alias journalctl='{} journalctl'", exe_name);
+        let journalctl_line = stdout
+            .lines()
+            .find(|line| line.starts_with("alias journalctl="))
+            .expect("journalctl alias not found");
+        assert_eq!(journalctl_line, &expected);
+        // No pager pipeline or forced --no-pager.
+        assert!(!journalctl_line.contains("less"));
+        assert!(!journalctl_line.contains("--no-pager"));
     }
 
     /// CLI Test: --all-aliases --except filters out specified commands

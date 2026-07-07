@@ -678,13 +678,20 @@ where
     W: std::io::Write,
 {
     use crate::args::DebugLevel;
+    use crate::colorizer::decode_line;
     use std::io::{BufRead, BufReader};
 
-    let buffered_reader = BufReader::new(reader);
+    let mut buffered_reader = BufReader::new(reader);
+    let mut raw_buf: Vec<u8> = Vec::new();
     let mut line_num = 0;
 
-    for line_result in buffered_reader.lines() {
-        let line = line_result?;
+    loop {
+        raw_buf.clear();
+        let read = buffered_reader.read_until(b'\n', &mut raw_buf)?;
+        if read == 0 {
+            break;
+        }
+        let line = decode_line(&raw_buf);
         line_num += 1;
 
         // Check which rules match and collect debug info

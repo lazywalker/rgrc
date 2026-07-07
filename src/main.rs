@@ -144,13 +144,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // 1. The command is not in the exclude list, AND
             // 2. Either we're generating all aliases (--all-aliases) OR the command exists in PATH (which::which)
             if !except_set.contains(cmd as &str) && (args.show_all_aliases || command_exists(cmd)) {
-                // Print shell alias in the format: alias CMD='grc CMD';
-                if cmd == &"journalctl" {
-                    // Special alias: run rgrc as wrapper so rgrc can control paging and coloring
-                    println!("alias {}='{} journalctl --no-pager | less -R'", cmd, grc);
-                } else {
-                    println!("alias {}='{} {}'", cmd, grc, cmd);
-                }
+                // plain alias for every command — piping to less in the alias
+                // breaks trailing args like `journalctl -f` (#32)
+                println!("alias {}='{} {}'", cmd, grc, cmd);
             }
         }
         std::process::exit(0);
@@ -339,7 +335,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(start) = t_load_start.filter(|_| record_time) {
         eprintln!(
             "[rgrc:time] load_rules_for_command: {:} in {:?}",
-            &pseudo_command,
+            pseudo_command,
             start.elapsed()
         );
     }
@@ -348,13 +344,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::new(command_name);
     cmd.args(args.command.iter().skip(1));
 
-    // Optimization: When colorization is not needed AND output goes directly to terminal,
-    // let the child process output directly to stdout. This completely avoids any piping overhead.
-    // However, when output is piped (e.g., rgrc cmd | other_cmd), we must still use pipes
-    // to maintain data flow integrity.
-    if !should_colorize && stdout_is_terminal {
-        cmd.stdout(Stdio::inherit()); // Inherit parent's stdout directly
-        cmd.stderr(Stdio::inherit()); // Also inherit stderr for consistency
+    // When not colorizing, let the child write directly to our stdout.
+    // Going through a pipe here only risks corrupting binary output (e.g.
+    // `docker save > file`, see #31) and adds copying overhead for no gain.
+    if !should_colorize {
+        cmd.stdout(Stdio::inherit());
+        cmd.stderr(Stdio::inherit());
 
         // Spawn and wait for the command
         let mut child = match cmd.spawn() {
