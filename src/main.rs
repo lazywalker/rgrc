@@ -335,7 +335,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(start) = t_load_start.filter(|_| record_time) {
         eprintln!(
             "[rgrc:time] load_rules_for_command: {:} in {:?}",
-            &pseudo_command,
+            pseudo_command,
             start.elapsed()
         );
     }
