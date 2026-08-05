@@ -445,3 +445,26 @@ fn test_pattern_compilation() {
     // Both should work identically
     assert_eq!(re1.is_match("123."), re2.is_match("123."));
 }
+
+// multibyte UTF-8 must not panic in find/captures.
+#[test]
+fn utf8_multibyte_find() {
+    let re = EnhancedRegex::new(r"(?<=x)ab").unwrap();
+    assert!(re.is_match("世 xab"));
+}
+
+#[test]
+fn utf8_multibyte_captures() {
+    let re = EnhancedRegex::new(r"(?<=x)(ab)").unwrap();
+    let caps = re
+        .captures_from_pos("世 xab xab", 0)
+        .expect("captures should succeed on multibyte");
+    assert_eq!(caps.get(1).unwrap().as_str(), "ab");
+}
+
+#[test]
+fn zero_width_no_infinite_loop() {
+    let re = EnhancedRegex::new(r"\d*(?=\.)").unwrap();
+    let matches: Vec<_> = re.find_iter(".test.123").collect();
+    assert!(matches.len() < 20);
+}
