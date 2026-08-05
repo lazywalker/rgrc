@@ -1,6 +1,6 @@
 [package]
 name = "rgrc"
-version = "0.6.14"
+version = "0.6.20"
 edition = "2024"
 license = "MIT"
 description = "Rusty Generic Colouriser"
@@ -51,11 +51,6 @@ opt-level = "z"
 [[bin]]
 name = "rgrc"
 path = "src/main.rs"
-doc = true
-
-[[bin]]
-name = "rgrv"
-path = "src/bin/rgrv.rs"
 doc = true
 
 [package.metadata.deb]
