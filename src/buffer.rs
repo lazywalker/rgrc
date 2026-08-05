@@ -1,20 +1,10 @@
-//! # buffer.rs - Buffered writers for rgrc
-//!
-//! This module provides specialized buffered writers for handling output
-//! with different buffering strategies.
+//! Line-buffered writer: flushes after each newline for real-time output.
 
-/// Line-buffered writer that flushes after each newline
-/// This ensures real-time output for commands like ping
 pub struct LineBufferedWriter<W: std::io::Write> {
     inner: W,
 }
 
 impl<W: std::io::Write> LineBufferedWriter<W> {
-    /// Create a new `LineBufferedWriter` wrapping `inner`.
-    ///
-    /// The returned writer will delegate write and flush calls to `inner`,
-    /// but will also flush `inner` whenever a newline (`\n`) byte is written
-    /// to ensure near-real-time line output for interactive commands.
     pub fn new(inner: W) -> Self {
         Self { inner }
     }
@@ -23,7 +13,6 @@ impl<W: std::io::Write> LineBufferedWriter<W> {
 impl<W: std::io::Write> std::io::Write for LineBufferedWriter<W> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         let written = self.inner.write(buf)?;
-        // Flush after each newline to ensure real-time output
         if buf.contains(&b'\n') {
             self.inner.flush()?;
         }
@@ -31,9 +20,6 @@ impl<W: std::io::Write> std::io::Write for LineBufferedWriter<W> {
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
-        // Flush the underlying writer.
-        //
-        // This forwards to the wrapped writer's `flush` implementation.
         self.inner.flush()
     }
 }

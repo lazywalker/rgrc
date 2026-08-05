@@ -65,7 +65,7 @@ pub fn set_process_title(title: &str) {
             // argv[0] is the very first string, so the byte just before it
             // is either the start of the mapped region or uninitialized memory
             // that should not be '\0' from our string. We look for the first
-            // NUL byte going backwards — but argv[0] starts right after the
+            // NUL byte going backwards; but argv[0] starts right after the
             // preceding NUL (or at the very beginning of the stack args area).
             let mut start = *p;
             loop {
@@ -312,11 +312,9 @@ mod tests {
         let found_on_unix = candidates_unix.iter().any(|c| command_exists(c));
         let found_on_windows = candidates_windows.iter().any(|c| command_exists(c));
 
-        // We expect at least one of these platform-typical commands to be present
-        // on the current host running the tests.
         assert!(
             found_on_unix || found_on_windows,
-            "expected at least one standard command to be present on PATH (checked: sh,bash,ls,true,false,echo,cmd.exe,powershell.exe,where.exe)"
+            "expected at least one standard command on PATH"
         );
 
         // Test non-existing command
