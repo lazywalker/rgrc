@@ -1,46 +1,4 @@
-//! # lib.rs - Core Library for rgrc
-//!
-//! This module provides the core functionality of rgrc (Rust GRC), a colorization tool
-//! that applies syntax highlighting to command output based on configuration rules.
-//!
-//! ## Architecture
-//!
-//! The library is organized into the following components:
-//!
-//! - **ColorMode**: Controls whether color output is enabled (On/Off/Auto)
-//! - **Configuration Loading**: Functions to load colorization rules from config files
-//! - **Submodules**:
-//!   - `style`: Lightweight ANSI styling (replaces console crate)
-//!   - `colorizer`: Text colorization engine
-//!   - `grc`: Config file parsing with hybrid regex engine
-//!   - `enhanced_regex`: Custom lookaround implementation (used when fancy feature is disabled)
-//!
-//! ## Features
-//!
-//! - **embed-configs** (default): Embed configuration files into binary
-//! - **fancy-regex** (default): Use battle-tested fancy-regex for enhanced patterns
-//!   - Disable for smaller binary: `cargo build --no-default-features --features=embed-configs`
-//! - **timetrace**: Enable timing trace for performance profiling
-//!
-//! ## Regex Engine
-//!
-//! rgrc uses a hybrid regex approach:
-//! - Simple patterns → Standard `regex` crate (fast)
-//! - Complex patterns → `fancy-regex` (default) or `EnhancedRegex` (lightweight)
-//!
-//! See `grc::CompiledRegex` documentation for details.
-//!
-//! ## Usage Example
-//!
-//! ```ignore
-//! use rgrc::{ColorMode, load_config, load_grcat_config};
-//!
-//! // Determine if colors should be used
-//! let color_mode = ColorMode::Auto;
-//!
-//! // Load colorization rules for a specific command
-//! let rules = load_config("~/.config/rgrc/grc.conf", "ping");
-//! ```
+//! Core library: config loading, colorization, and regex engine selection.
 
 pub mod style;
 // Re-export Style for easier access
@@ -144,19 +102,16 @@ fn ensure_cache_populated() -> Option<std::path::PathBuf> {
         {
             return Some(cache_dir);
         }
-        // rgrc.conf exists but conf dir missing or empty — fall through and repopulate
+        // rgrc.conf exists but conf dir missing or empty; fall through and repopulate
     }
 
-    // Create cache directory structure
     std::fs::create_dir_all(&cache_dir).ok()?;
     let conf_dir = cache_dir.join("conf");
     std::fs::create_dir_all(&conf_dir).ok()?;
 
-    // Write rgrc.conf
     std::fs::write(&grc_conf_path, EMBEDDED_GRC_CONF).ok()?;
 
-    // Write all embedded configs
-    // Don't fail the entire cache population if a single file fails to write
+    // don't fail entirely if one conf file fails to write
     let mut any_success = false;
     for (filename, content) in EMBEDDED_CONFIGS {
         let file_path = conf_dir.join(filename);
@@ -169,28 +124,7 @@ fn ensure_cache_populated() -> Option<std::path::PathBuf> {
     if any_success { Some(cache_dir) } else { None }
 }
 
-/// Control whether colored output should be enabled for this run.
-///
-/// This enum determines the color output mode for the application:
-///
-/// - **On**: Always enable colored output
-/// - **Off**: Always disable colored output, output plain text
-/// - **Auto**: Enable colors only if output is to a terminal (TTY)
-///
-/// The Auto mode is recommended for most use cases as it automatically
-/// disables colors when output is piped or redirected.
-///
-/// # Examples
-///
-/// ```
-/// use std::str::FromStr;
-/// use rgrc::ColorMode;
-///
-/// assert_eq!(ColorMode::from_str("on"), Ok(ColorMode::On));
-/// assert_eq!(ColorMode::from_str("off"), Ok(ColorMode::Off));
-/// assert_eq!(ColorMode::from_str("auto"), Ok(ColorMode::Auto));
-/// assert!(ColorMode::from_str("invalid").is_err());
-/// ```
+/// On = always color, Off = never, Auto = only when stdout is a TTY.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum ColorMode {
     /// Always enable colored output
@@ -204,35 +138,6 @@ pub enum ColorMode {
 impl FromStr for ColorMode {
     type Err = ();
 
-    /// Parse a string into a ColorMode variant.
-    ///
-    /// Accepts string values: "on", "off", or "auto" (case-sensitive).
-    ///
-    /// # Arguments
-    ///
-    /// * `s` - String slice to parse ("on", "off", or "auto")
-    ///
-    /// # Returns
-    ///
-    /// - `Ok(ColorMode::On)` if s is "on"
-    /// - `Ok(ColorMode::Off)` if s is "off"
-    /// - `Ok(ColorMode::Auto)` if s is "auto"
-    /// - `Err(())` if s is any other value
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use std::str::FromStr;
-    /// use rgrc::ColorMode;
-    ///
-    /// let mode = ColorMode::from_str("on").unwrap();
-    /// assert_eq!(mode, ColorMode::On);
-    ///
-    /// let mode = ColorMode::from_str("auto").unwrap();
-    /// assert_eq!(mode, ColorMode::Auto);
-    ///
-    /// assert!(ColorMode::from_str("maybe").is_err());
-    /// ```
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "on" => Ok(ColorMode::On),
@@ -243,43 +148,7 @@ impl FromStr for ColorMode {
     }
 }
 
-/// Standard resource paths searched for grcat config files.
-///
-/// These paths are searched **in order** when looking for colorization rule files
-/// (grcat.conf) that define how to colorize output for specific commands.
-/// **The search stops at the first matching file found.**
-///
-/// The paths support:
-/// - `~` expansion (home directory)
-/// - XDG Base Directory Specification compliance
-/// - System-wide configuration directories
-///
-/// # Search Order (Priority)
-///
-/// User configurations take precedence over system configurations:
-///
-/// 1. `~/.config/rgrc` - User's rgrc config directory (XDG_CONFIG_HOME) **← HIGHEST PRIORITY**
-/// 2. `~/.local/share/rgrc` - User's rgrc data directory (XDG_DATA_HOME)
-/// 3. `/usr/local/share/rgrc` - System-wide custom installations
-/// 4. `/usr/share/rgrc` - Standard system location (rgrc variant)
-/// 5. `~/.config/grc` - Legacy grc user config directory
-/// 6. `~/.local/share/grc` - Legacy grc user data directory
-/// 7. `/usr/local/share/grc` - Legacy system-wide location
-/// 8. `/usr/share/grc` - Standard grc location (original) **← LOWEST PRIORITY**
-///
-/// # Example: Priority Resolution
-///
-/// For file `conf.df`, search stops at the **first match**:
-/// - If `~/.config/rgrc/conf.df` exists → **RETURNED** (other paths not searched)
-/// - If only `/usr/share/rgrc/conf.df` exists → returned as fallback
-///
-/// # Examples
-///
-/// All paths in RESOURCE_PATHS are searched in order when loading configuration:
-/// ```ignore
-/// let config_entries = load_config("~/.config/rgrc/grc.conf", "ping");
-/// // This will search in RESOURCE_PATHS directories until first match is found
-/// ```
+/// Search paths for conf files, user config first, system/legacy last.
 pub const RESOURCE_PATHS: &[&str] = &[
     "share", // Development mode: relative to project root (where cargo run is executed)
     "~/.config/rgrc",
@@ -292,73 +161,9 @@ pub const RESOURCE_PATHS: &[&str] = &[
     "/usr/share/grc",
 ];
 
-/// Load colorization rules for a given command from a grc.conf-style configuration file.
-///
-/// This function reads a grc.conf configuration file and extracts colorization rules
-/// that match the specified pseudo_command. It then loads the detailed rule files
-/// referenced by the matching configuration entry.
-///
-/// # Configuration File Format
-///
-/// The grc.conf file uses a key-value format where:
-/// - Each line is a rule mapping a command pattern to a colorization file
-/// - Format: `<regex_pattern> <colorization_file_name>`
-/// - Example: `^ping` conf.ping
-///
-/// The function searches RESOURCE_PATHS for the referenced colorization files,
-/// stopping at the **first match found** to respect user configuration priority.
-///
-/// # Arguments
-///
-/// * `path` - Path to the grc.conf file to read (e.g., "~/.config/rgrc/grc.conf")
-/// * `pseudo_command` - The command name to match against patterns in grc.conf
-///   (e.g., "ping", "ls", "curl")
-///
-/// # Returns
-///
-/// A `Vec<GrcatConfigEntry>` containing all colorization rules loaded from the
-/// referenced grcat.conf files. Returns an empty vector if:
-/// - The grc.conf file cannot be opened
-/// - No matching rule is found for the pseudo_command
-/// - The referenced colorization files cannot be opened
-///
-/// # Priority Resolution
-///
-/// When searching for a config file (e.g., `conf.ping`), the function stops at
-/// the **first directory containing the file**:
-/// - User config (`~/.config/rgrc/conf.ping`) takes precedence
-/// - System config (`/usr/share/rgrc/conf.ping`) only used if user config not found
-///
-/// # Errors Handled
-///
-/// All errors are silently handled and result in empty or partial rule sets:
-/// - File not found → returns empty vector
-/// - Invalid regex → pattern not matched → returns empty vector
-/// - Invalid colorization file path → skipped to next directory
-///
-/// # Examples
-///
-/// ```ignore
-/// use rgrc::load_config;
-///
-/// // Load colorization rules for the ping command
-/// let rules = load_config("~/.config/rgrc/grc.conf", "ping");
-/// if !rules.is_empty() {
-///     println!("Found {} colorization rules for ping", rules.len());
-/// }
-///
-/// // Load rules for curl command
-/// let curl_rules = load_config("~/.config/rgrc/grc.conf", "curl");
-/// ```
-///
-/// # Implementation Details
-///
-/// 1. Opens and parses grc.conf file
-/// 2. Searches for a regex pattern matching pseudo_command
-/// 3. Extracts the colorization file reference from matching entry
-/// 4. Expands ~ in paths using shellexpand
-/// 5. Searches RESOURCE_PATHS directories **in order** for the colorization file
-/// 6. Returns rules from the **first matching file found**
+/// Load rules for `pseudo_command` by matching it against grc.conf patterns,
+/// then reading the referenced conf file from the first matching RESOURCE_PATHS.
+/// Returns empty vec on any failure (file not found, no match, parse error).
 pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     // First, try to load from filesystem config file
     let filesystem_result = File::open(path).ok().and_then(|f| {
@@ -453,71 +258,9 @@ fn file_exists_and_parse(filename: &str) -> Option<Vec<GrcatConfigEntry>> {
     None
 }
 
-/// Load colorization rules from a grcat.conf-style configuration file.
-///
-/// This function reads a grcat.conf file and parses all colorization rules contained
-/// within it. These rules define how specific text patterns should be colored in output.
-///
-/// # Configuration File Format
-///
-/// The grcat.conf file format is a set of regex patterns paired with color specifications.
-/// Each rule can specify:
-/// - Regular expressions to match against text patterns
-/// - Color foreground values (standard ANSI color names)
-/// - Color background values
-/// - Text attributes (bold, dim, italic, etc.)
-///
-/// # Arguments
-///
-/// * `filename` - Path to the grcat.conf file to read
-///   Supports paths with ~ for home directory expansion
-///   Can be a path within RESOURCE_PATHS directories
-///   Example: "~/.config/rgrc/conf.ping"
-///
-/// # Returns
-///
-/// A `Vec<GrcatConfigEntry>` containing all parsed colorization rules from the file.
-/// Returns an empty vector if:
-/// - The file cannot be opened
-/// - The file has invalid syntax
-/// - Any parsing errors occur
-///
-/// # Type Parameter
-///
-/// * `T: AsRef<str>` - Accepts String, &str, or any type convertible to &str
-///
-/// # Examples
-///
-/// ```ignore
-/// use rgrc::load_grcat_config;
-///
-/// // Load rules from a specific file
-/// let rules = load_grcat_config("~/.config/rgrc/conf.ping");
-/// println!("Loaded {} rules", rules.len());
-///
-/// // Works with both owned and borrowed strings
-/// let filename = String::from("~/.config/rgrc/conf.curl");
-/// let rules = load_grcat_config(filename);
-///
-/// let rules2 = load_grcat_config("~/.config/rgrc/conf.ls");
-/// ```
-///
-/// # Integration with load_config
-///
-/// This function is typically called indirectly through `load_config()`:
-/// ```ignore
-/// // High-level: load_config finds the right grcat file automatically
-/// let rules = load_config("~/.config/rgrc/grc.conf", "ping");
-///
-/// // Low-level: if you already know the grcat file path
-/// let rules = load_grcat_config("~/.config/rgrc/conf.ping");
-/// ```
-///
-/// # Error Handling
-///
-/// All errors (file not found, parse errors, etc.) are silently handled
-/// and result in an empty rule vector. This allows graceful degradation
-/// when configuration files are missing or malformed.
+/// Load and parse a grcat conf file. Returns empty vec on any error
+/// (file not found, parse failure). Falls back to embedded cache when
+/// the `embed-configs` feature is enabled.
 pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
     let filename_str = filename.as_ref();
 
@@ -643,178 +386,6 @@ pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     Vec::new()
 }
 
-/// Helper function to format Style info with colors applied
-#[cfg(feature = "debug")]
-fn format_style_info(_style: &Style) -> String {
-    // Return simple representation for display
-    // The style itself will be applied for formatting
-    String::new()
-}
-
-/// Colorize input with debug output showing which rules match each line.
-///
-/// This function applies colorization AND prints debug information to stderr
-/// showing which rules matched each input line.
-///
-/// # Arguments
-///
-/// * `reader` - Input source implementing Read
-/// * `writer` - Output destination implementing Write  
-/// * `rules` - Slice of colorization rules
-///
-/// # Returns
-///
-/// * `Ok(())` - Successfully processed all input
-/// * `Err(Box<dyn Error>)` - I/O or processing error
-#[cfg(feature = "debug")]
-pub fn colorize_regex_with_debug<R, W>(
-    reader: &mut R,
-    writer: &mut W,
-    rules: &[GrcatConfigEntry],
-    debug_level: crate::args::DebugLevel,
-) -> Result<(), Box<dyn std::error::Error>>
-where
-    R: std::io::Read,
-    W: std::io::Write,
-{
-    use crate::args::DebugLevel;
-    use crate::colorizer::decode_line;
-    use std::io::{BufRead, BufReader};
-
-    let mut buffered_reader = BufReader::new(reader);
-    let mut raw_buf: Vec<u8> = Vec::new();
-    let mut line_num = 0;
-
-    loop {
-        raw_buf.clear();
-        let read = buffered_reader.read_until(b'\n', &mut raw_buf)?;
-        if read == 0 {
-            break;
-        }
-        let line = decode_line(&raw_buf);
-        line_num += 1;
-
-        // Check which rules match and collect debug info
-        let mut matched_rules = Vec::new();
-        for (rule_idx, rule) in rules.iter().enumerate() {
-            if rule.regex.is_match(&line) {
-                matched_rules.push((rule_idx, rule));
-            }
-        }
-
-        // Apply colorization using the standard colorizer
-        // Create a temporary cursor from the line with a newline
-        use std::io::Cursor;
-        let mut line_reader = Cursor::new(format!("{}\n", line).into_bytes());
-        let mut temp_output = Vec::new();
-
-        colorizer::colorize_regex(&mut line_reader, &mut temp_output, rules)?;
-
-        // Write the colored output (no need to add newline, colorize_regex already did)
-        writer.write_all(&temp_output)?;
-
-        // Print debug info to stderr based on debug level
-        match debug_level {
-            DebugLevel::Off => {
-                // No debug output
-            }
-            DebugLevel::Basic => {
-                // Show matched rules with count
-                if matched_rules.is_empty() {
-                    let line_marker_str = format!("[Line {}]", line_num);
-                    eprintln!(
-                        "{} ℹ️  No rules matched",
-                        Style::new().cyan().apply_to(&line_marker_str)
-                    );
-                } else {
-                    let line_marker_str = format!("[Line {}]", line_num);
-                    let line_marker = Style::new().cyan().apply_to(&line_marker_str);
-                    eprintln!(
-                        "{} ✓ Matched {} rule(s): {}",
-                        line_marker,
-                        matched_rules.len(),
-                        matched_rules
-                            .iter()
-                            .map(|(idx, rule)| {
-                                let colors_display = if rule.colors.is_empty() {
-                                    "no-style".to_string()
-                                } else {
-                                    format!("{} style(s)", rule.colors.len())
-                                };
-                                format!("#{} ({})", idx + 1, colors_display)
-                            })
-                            .collect::<Vec<_>>()
-                            .join(", ")
-                    );
-                }
-            }
-            DebugLevel::Verbose => {
-                // Show detailed rule and style information
-                let line_marker_str = format!("[Line {}]", line_num);
-                let line_marker = Style::new().cyan().apply_to(&line_marker_str);
-
-                if matched_rules.is_empty() {
-                    eprintln!("{} ℹ️  No rules matched", line_marker);
-                } else {
-                    eprintln!("{} ✓ Matched {} rule(s):", line_marker, matched_rules.len());
-                    for (idx, rule) in matched_rules.iter() {
-                        // Display Rule with bold formatting
-                        let rule_display = format!("Rule #{}: {}", idx + 1, rule.regex.as_str());
-                        eprintln!("  {}", Style::new().bold().apply_to(&rule_display));
-
-                        // Display first matched text with styles applied
-                        if let Some(captures) = rule.regex.captures_from_pos(&line, 0) {
-                            // Get the full match (group 0) and rebuild it with individual groups styled
-                            if let Some(_full_match) = captures.get(0) {
-                                let mut styled_groups = Vec::new();
-                                for group_idx in 1..captures.len() {
-                                    if let Some(cap) = captures.get(group_idx) {
-                                        let text = cap.as_str();
-                                        // Apply style if it exists for this group
-                                        if group_idx <= rule.colors.len() {
-                                            styled_groups.push(format!(
-                                                "{}",
-                                                rule.colors[group_idx - 1].apply_to(text)
-                                            ));
-                                        } else {
-                                            styled_groups.push(text.to_string());
-                                        }
-                                    }
-                                }
-
-                                if !styled_groups.is_empty() {
-                                    let matched_text = styled_groups.join(" ");
-                                    eprintln!(
-                                        "    {}",
-                                        Style::new()
-                                            .dim()
-                                            .apply_to(&format!("Matched: {}", matched_text))
-                                    );
-                                }
-                            }
-                        }
-
-                        if rule.colors.is_empty() {
-                            eprintln!("    {}", Style::new().dim().apply_to("Styles: (none)"));
-                        } else {
-                            eprintln!("    {}:", Style::new().dim().apply_to("Styles"));
-                            for (color_idx, color) in rule.colors.iter().enumerate() {
-                                let _color_display = format_style_info(color);
-                                eprintln!(
-                                    "      {}",
-                                    color.apply_to(&format!("Group {}: applied", color_idx + 1))
-                                );
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    Ok(())
-}
-
 /// Load colorization rules from embedded configuration.
 /// On first run, writes embedded configs to disk cache, then loads from there.
 #[cfg(feature = "embed-configs")]
@@ -857,9 +428,6 @@ fn load_config_from_embedded(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
 mod lib_test {
     use super::*;
 
-    // Note: These tests are documentation-based since the main() function
-    // cannot be directly tested. The actual behavior would need to be tested
-    // through integration tests that run the binary.
     #[cfg(test)]
     #[test]
     fn test_load_rules_for_command() {

@@ -1,7 +1,6 @@
 use rgrc::colorizer::colorize_regex;
 use rgrc::grc::{CompiledRegex, GrcatConfigEntry};
 
-/// Helper function to run colorization and return the output
 fn colorize_test(
     input: &str,
     rules: &[GrcatConfigEntry],
@@ -11,7 +10,6 @@ fn colorize_test(
     Ok(String::from_utf8(writer)?)
 }
 
-/// Helper function to run colorize_regex and return the output
 fn colorize_regex_test(
     input: &str,
     rules: &[GrcatConfigEntry],
@@ -21,7 +19,6 @@ fn colorize_regex_test(
     Ok(String::from_utf8(writer)?)
 }
 
-/// Helper to create a simple style rule
 fn rule(
     pattern: &str,
     style: rgrc::style::Style,
@@ -64,10 +61,8 @@ mod basic_colorization_tests {
         let rules = vec![rule("world", Style::new().red())?];
         let output = colorize_test("hello world", &rules)?;
 
-        // Verify output contains the matched word with ANSI color code
         assert!(output.contains("hello"));
         assert!(output.contains("world"));
-        // Should end with newline
         assert!(output.ends_with('\n'));
         Ok(())
     }
@@ -77,7 +72,6 @@ mod basic_colorization_tests {
         let rules = vec![rule("xyz", Style::new().blue())?];
         let output = colorize_test("hello world", &rules)?;
 
-        // No match means output unchanged
         assert_eq!(output, "hello world\n");
         Ok(())
     }
@@ -87,10 +81,7 @@ mod basic_colorization_tests {
         let rules = vec![rule("o", Style::new().green())?];
         let output = colorize_test("foo boo", &rules)?;
 
-        // Should contain the words (possibly with ANSI codes)
-        // Check that output is not empty and contains the original structure
         assert!(!output.is_empty());
-        // When colors are applied, the output will contain ANSI codes
         assert!(output.len() >= "foo boo".len());
         Ok(())
     }
@@ -103,7 +94,6 @@ mod basic_colorization_tests {
         ];
         let output = colorize_test("foobar", &rules)?;
 
-        // Both patterns should be present
         assert!(output.contains("foo"));
         assert!(output.contains("bar"));
         Ok(())
@@ -114,7 +104,6 @@ mod basic_colorization_tests {
         let rules = vec![rule("hello", Style::new().red())?];
         let output = colorize_test("hello hello", &rules)?;
 
-        // Both instances of "hello" should be styled
         let count = output.matches("hello").count();
         assert_eq!(count, 2);
         Ok(())
@@ -132,7 +121,6 @@ mod multiline_tests {
         let rules = vec![rule("test", Style::new().red())?];
         let output = colorize_test("test line\nno match\n", &rules)?;
 
-        // First line should have "test", second should not be modified
         let lines: Vec<&str> = output.lines().collect();
         assert_eq!(lines.len(), 2);
         Ok(())
@@ -161,7 +149,6 @@ mod multiline_tests {
     fn test_large_input_single_threaded() -> Result<(), Box<dyn std::error::Error>> {
         let rules = vec![rule("line", Style::new().blue())?];
 
-        // Create input with 500 lines (below parallel threshold)
         let mut input = String::new();
         for i in 0..500 {
             input.push_str(&format!("line {}\n", i));
@@ -177,7 +164,6 @@ mod multiline_tests {
     fn test_large_input_parallel_processing() -> Result<(), Box<dyn std::error::Error>> {
         let rules = vec![rule("line", Style::new().red())?];
 
-        // Create input with 1500 lines (above parallel threshold of 1000)
         let mut input = String::new();
         for i in 0..1500 {
             input.push_str(&format!("line {}\n", i));
@@ -187,7 +173,6 @@ mod multiline_tests {
         let lines: Vec<&str> = output.lines().collect();
         assert_eq!(lines.len(), 1500);
 
-        // Verify line count is preserved (structure integrity)
         assert!(lines.len() == 1500);
         Ok(())
     }
@@ -198,7 +183,6 @@ mod multiline_tests {
         let input = "test\n\ntest\n\n";
         let output = colorize_test(input, &rules)?;
 
-        // Empty lines should be preserved
         assert!(output.contains("\n\n"));
         Ok(())
     }
@@ -209,7 +193,6 @@ mod multiline_tests {
         let input = "line 123 and 456\nnext 789\n";
         let output = colorize_test(input, &rules)?;
 
-        // Special regex should work
         assert!(output.contains("line"));
         assert!(output.contains("next"));
         Ok(())
@@ -268,9 +251,7 @@ mod regex_pattern_tests {
     fn test_character_class() -> Result<(), Box<dyn std::error::Error>> {
         let rules = vec![rule("[aeiou]", Style::new().magenta())?];
         let output = colorize_test("hello world", &rules)?;
-        // Verify output is not empty and has expected structure
         assert!(!output.is_empty());
-        // Output should be longer than or equal to input due to ANSI codes
         assert!(output.len() >= "hello world".len());
         Ok(())
     }
@@ -280,7 +261,6 @@ mod regex_pattern_tests {
         let rules = vec![rule("Test", Style::new().red())?];
         let output = colorize_test("test Test TEST", &rules)?;
 
-        // Only "Test" should match (case-sensitive)
         assert!(output.contains("test"));
         assert!(output.contains("Test"));
         assert!(output.contains("TEST"));
@@ -348,7 +328,6 @@ mod capture_group_tests {
             vec![Style::new().red()],
         )];
         let output = colorize_test("server:8080", &rules)?;
-        // Should still process without error
         assert!(output.contains("server"));
         Ok(())
     }
@@ -495,7 +474,6 @@ mod edge_case_tests {
     fn test_very_long_line() -> Result<(), Box<dyn std::error::Error>> {
         let rules = vec![rule("x", Style::new().red())?];
 
-        // Create a very long line
         let mut input = "a".repeat(10000);
         input.push('x');
         input.push_str(&"b".repeat(10000));
@@ -511,7 +489,6 @@ mod edge_case_tests {
         let rules = vec![rule("test", Style::new().red())?];
         let output = colorize_test("     \n", &rules)?;
 
-        // Should preserve spaces
         assert!(output.contains("    "));
         Ok(())
     }
@@ -521,7 +498,6 @@ mod edge_case_tests {
         let rules = vec![rule("test", Style::new().red())?];
         let output = colorize_test("test\ttest\n", &rules)?;
 
-        // Should preserve tabs
         assert!(output.contains("\t"));
         Ok(())
     }
@@ -559,7 +535,6 @@ mod edge_case_tests {
         let rules = vec![rule("^", Style::new().red())?];
         let output = colorize_test("test\n", &rules)?;
 
-        // Should handle zero-width match without hanging
         assert!(output.contains("test"));
         Ok(())
     }
@@ -597,7 +572,6 @@ mod edge_case_tests {
         let rules = vec![rule("test", Style::new().red())?];
         let output = colorize_test("test\n\n\ntest\n", &rules)?;
 
-        // Should preserve empty lines
         assert!(output.contains("\n\n"));
         Ok(())
     }
@@ -605,7 +579,6 @@ mod edge_case_tests {
     #[test]
     fn test_windows_line_endings() -> Result<(), Box<dyn std::error::Error>> {
         let rules = vec![rule("test", Style::new().red())?];
-        // Note: Input will be treated as raw bytes
         let output = colorize_test("test\r\n", &rules)?;
 
         assert!(output.contains("test"));
@@ -617,14 +590,12 @@ mod edge_case_tests {
         let rules = vec![rule("test", Style::new().red())?];
         let output = colorize_test("test data", &rules)?;
 
-        // Output should still work even with colors disabled
         assert!(output.contains("test"));
         Ok(())
     }
 
     #[test]
     fn test_skip_rule_functionality() -> Result<(), Box<dyn std::error::Error>> {
-        // Create rules: one normal rule and one skipped rule
         let normal_rule = rule("ERROR", Style::new().red())?;
         let mut skip_rule = rule("WARNING", Style::new().yellow())?;
         skip_rule.skip = true; // Mark this rule as skipped
@@ -636,13 +607,9 @@ mod edge_case_tests {
 
         println!("Output: {:?}", output);
 
-        // Both ERROR and WARNING text should be present
         assert!(output.contains("ERROR"));
         assert!(output.contains("WARNING"));
 
-        // Check that ERROR has color codes (red) but WARNING does not have yellow color codes
-        // We can't easily check exact ANSI codes, so we'll check that the output contains ANSI codes for ERROR
-        // and that WARNING appears without the yellow color code pattern
         assert!(output.contains("\x1b[")); // Should have some ANSI codes
         assert!(output.contains("ERROR")); // ERROR should be present
 
@@ -656,9 +623,6 @@ mod advanced_features_tests {
     use rgrc::Style;
     use rgrc::grc::GrcatConfigEntryCount;
 
-    /// Lines 290-293: Count::Stop prevents subsequent rule processing
-    /// Tests that when a rule has count=Stop, processing stops after the first match
-    /// and subsequent rules are not applied to the remainder of the line.
     #[test]
     fn test_count_stop_prevents_subsequent_rules() -> Result<(), Box<dyn std::error::Error>> {
         let mut r1 = GrcatConfigEntry::new(
@@ -670,14 +634,10 @@ mod advanced_features_tests {
         let r2 = GrcatConfigEntry::new(CompiledRegex::new(r"Boom")?, vec![Style::new().blue()]);
 
         let output = colorize_test("ERROR: Boom Boom\n", &[r1, r2])?;
-        // Because r1 has count=Stop, only the first ERROR match is handled
         assert!(output.contains("ERROR: Boom"));
         Ok(())
     }
 
-    /// Lines 282-293: Count::Once limits matches but allows other rules
-    /// Tests that count=Once prevents a rule from matching multiple times on the same line,
-    /// but does not stop other rules from processing (unlike count=Stop).
     #[test]
     fn test_count_once_allows_other_rules() -> Result<(), Box<dyn std::error::Error>> {
         let mut r1 = GrcatConfigEntry::new(CompiledRegex::new(r"o")?, vec![Style::new().green()]);
@@ -686,15 +646,11 @@ mod advanced_features_tests {
         let r2 = GrcatConfigEntry::new(CompiledRegex::new(r"boo")?, vec![Style::new().blue()]);
 
         let output = colorize_test("foo boo\n", &[r1, r2])?;
-        // Both words should be present (at least one 'o' from foo and 'boo')
         assert!(output.contains("o"));
         assert!(output.contains("boo"));
         Ok(())
     }
 
-    /// Lines 248-274: Replace functionality breaks outer loop
-    /// Tests that when a rule performs text replacement, it breaks the outer rule
-    /// processing loop and follow-up rules are not applied.
     #[test]
     fn test_replace_prevents_followup_rules() -> Result<(), Box<dyn std::error::Error>> {
         let mut r1 = GrcatConfigEntry::new(CompiledRegex::new(r"Hello (\w+)")?, vec![Style::new()]);
@@ -703,28 +659,20 @@ mod advanced_features_tests {
         let r2 = GrcatConfigEntry::new(CompiledRegex::new(r"XYZ")?, vec![Style::new().red()]);
 
         let output = colorize_test("Hello world\n", &[r1, r2])?;
-        // Replacement should be applied
         assert!(output.contains("world") || output.contains("XYZ"));
         Ok(())
     }
 
-    /// Lines 248-274: Replace with multiple capture group backreferences
-    /// Tests the replacement logic with multiple backreferences (\1, \2) to verify
-    /// that captured groups are properly substituted in the replacement string.
     #[test]
     fn test_replace_with_multiple_backrefs() -> Result<(), Box<dyn std::error::Error>> {
         let mut r = GrcatConfigEntry::new(CompiledRegex::new(r"(\w+)-(\d+)")?, vec![Style::new()]);
         r.replace = "\\2-\\1".to_string();
 
         let output = colorize_test("foo-123 bar\n", &[r])?;
-        // Backreferences should swap the parts
         assert!(output.contains("123") || output.contains("foo"));
         Ok(())
     }
 
-    /// Lines 213-215, 232-233: last_end cache optimization
-    /// Tests the cache optimization that tracks the end position of the last match.
-    /// When offset < last_end, the regex check is skipped to avoid redundant checks.
     #[test]
     fn test_last_end_cache_optimization() -> Result<(), Box<dyn std::error::Error>> {
         let r = GrcatConfigEntry::new(CompiledRegex::new(r"aa+")?, vec![Style::new().red()]);
@@ -734,9 +682,6 @@ mod advanced_features_tests {
         Ok(())
     }
 
-    /// Lines 365-376: Run-length encoding and multiple style boundaries
-    /// Tests that when adjacent characters have different styles, multiple style
-    /// boundaries are correctly detected and each segment is styled independently.
     #[test]
     fn test_multiple_style_boundaries() -> Result<(), Box<dyn std::error::Error>> {
         let r1 = GrcatConfigEntry::new(CompiledRegex::new(r"a")?, vec![Style::new().red()]);
@@ -744,26 +689,9 @@ mod advanced_features_tests {
         let r3 = GrcatConfigEntry::new(CompiledRegex::new(r"c")?, vec![Style::new().blue()]);
 
         let output = colorize_test("abc\n", &[r1, r2, r3])?;
-        // All characters should be present
         assert!(output.contains("a"));
         assert!(output.contains("b"));
         assert!(output.contains("c"));
-        Ok(())
-    }
-
-    /// Lines 159, 383-389: Timetrace feature timing instrumentation
-    /// Tests that when the timetrace feature is enabled and RGRCTIME env var is set,
-    /// timing information is recorded and reported.
-    #[cfg(feature = "debug")]
-    #[test]
-    fn test_timetrace_instrumentation() -> Result<(), Box<dyn std::error::Error>> {
-        unsafe { std::env::set_var("RGRCTIME", "1") };
-
-        let r = GrcatConfigEntry::new(CompiledRegex::new(r"test")?, vec![Style::new().red()]);
-        let output = colorize_test("test\n", &[r])?;
-        assert!(output.contains("test"));
-
-        unsafe { std::env::remove_var("RGRCTIME") };
         Ok(())
     }
 }
@@ -778,7 +706,6 @@ mod performance_tests {
     fn test_single_threaded_path() -> Result<(), Box<dyn std::error::Error>> {
         let rules = vec![rule("line", Style::new().red())?];
 
-        // Create input with exactly 999 lines (below parallel threshold)
         let mut input = String::new();
         for i in 0..999 {
             input.push_str(&format!("line {}\n", i));
@@ -794,7 +721,6 @@ mod performance_tests {
     fn test_parallel_path() -> Result<(), Box<dyn std::error::Error>> {
         let rules = vec![rule("line", Style::new().green())?];
 
-        // Create input with 2000 lines (above parallel threshold of 1000)
         let mut input = String::new();
         for i in 0..2000 {
             input.push_str(&format!("line {}\n", i));
@@ -804,7 +730,6 @@ mod performance_tests {
         let lines: Vec<&str> = output.lines().collect();
         assert_eq!(lines.len(), 2000);
 
-        // Verify ordering is preserved
         let first_line = lines.first().unwrap();
         let last_line = lines.last().unwrap();
         assert!(first_line.contains("0"));
@@ -816,7 +741,6 @@ mod performance_tests {
     fn test_boundary_at_1000_lines() -> Result<(), Box<dyn std::error::Error>> {
         let rules = vec![rule("x", Style::new().blue())?];
 
-        // Create input with exactly 1000 lines (at the boundary)
         let mut input = String::new();
         for i in 0..1000 {
             input.push_str(&format!("line {}\n", i));
@@ -993,10 +917,8 @@ mod colorize_regex_tests {
         let rules = vec![rule("world", Style::new().red())?];
         let output = colorize_regex_test("hello world", &rules)?;
 
-        // Verify output contains the matched word with ANSI color code
         assert!(output.contains("hello"));
         assert!(output.contains("world"));
-        // Should end with newline
         assert!(output.ends_with('\n'));
         Ok(())
     }
@@ -1006,7 +928,6 @@ mod colorize_regex_tests {
         let rules = vec![rule("xyz", Style::new().blue())?];
         let output = colorize_regex_test("hello world", &rules)?;
 
-        // No match means output unchanged
         assert_eq!(output, "hello world\n");
         Ok(())
     }
@@ -1016,9 +937,7 @@ mod colorize_regex_tests {
         let rules = vec![rule("o", Style::new().green())?];
         let output = colorize_regex_test("foo boo", &rules)?;
 
-        // Should contain the words (possibly with ANSI codes)
         assert!(!output.is_empty());
-        // When colors are applied, the output will contain ANSI codes
         assert!(output.len() >= "foo boo".len());
         Ok(())
     }
@@ -1028,7 +947,6 @@ mod colorize_regex_tests {
         let rules = vec![rule("aa", Style::new().red())?];
         let output = colorize_regex_test("aaa", &rules)?;
 
-        // Should handle overlapping matches correctly
         assert!(output.contains("a"));
         assert!(output.ends_with('\n'));
         Ok(())
@@ -1042,7 +960,6 @@ mod colorize_regex_tests {
         ];
         let output = colorize_regex_test("ERROR: something\nINFO: something else", &rules)?;
 
-        // Should contain both styled sections
         assert!(output.contains("ERROR"));
         assert!(output.contains("INFO"));
         Ok(())
@@ -1050,7 +967,6 @@ mod colorize_regex_tests {
 
     #[test]
     fn test_regex_capture_groups() -> Result<(), Box<dyn std::error::Error>> {
-        // Test regex with capture groups - style different parts differently
         let mut rule_entry = rule(r"(\w+): (\d+)", Style::new().red())?;
         rule_entry.colors = vec![
             Style::new().red(),   // full match
@@ -1061,7 +977,6 @@ mod colorize_regex_tests {
         let rules = vec![rule_entry];
         let output = colorize_regex_test("count: 42", &rules)?;
 
-        // Should contain styled output
         assert!(output.contains("count"));
         assert!(output.contains("42"));
         Ok(())
@@ -1069,11 +984,9 @@ mod colorize_regex_tests {
 
     #[test]
     fn test_regex_zero_width_match() -> Result<(), Box<dyn std::error::Error>> {
-        // Test word boundary matches (^, $, \b) which are zero-width
         let rules = vec![rule(r"\b\w+\b", Style::new().yellow())?];
         let output = colorize_regex_test("hello world", &rules)?;
 
-        // Should handle word boundaries without infinite loops
         assert!(output.contains("hello"));
         assert!(output.contains("world"));
         Ok(())
@@ -1098,14 +1011,12 @@ mod colorize_regex_tests {
 
     #[test]
     fn test_regex_performance_optimization() -> Result<(), Box<dyn std::error::Error>> {
-        // Test that the caching optimization works by using overlapping patterns
         let rules = vec![
             rule("test", Style::new().red())?,
             rule("testing", Style::new().blue())?, // overlaps with "test"
         ];
 
         let output = colorize_regex_test("testing", &rules)?;
-        // The caching should prevent redundant regex calls
         assert!(output.contains("testing"));
         Ok(())
     }
@@ -1128,51 +1039,22 @@ mod colorize_regex_tests {
         Ok(())
     }
 
-    /// Lines 214-215: Offset jump optimization for overlapping matches
-    /// Tests that when the current offset is before last_end, the offset jumps forward
-    /// to avoid redundant regex checks in overlapping match regions.
-    /// Covers: src/colorizer.rs:214-216 offset jump optimization
     #[test]
     fn test_offset_jump_overlapping_regions() -> Result<(), Box<dyn std::error::Error>> {
-        // Use a pattern that can have overlapping matches
         let rules = vec![
             rule("ab", Style::new().red())?,
             rule("bc", Style::new().blue())?,
         ];
 
         let output = colorize_regex_test("abcd", &rules)?;
-        // Both patterns should be tested and styled
         assert!(output.contains("a"));
         assert!(output.contains("b"));
         assert!(output.contains("c"));
         assert!(output.contains("d"));
         Ok(())
     }
-
-    /// Line 159: timetrace feature - lines_processed counter increment
-    /// Tests that when timetrace feature is enabled and RGRCTIME is set,
-    /// the lines_processed counter is incremented for each line.
-    /// Note: This test verifies the code path exists but cannot directly test
-    /// the counter since it's only used internally for timing output.
-    #[test]
-    #[cfg(feature = "debug")]
-    fn test_timetrace_lines_processed_counter() -> Result<(), Box<dyn std::error::Error>> {
-        let rules = vec![rule("test", Style::new().red())?];
-
-        // Process multiple lines - if timetrace is enabled, each increments the counter
-        let output = colorize_regex_test("line1\nline2\nline3\ntest\n", &rules)?;
-
-        // Should process all lines successfully
-        assert!(output.contains("line1"));
-        assert!(output.contains("line2"));
-        assert!(output.contains("line3"));
-        assert!(output.contains("test"));
-        Ok(())
-    }
 }
 
-// Non-UTF-8 input must not abort the stream. See #31 — commands like
-// `docker save` emit binary (tar) data that BufRead::lines() used to reject.
 #[cfg(test)]
 mod non_utf8_tests {
     use super::*;
@@ -1186,7 +1068,6 @@ mod non_utf8_tests {
 
     #[test]
     fn invalid_utf8_passthrough_no_rules() {
-        // lone continuation byte 0x80 + valid text
         let output = colorize_bytes(b"\xff\x80hello\n", &[]);
         assert!(output.contains('\u{FFFD}'));
         assert!(output.contains("hello"));
@@ -1195,7 +1076,6 @@ mod non_utf8_tests {
     #[test]
     fn invalid_utf8_with_rule_still_colors() {
         let rules = vec![rule("ok", Style::new().green()).unwrap()];
-        // valid line gets colored, invalid line doesn't abort
         let output = colorize_bytes(b"ok\n\xff\x80\n", &rules);
         assert!(output.contains("ok"));
         assert!(output.contains('\u{FFFD}'));
@@ -1203,7 +1083,6 @@ mod non_utf8_tests {
 
     #[test]
     fn invalid_utf8_preserves_newline_boundaries() {
-        // each "line" (split by \n) is processed independently even if non-UTF-8
         let output = colorize_bytes(b"\xff\nok\xff\n", &[]);
         assert_eq!(output.lines().count(), 2);
     }
