@@ -1,18 +1,7 @@
-/// Comprehensive test coverage for ALL config files (84 total)
-/// Tests basic pattern compilation and matching for each config
 use rgrc::grc::CompiledRegex;
-
-// ============================================================================
-// LOOKAROUND CONFIGS (23 files) - Already tested in config_lookaround_tests.rs
-// ============================================================================
-
-// ============================================================================
-// NON-LOOKAROUND CONFIGS (61 files) - Basic pattern tests
-// ============================================================================
 
 #[test]
 fn test_conf_ant() {
-    // Ant build tool - simple patterns for errors/warnings
     let pattern = r"(?i)(error|warning|failed)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("BUILD FAILED"));
@@ -21,7 +10,6 @@ fn test_conf_ant() {
 
 #[test]
 fn test_conf_blkid() {
-    // Block device identification
     let pattern = r"UUID=[a-f0-9-]+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("UUID=1234-5678-abcd"));
@@ -29,7 +17,6 @@ fn test_conf_blkid() {
 
 #[test]
 fn test_conf_configure() {
-    // ./configure script output
     let pattern = r"checking for";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("checking for gcc... yes"));
@@ -37,7 +24,6 @@ fn test_conf_configure() {
 
 #[test]
 fn test_conf_curl() {
-    // curl HTTP output
     let pattern = r"\d+\s+\d+\s+\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("100  1024  100  1024"));
@@ -45,7 +31,6 @@ fn test_conf_curl() {
 
 #[test]
 fn test_conf_cvs() {
-    // CVS version control
     let pattern = r"^[UPMCA]\s";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("U file.txt"));
@@ -53,7 +38,6 @@ fn test_conf_cvs() {
 
 #[test]
 fn test_conf_diff() {
-    // diff output
     let pattern = r"^[+\-]";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("+added line"));
@@ -62,7 +46,6 @@ fn test_conf_diff() {
 
 #[test]
 fn test_conf_dig() {
-    // DNS lookup
     let pattern = r"\d+\.\d+\.\d+\.\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("8.8.8.8"));
@@ -70,7 +53,6 @@ fn test_conf_dig() {
 
 #[test]
 fn test_conf_dnf() {
-    // DNF package manager
     let pattern = r"(?i)(installing|upgrading|removing)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("Installing package"));
@@ -78,7 +60,6 @@ fn test_conf_dnf() {
 
 #[test]
 fn test_conf_dockerinfo() {
-    // docker info output
     let pattern = r"\d+\s+(containers|images)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("5 containers"));
@@ -86,7 +67,6 @@ fn test_conf_dockerinfo() {
 
 #[test]
 fn test_conf_dockerpull() {
-    // docker pull progress
     let pattern = r"\d+%";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("Downloading 45%"));
@@ -94,7 +74,6 @@ fn test_conf_dockerpull() {
 
 #[test]
 fn test_conf_dockerversion() {
-    // docker version
     let pattern = r"Version:\s+\d+\.\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("Version: 20.10"));
@@ -102,7 +81,6 @@ fn test_conf_dockerversion() {
 
 #[test]
 fn test_conf_du() {
-    // Disk usage
     let pattern = r"\d+[KMG]?\s+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("1024K /home"));
@@ -111,7 +89,6 @@ fn test_conf_du() {
 
 #[test]
 fn test_conf_env() {
-    // Environment variables
     let pattern = r"^\w+=";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("PATH=/usr/bin"));
@@ -119,7 +96,6 @@ fn test_conf_env() {
 
 #[test]
 fn test_conf_fdisk() {
-    // Disk partitioning
     let pattern = r"/dev/[a-z]+\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("/dev/sda1"));
@@ -127,7 +103,6 @@ fn test_conf_fdisk() {
 
 #[test]
 fn test_conf_free() {
-    // Memory info
     let pattern = r"\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("8192 total"));
@@ -135,7 +110,6 @@ fn test_conf_free() {
 
 #[test]
 fn test_conf_gcc() {
-    // GCC compiler
     let pattern = r"(?i)(error|warning):";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("error: undefined reference"));
@@ -143,7 +117,6 @@ fn test_conf_gcc() {
 
 #[test]
 fn test_conf_getfacl() {
-    // File ACL
     let pattern = r"user::\w+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("user::rwx"));
@@ -151,7 +124,6 @@ fn test_conf_getfacl() {
 
 #[test]
 fn test_conf_getsebool() {
-    // SELinux booleans
     let pattern = r"\w+\s+-->\s+(on|off)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("httpd_can_network_connect --> on"));
@@ -159,7 +131,6 @@ fn test_conf_getsebool() {
 
 #[test]
 fn test_conf_go_test() {
-    // Go test output
     let pattern = r"(?i)(pass|fail|ok)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("PASS"));
@@ -168,7 +139,6 @@ fn test_conf_go_test() {
 
 #[test]
 fn test_conf_id() {
-    // User/group ID
     let pattern = r"uid=\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("uid=1000(user)"));
@@ -176,7 +146,6 @@ fn test_conf_id() {
 
 #[test]
 fn test_conf_ipaddr() {
-    // IP address info
     let pattern = r"\d+\.\d+\.\d+\.\d+/\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("192.168.1.1/24"));
@@ -184,7 +153,6 @@ fn test_conf_ipaddr() {
 
 #[test]
 fn test_conf_ipneighbor() {
-    // ARP neighbor table
     let pattern = r"\d+\.\d+\.\d+\.\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("192.168.1.1 dev eth0"));
@@ -192,7 +160,6 @@ fn test_conf_ipneighbor() {
 
 #[test]
 fn test_conf_iproute() {
-    // IP routing table
     let pattern = r"\d+\.\d+\.\d+\.\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("default via 192.168.1.1"));
@@ -200,7 +167,6 @@ fn test_conf_iproute() {
 
 #[test]
 fn test_conf_iptables() {
-    // Firewall rules
     let pattern = r"(ACCEPT|DROP|REJECT)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("ACCEPT all"));
@@ -208,7 +174,6 @@ fn test_conf_iptables() {
 
 #[test]
 fn test_conf_irclog() {
-    // IRC chat logs
     let pattern = r"<\w+>";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("<username> Hello"));
@@ -216,7 +181,6 @@ fn test_conf_irclog() {
 
 #[test]
 fn test_conf_jobs() {
-    // Background jobs
     let pattern = r"\[\d+\]";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("[1] Running"));
@@ -224,7 +188,6 @@ fn test_conf_jobs() {
 
 #[test]
 fn test_conf_last() {
-    // Login history
     let pattern = r"\w+\s+pts/\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("user pts/0"));
@@ -232,7 +195,6 @@ fn test_conf_last() {
 
 #[test]
 fn test_conf_ldap() {
-    // LDAP directory
     let pattern = r"dn:";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("dn: cn=admin,dc=example"));
@@ -240,7 +202,6 @@ fn test_conf_ldap() {
 
 #[test]
 fn test_conf_lolcat() {
-    // Rainbow text (test config)
     let pattern = r"\w+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("rainbow text"));
@@ -248,7 +209,6 @@ fn test_conf_lolcat() {
 
 #[test]
 fn test_conf_lsattr() {
-    // File attributes
     let pattern = r"[a-z-]{12}";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("----i--------"));
@@ -256,7 +216,6 @@ fn test_conf_lsattr() {
 
 #[test]
 fn test_conf_lsmod() {
-    // Loaded kernel modules
     let pattern = r"^\w+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("module_name 16384 1"));
@@ -264,7 +223,6 @@ fn test_conf_lsmod() {
 
 #[test]
 fn test_conf_lsof() {
-    // Open files
     let pattern = r"(COMMAND|PID|USER)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("COMMAND PID USER"));
@@ -272,7 +230,6 @@ fn test_conf_lsof() {
 
 #[test]
 fn test_conf_lspci() {
-    // PCI devices
     let pattern = r"[0-9a-f]{2}:[0-9a-f]{2}\.\d";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("00:1f.2 SATA controller"));
@@ -280,7 +237,6 @@ fn test_conf_lspci() {
 
 #[test]
 fn test_conf_lsusb() {
-    // USB devices
     let pattern = r"Bus\s+\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("Bus 001 Device 002"));
@@ -288,7 +244,6 @@ fn test_conf_lsusb() {
 
 #[test]
 fn test_conf_mtr() {
-    // Network tracer
     let pattern = r"\d+\.\d+%";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("0.0% loss"));
@@ -296,7 +251,6 @@ fn test_conf_mtr() {
 
 #[test]
 fn test_conf_mvn() {
-    // Maven build
     let pattern = r"(?i)(success|failure|error)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("BUILD SUCCESS"));
@@ -304,7 +258,6 @@ fn test_conf_mvn() {
 
 #[test]
 fn test_conf_netstat() {
-    // Network statistics
     let pattern = r"(LISTEN|ESTABLISHED|TIME_WAIT)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("ESTABLISHED"));
@@ -312,7 +265,6 @@ fn test_conf_netstat() {
 
 #[test]
 fn test_conf_nmap() {
-    // Port scanner
     let pattern = r"\d+/tcp\s+(open|closed)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("80/tcp open http"));
@@ -320,7 +272,6 @@ fn test_conf_nmap() {
 
 #[test]
 fn test_conf_ntpdate() {
-    // NTP time sync
     let pattern = r"\d+\.\d+\.\d+\.\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("server 192.168.1.1"));
@@ -328,7 +279,6 @@ fn test_conf_ntpdate() {
 
 #[test]
 fn test_conf_php() {
-    // PHP errors
     let pattern = r"(?i)(error|warning|notice)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("PHP Warning: "));
@@ -336,7 +286,6 @@ fn test_conf_php() {
 
 #[test]
 fn test_conf_ping() {
-    // Ping network test
     let pattern = r"\d+\s+bytes from";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("64 bytes from 192.168.1.1"));
@@ -344,7 +293,6 @@ fn test_conf_ping() {
 
 #[test]
 fn test_conf_semanage() {
-    // SELinux policy
     let pattern = r"\w+_t";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("httpd_t"));
@@ -352,7 +300,6 @@ fn test_conf_semanage() {
 
 #[test]
 fn test_conf_sensors() {
-    // Hardware sensors
     let pattern = r"\+?\d+\.\d+°C";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("Core 0: +45.0°C"));
@@ -360,7 +307,6 @@ fn test_conf_sensors() {
 
 #[test]
 fn test_conf_showmount() {
-    // NFS exports
     let pattern = r"/\w+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("/export/share"));
@@ -368,7 +314,6 @@ fn test_conf_showmount() {
 
 #[test]
 fn test_conf_sqlmap() {
-    // SQL injection scanner
     let pattern = r"(?i)(vulnerable|injection)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("Parameter is vulnerable"));
@@ -376,7 +321,6 @@ fn test_conf_sqlmap() {
 
 #[test]
 fn test_conf_ss() {
-    // Socket statistics
     let pattern = r"(ESTAB|LISTEN|CLOSE-WAIT)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("ESTAB 0 0"));
@@ -384,7 +328,6 @@ fn test_conf_ss() {
 
 #[test]
 fn test_conf_systemctl() {
-    // systemd service manager
     let pattern = r"(active|inactive|failed)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("active (running)"));
@@ -392,7 +335,6 @@ fn test_conf_systemctl() {
 
 #[test]
 fn test_conf_tcpdump() {
-    // Packet capture
     let pattern = r"\d+\.\d+\.\d+\.\d+\.\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("192.168.1.1.80 > 192.168.1.2.12345"));
@@ -400,7 +342,6 @@ fn test_conf_tcpdump() {
 
 #[test]
 fn test_conf_tune2fs() {
-    // ext2/3/4 tuning
     let pattern = r"Block count:\s+\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("Block count: 1024000"));
@@ -408,7 +349,6 @@ fn test_conf_tune2fs() {
 
 #[test]
 fn test_conf_ulimit() {
-    // Resource limits
     let pattern = r"(unlimited|\d+)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("open files 1024"));
@@ -416,7 +356,6 @@ fn test_conf_ulimit() {
 
 #[test]
 fn test_conf_vmstat() {
-    // Virtual memory statistics
     let pattern = r"\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("1 0 512 1024"));
@@ -424,7 +363,6 @@ fn test_conf_vmstat() {
 
 #[test]
 fn test_conf_wdiff() {
-    // Word diff
     let pattern = r"\[-.*?-\]";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("text [-removed-] more"));
@@ -432,16 +370,13 @@ fn test_conf_wdiff() {
 
 #[test]
 fn test_conf_whois() {
-    // Domain whois
     let pattern = r"(?i)(registrar|domain)";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("Registrar: Example Inc"));
 }
 
-// Additional configs
 #[test]
 fn test_conf_common() {
-    // Common patterns (used as include)
     let pattern = r"\d+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("value 123"));
@@ -449,37 +384,27 @@ fn test_conf_common() {
 
 #[test]
 fn test_conf_dummy() {
-    // Test/dummy config
     let pattern = r"\w+";
     let regex = CompiledRegex::new(pattern).unwrap();
     assert!(regex.is_match("test"));
 }
 
-// ============================================================================
-// FAST-PATH PATTERN TESTS (New specialized patterns)
-// ============================================================================
-
 #[test]
 fn test_fast_path_ipv4_continuation() {
-    // IPv4 address pattern: \d+(?=\.\d+\.\d+\.\d+)
-    // This matches the first octet when followed by 3 more octets
     let pattern = r"\d+(?=\.\d+\.\d+\.\d+)";
     let regex = CompiledRegex::new(pattern).unwrap();
 
-    // Should match first octet of complete IPv4
     let test_text = "IP: 192.168.1.1";
     assert!(
         regex.is_match(test_text),
         "Should match '192' in '192.168.1.1'"
     );
 
-    // Should not match incomplete IP
     assert!(!regex.is_match("192.168"));
 }
 
 #[test]
 fn test_fast_path_size_unit_kb() {
-    // Size unit pattern: \d+(?=[KMG]B?)
     let pattern = r"\d+(?=[KMG]B?)";
     let regex = CompiledRegex::new(pattern).unwrap();
 
@@ -493,7 +418,6 @@ fn test_fast_path_size_unit_kb() {
 
 #[test]
 fn test_fast_path_size_unit_without_b() {
-    // Size unit pattern: \d+(?=[KMGT])
     let pattern = r"\d+(?=[KMGT])";
     let regex = CompiledRegex::new(pattern).unwrap();
 
@@ -505,14 +429,10 @@ fn test_fast_path_size_unit_without_b() {
 
 #[test]
 fn test_all_config_files_covered() {
-    // Verify we have test coverage for all config types
     let lookaround_configs = 23; // From config_lookaround_tests.rs
     let non_lookaround_configs = 58; // From this file
     let total = lookaround_configs + non_lookaround_configs;
 
-    // Total config files in share/ directory: 84
-    // Some are variants (e.g., conf.common included by others)
-    // We have comprehensive coverage of the main configs
     assert!(
         total >= 81,
         "Should have coverage for at least 81 configs, got {}",
@@ -522,7 +442,6 @@ fn test_all_config_files_covered() {
 
 #[test]
 fn test_enhanced_regex_config_compatibility() {
-    // Test that EnhancedRegex can handle all common config patterns
     let patterns = vec![
         r"\d+",                // Basic numbers
         r"\d+\.\d+",           // Decimals

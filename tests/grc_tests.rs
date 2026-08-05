@@ -2,7 +2,6 @@ use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 
-// Include the modules from src
 #[path = "../src/style.rs"]
 mod style;
 
@@ -14,17 +13,14 @@ mod grc;
 
 use grc::{GrcConfigReader, GrcatConfigEntry, GrcatConfigReader};
 
-/// Helper function to get the project root directory
 fn get_project_root() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
 }
 
-/// Helper function to get share directory path
 fn get_share_dir() -> PathBuf {
     get_project_root().join("share")
 }
 
-/// Helper function to get etc directory path
 fn get_etc_dir() -> PathBuf {
     get_project_root().join("etc")
 }
@@ -52,13 +48,11 @@ mod grc_config_reader_tests {
             "grc.conf should contain configuration entries"
         );
 
-        // Verify each entry has valid regex and config file path
         for (regex, config_file) in &configs {
             assert!(
                 !config_file.is_empty(),
                 "Config file path should not be empty"
             );
-            // Test that regex can match something (is_match now returns bool directly)
             let _ = regex.is_match("test"); // Just verify it doesn't panic
         }
 
@@ -77,13 +71,11 @@ mod grc_config_reader_tests {
 
         let configs: Vec<_> = grc_reader.collect();
 
-        // Check for common commands
         let command_configs: Vec<_> = configs
             .iter()
             .map(|(regex, config)| (regex.as_str(), config.as_str()))
             .collect();
 
-        // Verify some expected commands are present
         let has_ping = command_configs
             .iter()
             .any(|(_, config)| config.contains("ping"));
@@ -108,7 +100,6 @@ mod grc_config_reader_tests {
         let grc_reader = GrcConfigReader::new(reader.lines());
 
         for (regex, _config_file) in grc_reader {
-            // Test that each regex can be used for matching (is_match now returns bool directly)
             let _ = regex.is_match(""); // Just verify it doesn't panic
         }
     }
@@ -122,7 +113,6 @@ mod grc_config_reader_tests {
 
         let configs: Vec<_> = grc_reader.collect();
 
-        // Ensure no config file paths contain comment markers
         for (_, config_file) in &configs {
             assert!(
                 !config_file.starts_with('#'),
@@ -137,7 +127,6 @@ mod grc_config_reader_tests {
 mod grcat_config_reader_tests {
     use super::*;
 
-    /// Get all conf.* files from share directory
     fn get_all_conf_files() -> Vec<PathBuf> {
         let share_dir = get_share_dir();
         let mut conf_files = Vec::new();
@@ -186,7 +175,6 @@ mod grcat_config_reader_tests {
                     let reader = BufReader::new(file);
                     let grcat_reader = GrcatConfigReader::new(reader.lines());
 
-                    // Collect entries, noting that some may be skipped due to unsupported styles
                     let entries: Vec<GrcatConfigEntry> = grcat_reader.collect();
 
                     successful_parses += 1;
@@ -221,7 +209,6 @@ mod grcat_config_reader_tests {
             "\nTotal: {} files, {} entries",
             successful_parses, total_entries
         );
-        // Allow some files to have no entries due to unsupported styles
         assert!(
             total_entries > 0,
             "Should have parsed at least some configuration entries"
@@ -241,7 +228,6 @@ mod grcat_config_reader_tests {
             "conf.ls should contain at least one entry"
         );
 
-        // Verify each entry has valid regex
         for entry in &entries {
             let _ = entry.regex.is_match(""); // Just verify it doesn't panic
         }
@@ -313,7 +299,6 @@ mod grcat_config_reader_tests {
                 let grcat_reader = GrcatConfigReader::new(reader.lines());
 
                 for entry in grcat_reader {
-                    // Test that each regex can match an empty string without errors
                     let _ = entry.regex.is_match(""); // is_match now returns bool directly
                     total_regexes_tested += 1;
                 }
@@ -342,18 +327,14 @@ mod grcat_config_reader_tests {
                 let grcat_reader = GrcatConfigReader::new(reader.lines());
 
                 for entry in grcat_reader {
-                    // Each entry should have a valid regex (is_match now returns bool directly)
                     let _ = entry.regex.is_match(""); // Just verify it doesn't panic
 
-                    // Colors vector can be empty (default) or contain styles
-                    // Just verify it's a valid vector
                     let _colors = &entry.colors;
                 }
             }
         }
     }
 
-    /// Test individual conf files by name
     #[test]
     fn test_specific_conf_files() {
         let test_files = vec![
@@ -482,7 +463,6 @@ mod grcat_config_reader_tests {
             "conf.log should contain at least one entry"
         );
 
-        // Check that count fields are parsed correctly
         let mut found_once = false;
         let mut found_more = false;
         let mut found_stop = false;
@@ -518,7 +498,6 @@ mod grcat_config_reader_tests {
             "conf.ping2 should contain at least one entry"
         );
 
-        // Check that replace field is parsed correctly
         let mut found_replace = false;
         let mut replace_value = String::new();
 
@@ -547,7 +526,6 @@ mod grcat_config_reader_tests {
 
     #[test]
     fn test_count_and_replace_default_values() {
-        // Test with a simple config that doesn't specify count or replace
         let config_content = r#"
 regexp=test pattern
 colours=red
@@ -561,7 +539,6 @@ colours=red
         assert_eq!(entries.len(), 1, "Should parse one entry");
 
         let entry = &entries[0];
-        // Check default values
         assert!(
             matches!(entry.count, grc::GrcatConfigEntryCount::More),
             "Default count should be More"
@@ -587,7 +564,6 @@ colours=red
             "conf.netstat should contain at least one entry"
         );
 
-        // Check that skip fields are parsed correctly
         let mut found_skip_true = false;
         let mut found_skip_false = false;
 
@@ -627,7 +603,6 @@ colours=red
             "conf.sockstat should contain at least one entry"
         );
 
-        // Check that skip fields are parsed correctly
         let mut found_skip_true = false;
         let mut found_skip_false = false;
 
@@ -667,7 +642,6 @@ colours=red
             "conf.ss should contain at least one entry"
         );
 
-        // Check that skip fields are parsed correctly
         let mut found_skip_true = false;
         let mut found_skip_false = false;
 
@@ -696,7 +670,6 @@ colours=red
 
     #[test]
     fn test_skip_default_values() {
-        // Test with a simple config that doesn't specify skip
         let config_content = r#"
 regexp=test pattern
 colours=red
@@ -733,7 +706,6 @@ mod integration_tests {
         let mut found_files = 0;
 
         for (_regex, config_file) in grc_reader {
-            // Check if the referenced config file exists in share directory
             let conf_path = share_dir.join(&config_file);
             if conf_path.exists() {
                 found_files += 1;
@@ -777,13 +749,11 @@ mod integration_tests {
             let conf_path = share_dir.join(&config_file);
             if conf_path.exists() {
                 total_workflows += 1;
-                // Test complete workflow: grc.conf entry -> grcat config file
                 if let Ok(file) = File::open(&conf_path) {
                     let reader = BufReader::new(file);
                     let grcat_reader = GrcatConfigReader::new(reader.lines());
                     let _entries: Vec<_> = grcat_reader.collect();
 
-                    // Count as successful workflow even if entries is empty
                     workflows_tested += 1;
                 }
             }
@@ -813,10 +783,8 @@ mod integration_tests {
                     let reader = BufReader::new(file);
                     let grcat_reader = GrcatConfigReader::new(reader.lines());
 
-                    // Try to collect all entries - this will validate parsing
                     let entries: Vec<_> = grcat_reader.collect();
 
-                    // Even if a file has no entries, as long as it doesn't error, it's valid
                     valid_files += 1;
 
                     if entries.is_empty() {
@@ -848,7 +816,6 @@ mod integration_tests {
         );
     }
 
-    /// Helper to get all conf files
     fn get_all_conf_files() -> Vec<PathBuf> {
         let share_dir = get_share_dir();
         let mut conf_files = Vec::new();
@@ -875,7 +842,6 @@ mod edge_case_tests {
 
     #[test]
     fn test_empty_colors_handling() {
-        // Some entries might not have colors defined
         let conf_path = get_share_dir().join("conf.dummy");
         if conf_path.exists() {
             let file = File::open(&conf_path).expect("Should open conf.dummy");
@@ -883,7 +849,6 @@ mod edge_case_tests {
             let grcat_reader = GrcatConfigReader::new(reader.lines());
 
             for entry in grcat_reader {
-                // Should handle entries with or without colors
                 let _colors = &entry.colors;
             }
         }
@@ -891,7 +856,6 @@ mod edge_case_tests {
 
     #[test]
     fn test_complex_regex_patterns() {
-        // Test files with complex regex patterns
         let test_files = vec!["conf.ls", "conf.ping", "conf.netstat", "conf.iptables"];
         let share_dir = get_share_dir();
 
@@ -904,7 +868,6 @@ mod edge_case_tests {
                 let grcat_reader = GrcatConfigReader::new(reader.lines());
 
                 for entry in grcat_reader {
-                    // Verify complex regexes are properly parsed (is_match now returns bool directly)
                     let _ = entry.regex.is_match("test"); // Just verify it doesn't panic
                 }
             }
@@ -921,7 +884,6 @@ mod edge_case_tests {
 
             let entries: Vec<_> = grcat_reader.collect();
 
-            // conf.ls should have entries with multiple colors for capture groups
             let has_multiple_colors = entries.iter().any(|e| e.colors.len() > 1);
 
             if has_multiple_colors {

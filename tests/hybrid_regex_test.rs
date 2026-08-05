@@ -1,18 +1,12 @@
-// Test to verify hybrid regex engine is working correctly
-// Simple patterns should use fast regex::Regex
-// Complex patterns (with lookahead/lookbehind) use Enhanced regex
-
 use rgrc::grc::CompiledRegex;
 
 #[test]
 fn test_simple_pattern_uses_fast_regex() {
-    // Simple pattern without lookahead/lookbehind should compile to Fast variant
     let pattern = r"\bhello\b";
     let compiled = CompiledRegex::new(pattern).expect("Should compile simple pattern");
 
     match compiled {
         CompiledRegex::Fast(_) => {
-            // Success! Simple pattern uses fast regex
             println!("✓ Simple pattern uses Fast regex engine");
         }
         CompiledRegex::Enhanced(_) => {
@@ -23,7 +17,6 @@ fn test_simple_pattern_uses_fast_regex() {
 
 #[test]
 fn test_complex_pattern_uses_enhanced() {
-    // Pattern with lookahead should compile to Enhanced variant
     let pattern = r"hello(?=\d+)";
     let compiled = CompiledRegex::new(pattern).expect("Should compile complex pattern");
 
@@ -32,7 +25,6 @@ fn test_complex_pattern_uses_enhanced() {
             panic!("Complex pattern with lookahead should use Enhanced regex, not Fast");
         }
         CompiledRegex::Enhanced(_) => {
-            // Success! EnhancedRegex can handle lookahead
             println!("✓ Lookahead pattern uses Enhanced regex engine");
         }
     }
@@ -40,7 +32,6 @@ fn test_complex_pattern_uses_enhanced() {
 
 #[test]
 fn test_lookbehind_pattern_uses_enhanced() {
-    // Pattern with lookbehind (constant length) should compile to Enhanced variant
     let pattern = r"(?<=\d{3})hello";
     let compiled = CompiledRegex::new(pattern).expect("Should compile lookbehind pattern");
 
@@ -49,7 +40,6 @@ fn test_lookbehind_pattern_uses_enhanced() {
             panic!("Complex pattern with lookbehind should use Enhanced regex, not Fast");
         }
         CompiledRegex::Enhanced(_) => {
-            // Success! EnhancedRegex can handle lookbehind
             println!("✓ Lookbehind pattern uses Enhanced regex engine");
         }
     }
@@ -58,11 +48,9 @@ fn test_lookbehind_pattern_uses_enhanced() {
 #[test]
 #[cfg(not(feature = "fancy-regex"))]
 fn test_backreference_fails() {
-    // Pattern with backreference is not supported by EnhancedRegex
     let pattern = r"(\w+)\s+\1";
     let compiled = CompiledRegex::new(pattern);
 
-    // Backreferences are not supported, should fail to compile
     assert!(
         compiled.is_err(),
         "Backreference pattern should fail to compile"
@@ -73,11 +61,9 @@ fn test_backreference_fails() {
 #[test]
 #[cfg(feature = "fancy-regex")]
 fn test_backreference_works_with_fancy() {
-    // Pattern with backreference is supported by fancy-regex
     let pattern = r"(\w+)\s+\1";
     let compiled = CompiledRegex::new(pattern);
 
-    // With fancy-regex, backreferences should work
     assert!(
         compiled.is_ok(),
         "Backreference pattern should compile with fancy-regex"
@@ -85,7 +71,6 @@ fn test_backreference_works_with_fancy() {
     println!("✓ Backreference pattern works with fancy-regex");
 
     let regex = compiled.unwrap();
-    // Test that it actually matches duplicated words
     assert!(
         regex.is_match("hello hello"),
         "Should match duplicated word"
@@ -98,7 +83,6 @@ fn test_backreference_works_with_fancy() {
 
 #[test]
 fn test_multiple_simple_patterns() {
-    // Test that various common simple patterns use Fast regex
     let simple_patterns = vec![
         r"\d+",          // digits
         r"[a-z]+",       // letters
@@ -126,17 +110,11 @@ fn test_multiple_simple_patterns() {
     }
 }
 
-// ============================================================================
-// IPv4 Pattern Tests (from examples/test_ipv4.rs)
-// ============================================================================
-
 #[test]
 fn test_ipv4_pattern_simple_case() {
-    // Pattern \d+(?=\.\d+\.\d+\.\d+) should match first octet of IPv4 address
     let pattern = r"\d+(?=\.\d+\.\d+\.\d+)";
     let regex = CompiledRegex::new(pattern).unwrap();
 
-    // Should match "192" in "192.168.1.1" because it's followed by ".168.1.1"
     assert!(
         regex.is_match("192.168.1.1"),
         "Should match first octet in IPv4"
@@ -148,7 +126,6 @@ fn test_ipv4_pattern_with_prefix() {
     let pattern = r"\d+(?=\.\d+\.\d+\.\d+)";
     let regex = CompiledRegex::new(pattern).unwrap();
 
-    // Should find IPv4 address even with prefix text
     assert!(
         regex.is_match("IP: 192.168.1.1"),
         "Should match with prefix"
@@ -160,7 +137,6 @@ fn test_ipv4_pattern_embedded() {
     let pattern = r"\d+(?=\.\d+\.\d+\.\d+)";
     let regex = CompiledRegex::new(pattern).unwrap();
 
-    // Should find IPv4 address embedded in text
     assert!(
         regex.is_match("text 10.0.0.255 more"),
         "Should match embedded IPv4"
@@ -172,7 +148,6 @@ fn test_ipv4_pattern_incomplete() {
     let pattern = r"\d+(?=\.\d+\.\d+\.\d+)";
     let regex = CompiledRegex::new(pattern).unwrap();
 
-    // Should NOT match incomplete IP addresses
     assert!(
         !regex.is_match("192.168"),
         "Should not match two octets only"
@@ -185,14 +160,9 @@ fn test_ipv4_pattern_multiple_addresses() {
     let pattern = r"\d+(?=\.\d+\.\d+\.\d+)";
     let regex = CompiledRegex::new(pattern).unwrap();
 
-    // Should match first octet of multiple IP addresses
     let text = "Connect from 192.168.1.1 to 10.0.0.1";
     assert!(regex.is_match(text), "Should find IPv4 addresses in text");
 }
-
-// ============================================================================
-// Enhanced Regex Direct Tests (from examples/debug_ipv4_enhanced.rs)
-// ============================================================================
 
 #[test]
 fn test_enhanced_ipv4_find_match() {
@@ -202,7 +172,6 @@ fn test_enhanced_ipv4_find_match() {
     let regex = EnhancedRegex::new(pattern).unwrap();
     let text = "192.168.1.1";
 
-    // Should find match at start of IPv4 address
     let mat = regex.find_from_pos(text, 0);
     assert!(mat.is_some(), "Should find match in IPv4 address");
 
@@ -219,7 +188,6 @@ fn test_enhanced_ipv4_is_match() {
     let pattern = r"\d+(?=\.\d+\.\d+\.\d+)";
     let regex = EnhancedRegex::new(pattern).unwrap();
 
-    // Test is_match method
     assert!(regex.is_match("192.168.1.1"), "is_match should return true");
     assert!(
         regex.is_match("10.0.0.1"),
@@ -239,12 +207,10 @@ fn test_enhanced_ipv4_find_from_different_positions() {
     let regex = EnhancedRegex::new(pattern).unwrap();
     let text = "Server at 192.168.1.1 and client at 10.0.0.1";
 
-    // Find first match
     let mat1 = regex.find_from_pos(text, 0);
     assert!(mat1.is_some(), "Should find first IPv4");
     assert_eq!(mat1.unwrap().as_str(), "192", "First match should be '192'");
 
-    // Find second match (starting after first)
     let mat2 = regex.find_from_pos(text, 14);
     assert!(mat2.is_some(), "Should find second IPv4");
     assert_eq!(mat2.unwrap().as_str(), "10", "Second match should be '10'");
