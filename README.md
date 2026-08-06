@@ -42,7 +42,7 @@ cargo install rgrc --features embed-configs
 **Homebrew:**
 
 ```bash
-brew tap lazywalker/rgrc
+brew tap lazywalker/tap
 brew install rgrc
 ```
 
