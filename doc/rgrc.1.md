@@ -32,23 +32,10 @@
 - **`--completions`**=_SHELL_  
   Print a shell completion script for `SHELL` (supported: `bash`, `zsh`, `fish`, `ash`).
 
-- **`--flush-cache`**  
-  Flush and rebuild the embedded configuration cache (only available when built with `embed-configs`).
-
 - **`--config`**, **-c** _NAME_  
   Explicit config file name (e.g., `df` to load `conf.df`).
 - **`--version`**, **-V**  
   Print the installed `rgrc` version and exit.
-- **`--verbose`**`[=`_LEVEL_`]`, **-v**, **-vv**  
-  Enable rule-level debug output (only available when the binary is built with the `debug` feature).
-  If provided without a value, behaves like `--verbose=1`.
-  **Debug Levels:**
-  - **`--verbose[=1]`** or **-v** (Basic): Show matched rules count and style count for each line.
-    - Format: `[Line N] ✓ Matched M rule(s): #R (S style(s)), ...`
-  - **`--verbose=2`** or **-vv** (Verbose): Show detailed matching information including:
-    - Rule regex patterns
-    - Matched text with capture groups (space-separated)
-    - Applied styles for each capture group
 
 ## CONFIGURATION FILES
 

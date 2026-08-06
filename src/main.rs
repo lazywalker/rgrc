@@ -12,15 +12,8 @@ use rgrc::{
     },
 };
 
-#[cfg(feature = "debug")]
-use rgrc::args::DebugLevel;
-#[cfg(feature = "debug")]
-use rgrc::colorize_regex_with_debug;
-
 use std::io::{self, IsTerminal, Write};
 use std::process::{Command, Stdio};
-#[cfg(feature = "debug")]
-use std::time::Instant;
 
 // Helper to centralize BrokenPipe handling.
 // - `handle_box_error` accepts a boxed error (Box<dyn Error>), downcasts to
@@ -47,31 +40,6 @@ fn handle_io_error(e: std::io::Error) -> Result<(), Box<dyn std::error::Error>> 
 #[cfg(not(target_env = "msvc"))]
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
-/// Flush and rebuild the cache directory (embed-configs only)
-///
-/// This function removes the existing cache directory and rebuilds it with
-/// embedded configuration files. It displays the progress and results.
-#[cfg(feature = "embed-configs")]
-fn flush_and_rebuild_cache() {
-    use rgrc::EMBEDDED_CONFIGS;
-
-    println!("Flushing and rebuilding cache directory...");
-
-    match rgrc::flush_and_rebuild_cache() {
-        Some((cache_dir, config_count)) => {
-            println!("Cache rebuild successful!");
-            println!("  Location: {}", cache_dir.display());
-            println!("  Main config: rgrc.conf");
-            println!("  Color configs: {} files in conf/", config_count);
-            println!("  Total embedded configs: {}", EMBEDDED_CONFIGS.len());
-        }
-        None => {
-            eprintln!("Error: Failed to rebuild cache directory");
-            std::process::exit(1);
-        }
-    }
-}
 
 /// Main entry point for the grc (generic colourizer) program.
 ///
@@ -144,18 +112,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             // 1. The command is not in the exclude list, AND
             // 2. Either we're generating all aliases (--all-aliases) OR the command exists in PATH (which::which)
             if !except_set.contains(cmd as &str) && (args.show_all_aliases || command_exists(cmd)) {
-                // plain alias for every command — piping to less in the alias
+                // plain alias for every command; piping to less in the alias
                 // breaks trailing args like `journalctl -f` (#32)
                 println!("alias {}='{} {}'", cmd, grc, cmd);
             }
         }
-        std::process::exit(0);
-    }
-
-    // Handle --flush-cache flag: flush and rebuild cache directory
-    #[cfg(feature = "embed-configs")]
-    if args.flush_cache {
-        flush_and_rebuild_cache();
         std::process::exit(0);
     }
 
@@ -227,36 +188,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut buffered_stdout = io::BufWriter::with_capacity(64 * 1024, io::stdout());
         let mut line_buffered_writer = LineBufferedWriter::new(&mut buffered_stdout);
 
-        // Use debug colorizer if debug_level is not Off
-        #[cfg(feature = "debug")]
-        {
-            if args.debug_level != DebugLevel::Off {
-                if let Err(e) = colorize_regex_with_debug(
-                    &mut buffered_stdin,
-                    &mut line_buffered_writer,
-                    rules.as_slice(),
-                    args.debug_level,
-                ) {
-                    handle_box_error(e)?;
-                }
-            } else if let Err(e) = colorize(
-                &mut buffered_stdin,
-                &mut line_buffered_writer,
-                rules.as_slice(),
-            ) {
-                handle_box_error(e)?;
-            }
-        }
-
-        #[cfg(not(feature = "debug"))]
-        {
-            if let Err(e) = colorize(
-                &mut buffered_stdin,
-                &mut line_buffered_writer,
-                rules.as_slice(),
-            ) {
-                handle_box_error(e)?;
-            }
+        if let Err(e) = colorize(
+            &mut buffered_stdin,
+            &mut line_buffered_writer,
+            rules.as_slice(),
+        ) {
+            handle_box_error(e)?;
         }
 
         // Flush buffered output
@@ -294,35 +231,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let pseudo_command = args.command.join(" ");
 
-    // If we previously decided colorization should be attempted, allow an explicit
-    // pseudo-command exclusion check here. This is done *before* loading rules so
-    // plain `rgrc ls` (pseudo_command == "ls") can be treated as no-color while
-    // `rgrc ls -l` will not match the exact exclusion and remains colorized.
+    // check pseudo-command exclusions before loading rules so bare `rgrc ls`
+    // skips coloring (ls colorizes its own output) while `rgrc ls -l` does not.
     let should_colorize = if should_colorize {
-        // exact match exclusions
         !rgrc::utils::pseudo_command_excluded(&pseudo_command)
     } else {
         false
-    };
-
-    // OPTIMIZATION: Load colorization rules concurrently with command preparation
-    // This allows rule loading (I/O + regex compilation) to happen in parallel
-    // with command spawning, reducing perceived latency
-    #[cfg(feature = "debug")]
-    let record_time = std::env::var_os("RGRCTIME").is_some();
-    #[cfg(feature = "debug")]
-    let t0 = if record_time {
-        Some(Instant::now())
-    } else {
-        None
-    };
-
-    // Load rules if colorization is needed
-    #[cfg(feature = "debug")]
-    let t_load_start = if record_time {
-        Some(Instant::now())
-    } else {
-        None
     };
 
     let rules: Vec<GrcatConfigEntry> = if should_colorize {
@@ -330,15 +244,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     } else {
         Vec::new()
     };
-
-    #[cfg(feature = "debug")]
-    if let Some(start) = t_load_start.filter(|_| record_time) {
-        eprintln!(
-            "[rgrc:time] load_rules_for_command: {:} in {:?}",
-            pseudo_command,
-            start.elapsed()
-        );
-    }
 
     // Spawn the command with appropriate stdout handling
     let mut cmd = Command::new(command_name);
@@ -351,11 +256,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         cmd.stdout(Stdio::inherit());
         cmd.stderr(Stdio::inherit());
 
-        // Spawn and wait for the command
         let mut child = match cmd.spawn() {
             Ok(c) => c,
             Err(e) => {
-                // Friendly error for missing executable
                 if e.kind() == std::io::ErrorKind::NotFound {
                     eprintln!("Error: command not found: '{}'", command_name);
                     std::process::exit(127);
@@ -406,116 +309,21 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    #[cfg(feature = "debug")]
-    if let Some(start) = t0.filter(|_| record_time) {
-        eprintln!("[rgrc:time] spawn child: {:?}", start.elapsed());
-    }
-
-    // Colorization is enabled, read from the piped stdout, apply colorization
-    // rules line-by-line (or in parallel chunks), and write colored output to stdout.
     let mut stdout = child
         .stdout
         .take()
         .expect("child did not have a handle to stdout");
 
-    // Optimization: Use a larger buffer to reduce system call overhead
-    // This can significantly improve performance for commands with lots of output
-    let mut buffered_stdout = std::io::BufReader::with_capacity(64 * 1024, &mut stdout); // 64KB buffer
-
-    // OPTIMIZATION: Increased write buffer from 4KB to 64KB to match read buffer
-    // This reduces system call overhead for large outputs while LineBufferedWriter
-    // still ensures real-time line-by-line flushing for interactive commands
-    let mut buffered_writer = std::io::BufWriter::with_capacity(64 * 1024, std::io::stdout()); // 64KB buffer
-
-    // Create a line-buffered writer that flushes after each line
+    let mut buffered_stdout = std::io::BufReader::with_capacity(64 * 1024, &mut stdout);
+    let mut buffered_writer = std::io::BufWriter::with_capacity(64 * 1024, std::io::stdout());
     let mut line_buffered_writer = LineBufferedWriter::new(&mut buffered_writer);
 
-    // Use debug colorizer if debug_level is not Off
-    #[cfg(feature = "debug")]
-    {
-        if args.debug_level != DebugLevel::Off {
-            if let Err(e) = colorize_regex_with_debug(
-                &mut buffered_stdout,
-                &mut line_buffered_writer,
-                rules.as_slice(),
-                args.debug_level,
-            ) {
-                handle_box_error(e)?;
-            }
-        } else {
-            // Measure colorize performance when requested (feature guarded)
-            #[cfg(feature = "debug")]
-            {
-                if record_time {
-                    let t_before_colorize = Instant::now();
-                    if let Err(e) = colorize(
-                        &mut buffered_stdout,
-                        &mut line_buffered_writer,
-                        rules.as_slice(),
-                    ) {
-                        handle_box_error(e)?;
-                    }
-                    eprintln!("[rgrc:time] colorize: {:?}", t_before_colorize.elapsed());
-                } else {
-                    colorize(
-                        &mut buffered_stdout,
-                        &mut line_buffered_writer,
-                        rules.as_slice(),
-                    )?;
-                }
-            }
-
-            #[cfg(not(feature = "debug"))]
-            {
-                // Normal path (no instrumentation): just colorize
-                if let Err(e) = colorize(
-                    &mut buffered_stdout,
-                    &mut line_buffered_writer,
-                    rules.as_slice(),
-                ) {
-                    handle_box_error(e)?;
-                }
-            }
-        }
-    }
-
-    #[cfg(not(feature = "debug"))]
-    {
-        // Measure colorize performance when requested (feature guarded)
-        #[cfg(feature = "debug")]
-        {
-            if record_time {
-                let t_before_colorize = Instant::now();
-                if let Err(e) = colorize(
-                    &mut buffered_stdout,
-                    &mut line_buffered_writer,
-                    rules.as_slice(),
-                ) {
-                    handle_box_error(e)?;
-                }
-                eprintln!("[rgrc:time] colorize: {:?}", t_before_colorize.elapsed());
-            } else {
-                if let Err(e) = colorize(
-                    &mut buffered_stdout,
-                    &mut line_buffered_writer,
-                    rules.as_slice(),
-                ) {
-                    handle_box_error(e)?;
-                }
-            }
-        }
-
-        #[cfg(not(feature = "debug"))]
-        {
-            // Normal path (no instrumentation): just colorize
-            if let Err(e) = colorize(
-                &mut buffered_stdout,
-                &mut line_buffered_writer,
-                rules.as_slice(),
-            ) {
-                handle_box_error(e)?;
-            };
-        }
+    if let Err(e) = colorize(
+        &mut buffered_stdout,
+        &mut line_buffered_writer,
+        rules.as_slice(),
+    ) {
+        handle_box_error(e)?;
     }
 
     // Ensure all buffered output is written

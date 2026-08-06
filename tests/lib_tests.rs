@@ -1,9 +1,5 @@
-// Functional tests for main.rs - testing the actually executable code paths
-// This file tests the functions that are exposed for testing: load_config and load_grcat_config
-
 #[test]
 fn test_load_grcat_config_nonexistent_file() {
-    // Test that nonexistent files return empty vector
     let result = rgrc::load_grcat_config("/nonexistent/path/file.conf");
     assert!(
         result.is_empty(),
@@ -22,27 +18,21 @@ fn test_load_grcat_config_empty_path() {
 
 #[test]
 fn test_load_grcat_config_with_tilde_path() {
-    // Test with ~ path (will likely not exist, but should not panic)
     let result = rgrc::load_grcat_config("~/nonexistent.conf");
-    // Should not panic and should return empty
     let _ = result;
 }
 
 #[test]
 #[ignore = "Skip this test as it might hang when reading a directory"]
 fn test_load_grcat_config_handles_directories() {
-    // Attempting to load a directory as a file should fail gracefully
     let result = rgrc::load_grcat_config("share");
-    // Should not panic, just return empty
     assert!(result.is_empty());
 }
 
 #[test]
 #[ignore = "Skip this test as relative paths might cause hangs"]
 fn test_load_grcat_config_with_relative_paths() {
-    // Relative paths should be handled
     let result = rgrc::load_grcat_config(".");
-    // Should not panic
     let _ = result;
 
     let result2 = rgrc::load_grcat_config("..");
@@ -51,7 +41,6 @@ fn test_load_grcat_config_with_relative_paths() {
 
 #[test]
 fn test_load_config_nonexistent_config_file() {
-    // load_config should handle missing files gracefully
     let result = rgrc::load_config("/nonexistent/grc.conf", "ls");
     assert!(
         result.is_empty(),
@@ -70,7 +59,6 @@ fn test_load_config_empty_config_path() {
 
 #[test]
 fn test_load_config_empty_command() {
-    // Empty command should still be handled gracefully
     let result = rgrc::load_config("/nonexistent/path", "");
     assert!(
         result.is_empty(),
@@ -82,7 +70,6 @@ fn test_load_config_empty_command() {
 fn test_color_mode_invalid_inputs() {
     use std::str::FromStr;
 
-    // Test invalid inputs
     assert!(
         rgrc::ColorMode::from_str("ON").is_err(),
         "Should be case-sensitive"
@@ -96,7 +83,6 @@ fn test_color_mode_invalid_inputs() {
 fn test_color_mode_equality() {
     use std::str::FromStr;
 
-    // Test that parsing the same value gives equal results
     let mode1 = rgrc::ColorMode::from_str("on").unwrap();
     let mode2 = rgrc::ColorMode::from_str("on").unwrap();
     assert_eq!(mode1, mode2);
@@ -110,7 +96,6 @@ fn test_color_mode_all_variants() {
     let off = rgrc::ColorMode::from_str("off").unwrap();
     let auto = rgrc::ColorMode::from_str("auto").unwrap();
 
-    // Variants should not be equal to each other
     assert_ne!(on, off);
     assert_ne!(on, auto);
     assert_ne!(off, auto);
@@ -127,7 +112,6 @@ fn test_color_mode_debug_output() {
 
 #[test]
 fn test_load_grcat_config_multiple_calls() {
-    // Calling load_grcat_config multiple times should be consistent
     let result1 = rgrc::load_grcat_config("/nonexistent");
     let result2 = rgrc::load_grcat_config("/nonexistent");
 
@@ -137,13 +121,10 @@ fn test_load_grcat_config_multiple_calls() {
 
 #[test]
 fn test_resource_paths_constant() {
-    // Test that RESOURCE_PATHS constant is accessible and valid
     let paths = rgrc::RESOURCE_PATHS;
 
-    // Should not be empty
     assert!(!paths.is_empty(), "RESOURCE_PATHS should not be empty");
 
-    // Should contain expected path prefixes
     let has_user_paths = paths.iter().any(|p| p.contains("~"));
     let has_system_paths = paths.iter().any(|p| p.starts_with("/"));
 
@@ -168,7 +149,6 @@ fn test_resource_paths_valid_format() {
     let paths = rgrc::RESOURCE_PATHS;
 
     for path in paths {
-        // Each path should be a valid format (start with ~ or /, or 'share' in dev)
         let valid = path.starts_with('~') || path.starts_with('/') || path == &"share";
         assert!(valid, "Invalid path format: {}", path);
     }
@@ -176,15 +156,10 @@ fn test_resource_paths_valid_format() {
 
 #[test]
 fn test_load_config_with_pseudo_command() {
-    // Test with various pseudo-command formats
     let test_commands = vec!["ls", "grep", "curl -i https://example.com", "docker ps"];
 
     for cmd in test_commands {
-        // Should not panic for any valid command name
-        // Even if the config file doesn't exist, embedded configs should work
         let result = rgrc::load_config("/nonexistent", cmd);
-        // The result may or may not be empty depending on whether the command
-        // is defined in embedded configs, but it should not panic
         let _ = result; // Just ensure it doesn't panic
     }
 }
@@ -196,7 +171,6 @@ fn test_color_mode_copy_semantics() {
     let mode1 = rgrc::ColorMode::from_str("on").unwrap();
     let mode2 = mode1; // Copy semantics
 
-    // Both should be equal since ColorMode is Copy
     assert_eq!(mode1, mode2);
 }
 
@@ -205,9 +179,8 @@ fn test_color_mode_clone_semantics() {
     use std::str::FromStr;
 
     let mode1 = rgrc::ColorMode::from_str("off").unwrap();
-    let mode2 = mode1; // Copy semantics — no need to clone a Copy type
+    let mode2 = mode1; // Copy semantics; no need to clone a Copy type
 
-    // Both should be equal
     assert_eq!(mode1, mode2);
 }
 
@@ -217,29 +190,20 @@ mod embed_configs_tests {
     use std::sync::Mutex;
     use tempfile::{NamedTempFile, TempDir};
 
-    // Helper to run a test with a temporary HOME directory so cache creation is
-    // isolated and reliable in CI or cross-build environments.
-    // Serialize tests that modify HOME so multiple tests in this module don't
-    // race by clobbering the process global HOME environment variable.
     static HOME_LOCK: Mutex<()> = Mutex::new(());
 
     fn with_temp_home<R>(f: impl FnOnce() -> R) -> R {
-        // Acquire module-level lock so that only one test at a time will change HOME
         let _guard = HOME_LOCK.lock().expect("HOME_LOCK mutex poisoned");
         let td = TempDir::new().expect("create tempdir");
         let prev_home = std::env::var_os("HOME");
 
-        // Set HOME to our temporary directory for the duration of the test
-        // Use a stringified path here to ensure the environment value is stable
         let td_path = td.path().to_str().expect("tempdir path is valid utf8");
         unsafe {
             std::env::set_var("HOME", td_path);
         }
 
-        // Run provided closure while the TempDir is kept alive
         let res = f();
 
-        // Restore original HOME
         if let Some(h) = prev_home {
             unsafe {
                 std::env::set_var("HOME", h);
@@ -255,37 +219,24 @@ mod embed_configs_tests {
 
     #[test]
     fn test_embed_configs_filesystem_priority() {
-        // Test that filesystem configs take priority over embedded configs
-        // when embed-configs feature is enabled
-
-        // Create a temporary grc.conf file with a custom rule for "test_command"
         let mut temp_grc = NamedTempFile::new().unwrap();
         writeln!(temp_grc, r#"^test_command$"#).unwrap();
         writeln!(temp_grc, "conf.custom_test").unwrap();
 
-        // Create a temporary conf.custom_test file with custom rules
         let mut temp_conf = NamedTempFile::new().unwrap();
         writeln!(temp_conf, "regexp=^custom_test_output$").unwrap();
         writeln!(temp_conf, "colours=red").unwrap();
         writeln!(temp_conf, "======").unwrap();
 
-        // Load config using the temporary grc.conf path
         let rules = rgrc::load_config(temp_grc.path().to_str().unwrap(), "test_command");
 
-        // Should load rules from filesystem, not embedded configs
-        // Since our custom config file exists and has rules, we should get results
-        // (The exact content depends on whether the file is found in RESOURCE_PATHS)
-        // At minimum, the function should not panic and should attempt filesystem loading first
         let _ = rules; // Just ensure it doesn't panic
     }
 
     #[test]
     fn test_embed_configs_fallback_to_embedded() {
-        // Test that when filesystem config doesn't exist, it falls back to embedded configs
         let rules = with_temp_home(|| rgrc::load_rules_for_command("ping"));
 
-        // Should load from embedded configs since filesystem doesn't exist
-        // This should work because embedded configs include conf.ping
         assert!(
             !rules.is_empty(),
             "Should fallback to embedded configs when filesystem config doesn't exist"
@@ -294,24 +245,18 @@ mod embed_configs_tests {
 
     #[test]
     fn test_embed_configs_grcat_filesystem_priority() {
-        // Test that load_grcat_config prioritizes filesystem over embedded configs
-
-        // Create a temporary config file with custom content
         let mut temp_conf = NamedTempFile::new().unwrap();
         writeln!(temp_conf, "regexp=^filesystem_test$").unwrap();
         writeln!(temp_conf, "colours=blue").unwrap();
         writeln!(temp_conf, "======").unwrap();
 
-        // Load the config file directly
         let rules = rgrc::load_grcat_config(temp_conf.path().to_str().unwrap());
 
-        // Should load from filesystem first
         assert!(
             !rules.is_empty(),
             "Should load rules from filesystem when file exists"
         );
 
-        // Verify the rule content matches what we wrote
         assert_eq!(rules.len(), 1, "Should have exactly one rule");
         assert_eq!(
             rules[0].regex.as_str(),
@@ -322,10 +267,8 @@ mod embed_configs_tests {
 
     #[test]
     fn test_embed_configs_grcat_fallback_to_embedded() {
-        // Test that load_grcat_config falls back to embedded configs when filesystem doesn't exist
         let rules = with_temp_home(|| rgrc::load_grcat_config("conf.ping"));
 
-        // Should load from embedded configs since filesystem doesn't exist
         assert!(
             !rules.is_empty(),
             "Should fallback to embedded configs for conf.ping"
@@ -334,22 +277,16 @@ mod embed_configs_tests {
 
     #[test]
     fn test_cache_population_idempotent() {
-        // Test that calling load_rules_for_command multiple times with the same command
-        // is safe and consistent when the cache is persisted under the same HOME
-
         with_temp_home(|| {
-            // First call should work
             let rules1 = rgrc::load_rules_for_command("ping");
             assert!(!rules1.is_empty(), "First call should load rules for ping");
 
-            // Second call should return the same results (from cache)
             let rules2 = rgrc::load_rules_for_command("ping");
             assert!(
                 !rules2.is_empty(),
                 "Second call should also load rules for ping"
             );
 
-            // Results should be identical
             assert_eq!(
                 rules1.len(),
                 rules2.len(),
@@ -367,10 +304,8 @@ mod embed_configs_tests {
 
     #[test]
     fn test_load_config_from_embedded_unknown_command() {
-        // Test loading rules for a command that doesn't exist in embedded configs
         let rules = rgrc::load_rules_for_command("definitely_not_a_real_command_12345");
 
-        // Should return empty rules, not panic
         assert!(
             rules.is_empty(),
             "Should return empty rules for unknown commands"
@@ -379,10 +314,8 @@ mod embed_configs_tests {
 
     #[test]
     fn test_load_config_from_embedded_empty_command() {
-        // Test loading rules for an empty command string
         let rules = rgrc::load_rules_for_command("");
 
-        // Should return empty rules, not panic
         assert!(
             rules.is_empty(),
             "Should return empty rules for empty command"
@@ -390,39 +323,10 @@ mod embed_configs_tests {
     }
 
     #[test]
-    fn test_cache_directory_structure() {
-        // Test that cache directory has the expected structure after loading rules
-        // This indirectly tests that cache creation works properly
-        let _rules = with_temp_home(|| rgrc::load_rules_for_command("ping")); // This should trigger cache creation
-
-        // We can't directly check the cache directory since it's private,
-        // but we can verify that subsequent calls work consistently
-        let rules2 = with_temp_home(|| rgrc::load_rules_for_command("ping"));
-        assert!(
-            !rules2.is_empty(),
-            "Cache should be functional after creation"
-        );
-    }
-
-    #[test]
     fn test_cache_creation_failure_fallback() {
-        // Test that when cache directory creation fails, the system gracefully falls back
-        // and still functions correctly by not using cached configs
-
-        // We'll simulate cache creation failure by temporarily setting HOME to a read-only directory
-        // or a non-existent path. Since we can't easily mock std::fs::create_dir_all,
-        // we'll test the behavior when ensure_cache_populated returns None.
-
-        // First, let's verify normal operation works
         let rules_normal = with_temp_home(|| rgrc::load_rules_for_command("ping"));
         assert!(!rules_normal.is_empty(), "Normal operation should work");
 
-        // Since we can't easily simulate filesystem permission issues in a unit test,
-        // we'll test the logic by calling load_grcat_config with a non-existent file
-        // and verify it falls back gracefully (which it already does based on existing tests)
-
-        // This test ensures that even if cache creation fails, the system continues to work
-        // by falling back to embedded configs or returning empty results as appropriate
         let rules_fallback = rgrc::load_grcat_config("nonexistent_config_file");
         assert!(
             rules_fallback.is_empty(),
@@ -432,26 +336,21 @@ mod embed_configs_tests {
 
     #[test]
     fn test_resource_paths_priority_over_cache() {
-        // Test that load_grcat_config prioritizes filesystem over embedded cache configs
         use std::fs;
         use tempfile::TempDir;
 
-        // Create a temporary directory and config file
         let temp_dir = TempDir::new().unwrap();
         let config_file_path = temp_dir.path().join("conf.test_grcat_priority");
         let config_content = "regexp=^grcat_filesystem_test$\ncolours=red\n======\n";
         fs::write(&config_file_path, config_content).unwrap();
 
-        // Load the config file directly using load_grcat_config
         let rules = rgrc::load_grcat_config(config_file_path.to_str().unwrap());
 
-        // Should load from filesystem first, not from cache
         assert!(
             !rules.is_empty(),
             "Should load rules from filesystem when file exists"
         );
 
-        // Verify the rule content matches what we wrote
         assert_eq!(rules.len(), 1, "Should have exactly one rule");
         assert_eq!(
             rules[0].regex.as_str(),
@@ -459,44 +358,30 @@ mod embed_configs_tests {
             "Regex should match filesystem content, not cache content"
         );
 
-        // Clean up
         drop(temp_dir);
     }
 
     #[test]
     fn test_config_paths_priority_over_cache() {
-        // Test that load_config prioritizes RESOURCE_PATHS over embedded cache configs
         use std::fs;
         use tempfile::TempDir;
 
-        // Create a temporary directory that mimics one of the RESOURCE_PATHS
         let temp_dir = TempDir::new().unwrap();
         let config_dir = temp_dir.path().join("conf");
         fs::create_dir_all(&config_dir).unwrap();
 
-        // Create a custom config file in the temp directory
         let custom_config_path = config_dir.join("conf.test_config_priority");
         let custom_config_content = "regexp=^config_path_test$\ncolours=blue\n======\n";
         fs::write(&custom_config_path, custom_config_content).unwrap();
 
-        // Create a temporary grc.conf that points to our custom config
         let mut temp_grc = NamedTempFile::new().unwrap();
         writeln!(temp_grc, r#"^test_config_priority$"#).unwrap();
         writeln!(temp_grc, "conf.test_config_priority").unwrap();
 
-        // For this test, we'll verify that load_config with a specific path works correctly
-        // when the config file exists in the filesystem (simulating RESOURCE_PATHS behavior)
         let rules = rgrc::load_config(temp_grc.path().to_str().unwrap(), "test_config_priority");
 
-        // The rules should be loaded from our custom config file in the temp directory
-        // Since load_config searches RESOURCE_PATHS for the config file,
-        // and our temp directory isn't in RESOURCE_PATHS, this test verifies the priority logic
-        // by ensuring filesystem configs are preferred over embedded ones
-
-        // At minimum, this should not panic and should attempt to load from filesystem
         let _ = rules; // Just ensure it doesn't panic
 
-        // Clean up
         drop(temp_grc);
         drop(temp_dir);
     }
@@ -507,10 +392,8 @@ mod no_embed_configs_tests {
 
     #[test]
     fn test_no_embed_configs_filesystem_only() {
-        // Test that without embed-configs, only filesystem configs are used
         let rules = rgrc::load_config("/nonexistent/grc.conf", "ping");
 
-        // Should return empty since no embed-configs and filesystem doesn't exist
         assert!(
             rules.is_empty(),
             "Should return empty when no embed-configs and filesystem config doesn't exist"
@@ -519,72 +402,11 @@ mod no_embed_configs_tests {
 
     #[test]
     fn test_no_embed_configs_grcat_filesystem_only() {
-        // Test that load_grcat_config only uses filesystem when embed-configs is disabled
         let rules = rgrc::load_grcat_config("/nonexistent/conf.ping");
 
-        // Should return empty since no embed-configs and filesystem doesn't exist
         assert!(
             rules.is_empty(),
             "Should return empty when no embed-configs and filesystem config doesn't exist"
         );
-    }
-}
-
-/// Lines 79, 92: flush_and_rebuild_cache error paths
-/// Tests error handling when cache directory removal fails or read_dir fails.
-/// Covers: src/lib.rs:79 (remove_dir_all returns None on error),
-///         src/lib.rs:92 (read_dir unwrap_or returns 0 on error)
-#[cfg(feature = "embed-configs")]
-mod cache_error_handling_tests {
-    use tempfile::TempDir;
-
-    #[test]
-    fn test_flush_cache_when_cache_dir_not_exists() {
-        // Test line 79: cache_dir.exists() is false - skip removal
-        // Create a temp home directory
-        let temp_home = TempDir::new().unwrap();
-
-        // Set HOME to temp directory so cache path is controlled
-        unsafe {
-            std::env::set_var("HOME", temp_home.path());
-        }
-
-        // Call flush_and_rebuild_cache when cache doesn't exist yet
-        let result = rgrc::flush_and_rebuild_cache();
-
-        // Should succeed and create cache
-        assert!(
-            result.is_some(),
-            "Should successfully create cache even when it didn't exist"
-        );
-
-        if let Some((cache_dir, count)) = result {
-            assert!(cache_dir.exists(), "Cache directory should be created");
-            assert!(count > 0, "Should have embedded configs");
-        }
-    }
-
-    #[test]
-    fn test_flush_cache_empty_conf_dir() {
-        // Test line 92: read_dir returns 0 when conf directory is empty or doesn't exist
-        let temp_home = TempDir::new().unwrap();
-        unsafe {
-            std::env::set_var("HOME", temp_home.path());
-        }
-
-        // Flush cache - this will create the cache structure
-        let result = rgrc::flush_and_rebuild_cache();
-
-        // With embedded configs, this should succeed and return Some
-        if let Some((cache_dir, _count)) = result {
-            // Cache directory should exist after successful flush
-            assert!(
-                cache_dir.exists(),
-                "Cache directory should exist after flush_and_rebuild_cache"
-            );
-        } else {
-            // If EMBEDDED_CONFIGS is empty, None is acceptable
-            // This can happen in rare cases but is not a failure condition
-        }
     }
 }

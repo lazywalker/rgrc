@@ -3,10 +3,8 @@
 fn test_generated_embedded_configs_consistency() {
     use std::collections::HashSet;
 
-    // Access constants from the library
     use rgrc::{EMBEDDED_CONFIG_NAMES, EMBEDDED_CONFIGS};
 
-    // Basic assertions
     assert!(
         !EMBEDDED_CONFIG_NAMES.is_empty(),
         "EMBEDDED_CONFIG_NAMES should not be empty"
@@ -32,7 +30,6 @@ fn test_generated_embedded_configs_consistency() {
         );
     }
 
-    // Spot-check a commonly expected config
     assert!(
         EMBEDDED_CONFIG_NAMES.contains(&"conf.ping"),
         "Expected conf.ping to be embedded"

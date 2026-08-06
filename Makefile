@@ -54,6 +54,9 @@ lint:
 test:
 	cargo test --all-features
 
+cov:
+	cargo llvm-cov test -q --all-features
+
 fmt:
 	cargo fmt --all
 

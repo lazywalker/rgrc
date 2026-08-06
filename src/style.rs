@@ -1,31 +1,7 @@
-//! Lightweight ANSI style implementation
-//!
-//! This module provides a minimal replacement for the `console` crate's styling functionality.
-//! It supports all the color and text attribute features needed by rgrc while keeping the
-//! implementation simple and dependency-free.
-//!
-//! ## Features
-//!
-//! - 🎨 Full ANSI color support (8 colors + bright variants)
-//! - ✨ Text attributes (bold, italic, underline, blink, reverse)
-//! - 📦 Zero external dependencies
-//! - 🚀 362 lines of code (vs console crate's much larger footprint)
-//!
-//! ## Usage
-//!
-//! ```
-//! use rgrc::Style;
-//!
-//! let style = Style::new().red().bold();
-//! println!("{}", style.apply_to("Error!"));
-//! ```
-//!
-//! This module was created to eliminate the `console` crate dependency,
-//! reducing binary size and compile times.
+//! Zero-dependency ANSI styling: 8 colors, bright variants, text attributes.
 
 use std::fmt;
 
-/// ANSI style builder for terminal colors and text attributes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Style {
     fg_color: Option<Color>,
@@ -52,7 +28,6 @@ enum Color {
 }
 
 impl Style {
-    /// Create a new empty style with no formatting
     #[inline]
     pub const fn new() -> Self {
         Style {
@@ -68,7 +43,6 @@ impl Style {
         }
     }
 
-    // Foreground colors
     #[inline]
     pub const fn black(mut self) -> Self {
         self.fg_color = Some(Color::Black);
@@ -117,7 +91,6 @@ impl Style {
         self
     }
 
-    // Background colors
     #[inline]
     pub const fn on_black(mut self) -> Self {
         self.bg_color = Some(Color::Black);
@@ -166,7 +139,6 @@ impl Style {
         self
     }
 
-    // Text attributes
     #[inline]
     pub const fn bold(mut self) -> Self {
         self.bold = true;
@@ -174,7 +146,6 @@ impl Style {
     }
 
     #[allow(dead_code)]
-    /// Dim text (low intensity)
     #[inline]
     pub const fn dim(mut self) -> Self {
         self.dim = true;
@@ -211,12 +182,10 @@ impl Style {
         self
     }
 
-    /// Apply this style to a string, returning a formatted wrapper
     pub fn apply_to<'a>(&self, text: &'a str) -> StyledText<'a> {
         StyledText { text, style: *self }
     }
 
-    /// Generate ANSI escape codes for this style
     fn to_ansi_codes(self) -> String {
         if self.is_empty() {
             return String::new();
@@ -224,7 +193,6 @@ impl Style {
 
         let mut codes = Vec::new();
 
-        // Text attributes
         if self.bold {
             codes.push("1");
         }
@@ -244,7 +212,6 @@ impl Style {
             codes.push("7");
         }
 
-        // Foreground color
         if let Some(fg) = self.fg_color {
             codes.push(match fg {
                 Color::Black if self.bright => "90",
@@ -266,7 +233,6 @@ impl Style {
             });
         }
 
-        // Background color
         if let Some(bg) = self.bg_color {
             codes.push(match bg {
                 Color::Black => "40",
@@ -287,7 +253,6 @@ impl Style {
         }
     }
 
-    /// Check if this style has any formatting
     const fn is_empty(&self) -> bool {
         self.fg_color.is_none()
             && self.bg_color.is_none()
@@ -300,7 +265,6 @@ impl Style {
     }
 }
 
-/// Wrapper for styled text that implements Display
 pub struct StyledText<'a> {
     text: &'a str,
     style: Style,
@@ -309,10 +273,10 @@ pub struct StyledText<'a> {
 impl<'a> fmt::Display for StyledText<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.style.is_empty() {
-            // No styling - just write the text
+            // no styling, passthrough
             write!(f, "{}", self.text)
         } else {
-            // Write: ANSI codes + text + reset
+            // SGR codes + text + reset
             write!(f, "{}{}\x1b[0m", self.style.to_ansi_codes(), self.text)
         }
     }
