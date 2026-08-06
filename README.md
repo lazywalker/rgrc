@@ -112,7 +112,6 @@ Options:
   --all-aliases        Output all shell aliases
   --except CMD,..      Exclude commands from alias generation
   --completions SHELL  Print shell completion script for SHELL (bash|zsh|fish|ash)
-  --flush-cache        Flush and rebuild cache directory
   --config, -c NAME    Explicit config file name (e.g., df to load conf.df)
   --help, -h           Show this help message
   --version, -V        Show installed rgrc version and exit

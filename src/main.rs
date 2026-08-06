@@ -41,31 +41,6 @@ fn handle_io_error(e: std::io::Error) -> Result<(), Box<dyn std::error::Error>> 
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-/// Flush and rebuild the cache directory (embed-configs only)
-///
-/// This function removes the existing cache directory and rebuilds it with
-/// embedded configuration files. It displays the progress and results.
-#[cfg(feature = "embed-configs")]
-fn flush_and_rebuild_cache() {
-    use rgrc::EMBEDDED_CONFIGS;
-
-    println!("Flushing and rebuilding cache directory...");
-
-    match rgrc::flush_and_rebuild_cache() {
-        Some((cache_dir, config_count)) => {
-            println!("Cache rebuild successful!");
-            println!("  Location: {}", cache_dir.display());
-            println!("  Main config: rgrc.conf");
-            println!("  Color configs: {} files in conf/", config_count);
-            println!("  Total embedded configs: {}", EMBEDDED_CONFIGS.len());
-        }
-        None => {
-            eprintln!("Error: Failed to rebuild cache directory");
-            std::process::exit(1);
-        }
-    }
-}
-
 /// Main entry point for the grc (generic colourizer) program.
 ///
 /// This tool colorizes the output of command-line programs using
@@ -142,13 +117,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("alias {}='{} {}'", cmd, grc, cmd);
             }
         }
-        std::process::exit(0);
-    }
-
-    // Handle --flush-cache flag: flush and rebuild cache directory
-    #[cfg(feature = "embed-configs")]
-    if args.flush_cache {
-        flush_and_rebuild_cache();
         std::process::exit(0);
     }
 

@@ -9,7 +9,6 @@ pub struct Args {
     pub show_aliases: bool,
     pub show_all_aliases: bool,
     pub except_aliases: Vec<String>,
-    pub flush_cache: bool,
     pub show_version: bool,
     pub show_completions: Option<String>,
     pub config: Option<String>,
@@ -62,7 +61,6 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
     let mut show_aliases = false;
     let mut show_all_aliases = false;
     let mut except_aliases = Vec::new();
-    let mut flush_cache = false;
     let mut show_version = false;
     let mut show_completions: Option<String> = None;
     let mut config: Option<String> = None;
@@ -122,10 +120,6 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
                 show_all_aliases = true;
                 i += 1;
             }
-            "--flush-cache" => {
-                flush_cache = true;
-                i += 1;
-            }
             "--version" | "-V" => {
                 show_version = true;
                 i += 1;
@@ -145,7 +139,6 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
     if command.is_empty()
         && !show_aliases
         && !show_all_aliases
-        && !flush_cache
         && !show_version
         && show_completions.is_none()
         && config.is_none()
@@ -166,7 +159,6 @@ fn parse_args_impl(args: Vec<String>) -> Result<Args, String> {
         show_aliases,
         show_all_aliases,
         except_aliases,
-        flush_cache,
         show_version,
         show_completions,
         config,
@@ -189,7 +181,6 @@ pub fn get_completion_script(shell: &str) -> Option<&'static str> {
     fi
 
     if [[ ${cur} == --* ]]; then
-        COMPREPLY=( $(compgen -W "--color --aliases --all-aliases --except --flush-cache --help -h --version -v --completions" -- "$cur") )
         return 0
     fi
 
@@ -208,7 +199,6 @@ _rgrc() {
     '--aliases[Output shell aliases for available binaries]' \
     '--all-aliases[Output all shell aliases]' \
     '--except=[Exclude commands from alias generation]:commands:' \
-    '--flush-cache[Flush and rebuild cache dir]' \
     '--help[Show help]' \
     '--version[Show version]' \
     '--completions=[Print completions for shell]:shell:(bash zsh fish ash)' \
@@ -224,7 +214,6 @@ complete -c rgrc -l color -d 'Override color output (on,off,auto)'
 complete -c rgrc -l aliases -d 'Output shell aliases for detected binaries'
 complete -c rgrc -l all-aliases -d 'Output all aliases'
 complete -c rgrc -l except -r -d 'Exclude commands from alias generation' -a '(__rgrc_list_commands)'
-complete -c rgrc -l flush-cache -d 'Flush cache (embed-configs only)'
 complete -c rgrc -l help -d 'Show help'
 complete -c rgrc -l version -s v -d 'Show version'
 complete -c rgrc -l completions -d 'Print completions for shell' -a 'bash zsh fish ash'
@@ -241,7 +230,6 @@ end
         ),
         "ash" => Some(
             r#"# ash / sh completion helper (simple - may need shell support)
-complete -W "--color --aliases --all-aliases --except --flush-cache --help -h --version -v --completions" rgrc
 "#,
         ),
         _ => None,
@@ -261,7 +249,6 @@ fn print_help() {
     println!("  --except CMD,..      Exclude commands from alias generation");
     println!("  --completions SHELL  Print shell completion script for SHELL (bash|zsh|fish|ash)");
     #[cfg(feature = "embed-configs")]
-    println!("  --flush-cache        Flush and rebuild cache directory");
     println!("  --config, -c NAME    Explicit config file name (e.g., df to load conf.df)");
     println!("  --help, -h           Show this help message");
     println!("  --version, -V        Show installed rgrc version and exit");
@@ -321,13 +308,6 @@ mod tests {
         let args = result.unwrap();
         assert_eq!(args.except_aliases, vec!["cmd1", "cmd2"]);
 
-        // Test --flush-cache flag
-        let result = parse_args_helper(vec!["--flush-cache"]);
-        assert!(result.is_ok());
-        let args = result.unwrap();
-        assert!(args.flush_cache);
-        assert!(args.command.is_empty());
-
         // Test mixed valid args
         let result = parse_args_helper(vec!["--color=auto", "--except", "badcmd", "ls", "-la"]);
         assert!(result.is_ok());
@@ -343,7 +323,6 @@ mod tests {
         assert!(result.is_ok());
         let args = result.unwrap();
         assert_eq!(args.command, vec!["--unknown-flag", "echo", "test"]);
-        assert!(!args.flush_cache); // default should be false
         // Test --version and -V
         let result = parse_args_helper(vec!["--version"]);
         assert!(result.is_ok());

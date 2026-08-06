@@ -323,17 +323,6 @@ mod embed_configs_tests {
     }
 
     #[test]
-    fn test_cache_directory_structure() {
-        let _rules = with_temp_home(|| rgrc::load_rules_for_command("ping")); // This should trigger cache creation
-
-        let rules2 = with_temp_home(|| rgrc::load_rules_for_command("ping"));
-        assert!(
-            !rules2.is_empty(),
-            "Cache should be functional after creation"
-        );
-    }
-
-    #[test]
     fn test_cache_creation_failure_fallback() {
         let rules_normal = with_temp_home(|| rgrc::load_rules_for_command("ping"));
         assert!(!rules_normal.is_empty(), "Normal operation should work");
@@ -419,48 +408,5 @@ mod no_embed_configs_tests {
             rules.is_empty(),
             "Should return empty when no embed-configs and filesystem config doesn't exist"
         );
-    }
-}
-
-#[cfg(feature = "embed-configs")]
-mod cache_error_handling_tests {
-    use tempfile::TempDir;
-
-    #[test]
-    fn test_flush_cache_when_cache_dir_not_exists() {
-        let temp_home = TempDir::new().unwrap();
-
-        unsafe {
-            std::env::set_var("HOME", temp_home.path());
-        }
-
-        let result = rgrc::flush_and_rebuild_cache();
-
-        assert!(
-            result.is_some(),
-            "Should successfully create cache even when it didn't exist"
-        );
-
-        if let Some((cache_dir, count)) = result {
-            assert!(cache_dir.exists(), "Cache directory should be created");
-            assert!(count > 0, "Should have embedded configs");
-        }
-    }
-
-    #[test]
-    fn test_flush_cache_empty_conf_dir() {
-        let temp_home = TempDir::new().unwrap();
-        unsafe {
-            std::env::set_var("HOME", temp_home.path());
-        }
-
-        let result = rgrc::flush_and_rebuild_cache();
-
-        if let Some((cache_dir, _count)) = result {
-            assert!(
-                cache_dir.exists(),
-                "Cache directory should exist after flush_and_rebuild_cache"
-            );
-        }
     }
 }

@@ -127,29 +127,6 @@ fn test_rules_not_loaded_when_color_off() {
 
 #[test]
 #[cfg(target_arch = "x86_64")]
-fn test_flush_cache_error_path() {
-    #[cfg(feature = "embed-configs")]
-    {
-        use std::env;
-        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
-            .env("HOME", "/dev/null/invalid")
-            .args(["--flush-cache"])
-            .output()
-            .expect("failed to run rgrc --flush-cache");
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            assert!(
-                stderr.contains("Error") || stderr.contains("Failed"),
-                "Expected error message, got: {}",
-                stderr
-            );
-        }
-    }
-}
-
-#[test]
-#[cfg(target_arch = "x86_64")]
 fn test_invalid_color_mode_argument() {
     let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
         .args(["--color=invalid", "echo", "test"])
@@ -437,25 +414,6 @@ mod cli_integration_tests {
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(!stdout.contains("alias ls='"));
         assert!(!stdout.contains("alias grep='"));
-    }
-
-    #[cfg(feature = "embed-configs")]
-    #[test]
-    fn test_flush_cache_success() {
-        use tempfile::TempDir;
-        let td = TempDir::new().unwrap();
-        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
-            .env("HOME", td.path())
-            .arg("--flush-cache")
-            .output()
-            .expect("failed to run rgrc --flush-cache");
-
-        assert!(output.status.success());
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(
-            stdout.contains("Cache rebuild successful")
-                || stdout.contains("Flushing and rebuilding cache")
-        );
     }
 
     #[test]

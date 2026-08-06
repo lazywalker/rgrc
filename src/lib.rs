@@ -27,101 +27,33 @@ fn expand_tilde(path: &str) -> String {
     path.to_string()
 }
 
-// Version constant for cache directory
-#[cfg(feature = "embed-configs")]
-const VERSION: &str = env!("CARGO_PKG_VERSION");
-
 // Use generated `embedded_configs.rs` (created by build.rs) so the list of
 // embedded files is derived from the `share` directory instead of being hard-coded.
 #[cfg(feature = "embed-configs")]
 include!(concat!(env!("OUT_DIR"), "/embedded_configs.rs"));
 
-/// The bundled `rgrc.conf` contents when `embed-configs` is enabled.
-/// This mirrors the on-disk `etc/rgrc.conf` file and is empty when embedding
-/// is disabled.
 #[cfg(feature = "embed-configs")]
 pub const EMBEDDED_GRC_CONF: &str = include_str!("../etc/rgrc.conf");
 
-/// Flush and rebuild the cache directory (embed-configs only)
-///
-/// This function removes the existing cache directory and rebuilds it with
-/// embedded configuration files. Returns the path to the rebuilt cache directory
-/// and the number of configuration files created.
-///
-/// # Returns
-///
-/// Returns `Some((cache_path, config_count))` on success, `None` on failure.
+// parse a conf file from the embedded config table by basename (e.g. "conf.ping").
 #[cfg(feature = "embed-configs")]
-pub fn flush_and_rebuild_cache() -> Option<(std::path::PathBuf, usize)> {
-    // Get cache directory path
-    let cache_dir = get_cache_dir()?;
-
-    // Remove existing cache directory if it exists
-    if cache_dir.exists() {
-        std::fs::remove_dir_all(&cache_dir).ok()?;
-    }
-
-    // Rebuild cache
-    let new_cache_dir = ensure_cache_populated()?;
-
-    // Count the number of config files
-    let conf_dir = new_cache_dir.join("conf");
-    let config_count = if conf_dir.exists() {
-        std::fs::read_dir(&conf_dir)
-            .map(|entries| entries.count())
-            .unwrap_or(0)
-    } else {
-        0
-    };
-
-    Some((new_cache_dir, config_count))
-}
-
-// Helper function to get cache directory path
-#[cfg(feature = "embed-configs")]
-fn get_cache_dir() -> Option<std::path::PathBuf> {
-    std::env::var("HOME")
+fn parse_embedded_conf(config_name: &str) -> Option<Vec<GrcatConfigEntry>> {
+    let content = EMBEDDED_CONFIGS
+        .binary_search_by_key(&config_name, |(k, _)| *k)
         .ok()
-        .map(std::path::PathBuf::from)
-        .map(|h| h.join(".cache").join("rgrc").join(VERSION))
+        .map(|i| EMBEDDED_CONFIGS[i].1)?;
+    let cursor = std::io::Cursor::new(content);
+    let reader = GrcatConfigReader::new(std::io::BufReader::new(cursor).lines());
+    Some(reader.collect())
 }
 
-// Ensure cache directory exists and populate it with embedded configs
+// extract basename from a path, e.g. "/usr/share/rgrc/conf.ping" -> "conf.ping"
 #[cfg(feature = "embed-configs")]
-fn ensure_cache_populated() -> Option<std::path::PathBuf> {
-    let cache_dir = get_cache_dir()?;
-
-    // Check if cache directory exists and appears populated (rgrc.conf + at least one conf file)
-    let grc_conf_path = cache_dir.join("rgrc.conf");
-    let conf_dir = cache_dir.join("conf");
-    if grc_conf_path.exists() {
-        // If conf directory exists and contains at least one file, we assume cache is populated
-        if conf_dir.exists()
-            && let Ok(mut entries) = std::fs::read_dir(&conf_dir)
-            && entries.next().is_some()
-        {
-            return Some(cache_dir);
-        }
-        // rgrc.conf exists but conf dir missing or empty; fall through and repopulate
+fn basename(path: &str) -> &str {
+    match path.rsplit('/').next() {
+        Some(name) => name,
+        None => path,
     }
-
-    std::fs::create_dir_all(&cache_dir).ok()?;
-    let conf_dir = cache_dir.join("conf");
-    std::fs::create_dir_all(&conf_dir).ok()?;
-
-    std::fs::write(&grc_conf_path, EMBEDDED_GRC_CONF).ok()?;
-
-    // don't fail entirely if one conf file fails to write
-    let mut any_success = false;
-    for (filename, content) in EMBEDDED_CONFIGS {
-        let file_path = conf_dir.join(filename);
-        if std::fs::write(file_path, content).is_ok() {
-            any_success = true;
-        }
-    }
-
-    // Only return Some if we successfully wrote at least one config file
-    if any_success { Some(cache_dir) } else { None }
 }
 
 /// On = always color, Off = never, Auto = only when stdout is a TTY.
@@ -224,37 +156,21 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
 /// This distinguishes between "file doesn't exist" (None) and
 /// "file exists but has no rules" (Some([])).
 fn file_exists_and_parse(filename: &str) -> Option<Vec<GrcatConfigEntry>> {
-    // Try to open the file
     if let Ok(grcat_config_file) = File::open(filename) {
         let bufreader = std::io::BufReader::new(grcat_config_file);
-        // Parse all rules from the configuration file
         let configreader = GrcatConfigReader::new(bufreader.lines());
         let entries: Vec<_> = configreader.collect();
-        // Return Some (even if empty) - file exists
         return Some(entries);
     }
 
-    // Fallback to embedded configuration (only when embed-configs is enabled)
     #[cfg(feature = "embed-configs")]
     {
-        // Extract config name from path (e.g., "conf.ping" from full path)
-        let config_name = filename;
-
-        // Ensure cache is populated
-        if let Some(cache_dir) = ensure_cache_populated() {
-            let conf_dir = cache_dir.join("conf");
-            let config_path = conf_dir.join(config_name);
-            if let Ok(grcat_config_file) = File::open(&config_path) {
-                let bufreader = std::io::BufReader::new(grcat_config_file);
-                let configreader = GrcatConfigReader::new(bufreader.lines());
-                let entries: Vec<_> = configreader.collect();
-                // Return Some (embedded file found, even if empty)
-                return Some(entries);
-            }
+        let name = basename(filename);
+        if let Some(entries) = parse_embedded_conf(name) {
+            return Some(entries);
         }
     }
 
-    // File not found
     None
 }
 
@@ -264,46 +180,29 @@ fn file_exists_and_parse(filename: &str) -> Option<Vec<GrcatConfigEntry>> {
 pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
     let filename_str = filename.as_ref();
 
-    // Return empty vector for empty filename
     if filename_str.is_empty() {
         return Vec::new();
     }
 
-    // First, try to load from filesystem
     if let Ok(grcat_config_file) = File::open(filename_str) {
         let bufreader = std::io::BufReader::new(grcat_config_file);
-        // Parse all rules from the configuration file
         let configreader = GrcatConfigReader::new(bufreader.lines());
         let entries: Vec<_> = configreader.collect();
-
-        // If we successfully loaded from filesystem and got entries, return them
         if !entries.is_empty() {
             return entries;
         }
     }
 
-    // Fallback to embedded configuration (only when embed-configs is enabled)
     #[cfg(feature = "embed-configs")]
     {
-        // Extract config name from path (e.g., "conf.ping" from "conf.ping")
-        let config_name = filename_str;
-
-        // Ensure cache is populated
-        if let Some(cache_dir) = ensure_cache_populated() {
-            let conf_dir = cache_dir.join("conf");
-            let config_path = conf_dir.join(config_name);
-            if let Ok(grcat_config_file) = File::open(&config_path) {
-                let bufreader = std::io::BufReader::new(grcat_config_file);
-                let configreader = GrcatConfigReader::new(bufreader.lines());
-                let entries: Vec<_> = configreader.collect();
-                if !entries.is_empty() {
-                    return entries;
-                }
-            }
+        let name = basename(filename_str);
+        if let Some(entries) = parse_embedded_conf(name)
+            && !entries.is_empty()
+        {
+            return entries;
         }
     }
 
-    // No configuration found
     Vec::new()
 }
 
@@ -362,49 +261,12 @@ pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         return rules;
     }
 
-    // Then, if embed-configs is enabled, try embedded cache
+    // then try embedded configs directly from memory
     #[cfg(feature = "embed-configs")]
     {
-        let embedded_rules = load_config_from_embedded(pseudo_command);
-        if !embedded_rules.is_empty() {
-            return embedded_rules;
-        }
-    }
-
-    // Fallback to other file system configuration paths - **stop at first match**
-    for config_path in CONFIG_PATHS {
-        if *config_path == "~/.config/rgrc/rgrc.conf" {
-            continue; // Already checked above
-        }
-        let expanded_path = expand_tilde(config_path);
-        let rules = load_config(&expanded_path, pseudo_command);
-        if !rules.is_empty() {
-            return rules; // Stop at first matching config file
-        }
-    }
-
-    Vec::new()
-}
-
-/// Load colorization rules from embedded configuration.
-/// On first run, writes embedded configs to disk cache, then loads from there.
-#[cfg(feature = "embed-configs")]
-fn load_config_from_embedded(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
-    // Ensure cache is populated, get cache directory
-    let cache_dir = match ensure_cache_populated() {
-        Some(dir) => dir,
-        None => return Vec::new(), // Failed to create cache
-    };
-
-    // Load from cached rgrc.conf
-    let grc_conf_path = cache_dir.join("rgrc.conf");
-    let conf_dir = cache_dir.join("conf");
-
-    // Use load_config to find matching config file
-    if let Ok(f) = File::open(&grc_conf_path) {
-        let bufreader = std::io::BufReader::new(f);
-        let configreader = GrcConfigReader::new(bufreader.lines());
-        for (re, config_file) in configreader {
+        let cursor = std::io::Cursor::new(EMBEDDED_GRC_CONF);
+        let reader = GrcConfigReader::new(std::io::BufReader::new(cursor).lines());
+        for (re, config_file) in reader {
             if re.is_match(pseudo_command) {
                 if std::env::var_os("RGRC_DEBUG").is_some() {
                     eprintln!(
@@ -413,11 +275,21 @@ fn load_config_from_embedded(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
                         config_file
                     );
                 }
-                let config_path = conf_dir.join(&config_file);
-                if let Some(config_str) = config_path.to_str() {
-                    return load_grcat_config(config_str);
+                if let Some(entries) = parse_embedded_conf(&config_file) {
+                    return entries;
                 }
             }
+        }
+    }
+
+    for config_path in CONFIG_PATHS {
+        if *config_path == "~/.config/rgrc/rgrc.conf" {
+            continue;
+        }
+        let expanded_path = expand_tilde(config_path);
+        let rules = load_config(&expanded_path, pseudo_command);
+        if !rules.is_empty() {
+            return rules;
         }
     }
 
