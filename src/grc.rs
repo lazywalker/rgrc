@@ -207,11 +207,11 @@ impl<'t> Match<'t> {
     }
 }
 
-/// Parse space-separated style keywords (e.g. "bold red") into a Style.
+/// Parse space-separated style keywords into a Style.
 pub fn style_from_str(text: &str) -> Result<Style, String> {
     text.split(' ').try_fold(Style::new(), |style, word| {
         if word.starts_with('"') && word.contains("\\033[") {
-            return Ok(style);
+            return Ok(parse_raw_ansi(word).unwrap_or(style));
         }
         match word {
             "" => Ok(style),
@@ -254,6 +254,29 @@ pub fn style_from_str(text: &str) -> Result<Style, String> {
             "bright_cyan" => Ok(style.bright().cyan()),
             "bright_white" => Ok(style.bright().white()),
 
+            w if w.starts_with("colour_") || w.starts_with("color_") => {
+                let n = w
+                    .split('_')
+                    .nth(1)
+                    .and_then(|s| s.parse::<u8>().ok())
+                    .ok_or_else(|| format!("bad colour index: {}", w))?;
+                Ok(style.ansi256(n))
+            }
+            w if w.starts_with("on_colour_") || w.starts_with("on_color_") => {
+                let n = w
+                    .split('_')
+                    .nth(2)
+                    .and_then(|s| s.parse::<u8>().ok())
+                    .ok_or_else(|| format!("bad colour index: {}", w))?;
+                Ok(style.on_ansi256(n))
+            }
+            w if w.starts_with("rgb:") => {
+                parse_hex_rgb(&w[4..]).map(|(r, g, b)| style.rgb(r, g, b))
+            }
+            w if w.starts_with("on_rgb:") => {
+                parse_hex_rgb(&w[7..]).map(|(r, g, b)| style.on_rgb(r, g, b))
+            }
+
             _ => {
                 let msg = format!("unhandled style: {}", word);
                 eprintln!("{}", msg);
@@ -261,6 +284,36 @@ pub fn style_from_str(text: &str) -> Result<Style, String> {
             }
         }
     })
+}
+
+fn parse_hex_rgb(hex: &str) -> Result<(u8, u8, u8), String> {
+    if hex.len() != 6 {
+        return Err(format!("bad rgb hex: {}", hex));
+    }
+    let r = u8::from_str_radix(&hex[0..2], 16).map_err(|_| format!("bad rgb hex: {}", hex))?;
+    let g = u8::from_str_radix(&hex[2..4], 16).map_err(|_| format!("bad rgb hex: {}", hex))?;
+    let b = u8::from_str_radix(&hex[4..6], 16).map_err(|_| format!("bad rgb hex: {}", hex))?;
+    Ok((r, g, b))
+}
+
+// parse a literal "\033[...m" token from a quoted colours value into a Style.
+// supports 256-color (38;5;N / 48;5;N) and truecolor (38;2;R;G;B / 48;2;R;G;B).
+fn parse_raw_ansi(token: &str) -> Option<Style> {
+    let inner = token.trim_matches('"');
+    // strip the leading escape: either literal "\033[" or a real ESC
+    let params = inner
+        .strip_prefix("\\033[")
+        .or_else(|| inner.strip_prefix('\x1b').and_then(|s| s.strip_prefix('[')))?;
+    let params = params.trim_end_matches('m');
+    let nums: Vec<u32> = params.split(';').filter_map(|s| s.parse().ok()).collect();
+
+    match nums.as_slice() {
+        [38, 5, n] => Some(Style::new().ansi256(*n as u8)),
+        [48, 5, n] => Some(Style::new().on_ansi256(*n as u8)),
+        [38, 2, r, g, b] => Some(Style::new().rgb(*r as u8, *g as u8, *b as u8)),
+        [48, 2, r, g, b] => Some(Style::new().on_rgb(*r as u8, *g as u8, *b as u8)),
+        _ => None,
+    }
 }
 
 /// Parse comma-separated styles (one per capture group), e.g. "bold red,yellow".
@@ -613,5 +666,74 @@ impl<A: BufRead> Iterator for GrcatConfigReader<A> {
             // This entry lacked a valid regex; skip and try next entry
         }
         None // No more entries (EOF)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn ansi(s: &str) -> Result<String, String> {
+        style_from_str(s).map(|st| st.apply_to("").to_string())
+    }
+
+    #[test]
+    fn style_colour_underscore() {
+        assert_eq!(ansi("colour_140"), Ok("\x1b[38;5;140m\x1b[0m".to_string()));
+    }
+
+    #[test]
+    fn style_color_underscore() {
+        assert_eq!(ansi("color_140"), Ok("\x1b[38;5;140m\x1b[0m".to_string()));
+    }
+
+    #[test]
+    fn style_on_colour() {
+        assert_eq!(
+            ansi("on_colour_140"),
+            Ok("\x1b[48;5;140m\x1b[0m".to_string())
+        );
+    }
+
+    #[test]
+    fn style_rgb_hex() {
+        assert_eq!(
+            ansi("rgb:ff8800"),
+            Ok("\x1b[38;2;255;136;0m\x1b[0m".to_string())
+        );
+    }
+
+    #[test]
+    fn style_on_rgb() {
+        assert_eq!(
+            style_from_str("on_rgb:ff8800").map(|st| st.apply_to("").to_string()),
+            Ok("\x1b[48;2;255;136;0m\x1b[0m".to_string()),
+        );
+    }
+
+    #[test]
+    fn style_raw_ansi_256() {
+        assert_eq!(
+            style_from_str(r#""\033[38;5;140m""#).map(|st| st.apply_to("").to_string()),
+            Ok("\x1b[38;5;140m\x1b[0m".to_string()),
+        );
+    }
+
+    #[test]
+    fn style_raw_ansi_truecolor() {
+        assert_eq!(
+            style_from_str(r#""\033[38;2;255;136;0m""#).map(|st| st.apply_to("").to_string()),
+            Ok("\x1b[38;2;255;136;0m\x1b[0m".to_string()),
+        );
+    }
+
+    #[test]
+    fn style_bad_rgb() {
+        assert!(style_from_str("rgb:xyz").is_err());
+    }
+
+    #[test]
+    fn style_bad_colour_index() {
+        assert!(style_from_str("colour_abc").is_err());
     }
 }

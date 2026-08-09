@@ -25,6 +25,8 @@ enum Color {
     Magenta,
     Cyan,
     White,
+    Ansi256(u8),
+    Rgb(u8, u8, u8),
 }
 
 impl Style {
@@ -140,6 +142,30 @@ impl Style {
     }
 
     #[inline]
+    pub const fn ansi256(mut self, n: u8) -> Self {
+        self.fg_color = Some(Color::Ansi256(n));
+        self
+    }
+
+    #[inline]
+    pub const fn rgb(mut self, r: u8, g: u8, b: u8) -> Self {
+        self.fg_color = Some(Color::Rgb(r, g, b));
+        self
+    }
+
+    #[inline]
+    pub const fn on_ansi256(mut self, n: u8) -> Self {
+        self.bg_color = Some(Color::Ansi256(n));
+        self
+    }
+
+    #[inline]
+    pub const fn on_rgb(mut self, r: u8, g: u8, b: u8) -> Self {
+        self.bg_color = Some(Color::Rgb(r, g, b));
+        self
+    }
+
+    #[inline]
     pub const fn bold(mut self) -> Self {
         self.bold = true;
         self
@@ -191,59 +217,63 @@ impl Style {
             return String::new();
         }
 
-        let mut codes = Vec::new();
+        let mut codes: Vec<String> = Vec::new();
 
         if self.bold {
-            codes.push("1");
+            codes.push("1".to_string());
         }
         if self.dim {
-            codes.push("2");
+            codes.push("2".to_string());
         }
         if self.italic {
-            codes.push("3");
+            codes.push("3".to_string());
         }
         if self.underlined {
-            codes.push("4");
+            codes.push("4".to_string());
         }
         if self.blink {
-            codes.push("5");
+            codes.push("5".to_string());
         }
         if self.reverse {
-            codes.push("7");
+            codes.push("7".to_string());
         }
 
         if let Some(fg) = self.fg_color {
-            codes.push(match fg {
-                Color::Black if self.bright => "90",
-                Color::Black => "30",
-                Color::Red if self.bright => "91",
-                Color::Green if self.bright => "92",
-                Color::Yellow if self.bright => "93",
-                Color::Blue if self.bright => "94",
-                Color::Magenta if self.bright => "95",
-                Color::Cyan if self.bright => "96",
-                Color::White if self.bright => "97",
-                Color::Red => "31",
-                Color::Green => "32",
-                Color::Yellow => "33",
-                Color::Blue => "34",
-                Color::Magenta => "35",
-                Color::Cyan => "36",
-                Color::White => "37",
-            });
+            match fg {
+                Color::Black if self.bright => codes.push("90".to_string()),
+                Color::Black => codes.push("30".to_string()),
+                Color::Red if self.bright => codes.push("91".to_string()),
+                Color::Green if self.bright => codes.push("92".to_string()),
+                Color::Yellow if self.bright => codes.push("93".to_string()),
+                Color::Blue if self.bright => codes.push("94".to_string()),
+                Color::Magenta if self.bright => codes.push("95".to_string()),
+                Color::Cyan if self.bright => codes.push("96".to_string()),
+                Color::White if self.bright => codes.push("97".to_string()),
+                Color::Red => codes.push("31".to_string()),
+                Color::Green => codes.push("32".to_string()),
+                Color::Yellow => codes.push("33".to_string()),
+                Color::Blue => codes.push("34".to_string()),
+                Color::Magenta => codes.push("35".to_string()),
+                Color::Cyan => codes.push("36".to_string()),
+                Color::White => codes.push("37".to_string()),
+                Color::Ansi256(n) => codes.push(format!("38;5;{}", n)),
+                Color::Rgb(r, g, b) => codes.push(format!("38;2;{};{};{}", r, g, b)),
+            }
         }
 
         if let Some(bg) = self.bg_color {
-            codes.push(match bg {
-                Color::Black => "40",
-                Color::Red => "41",
-                Color::Green => "42",
-                Color::Yellow => "43",
-                Color::Blue => "44",
-                Color::Magenta => "45",
-                Color::Cyan => "46",
-                Color::White => "47",
-            });
+            match bg {
+                Color::Black => codes.push("40".to_string()),
+                Color::Red => codes.push("41".to_string()),
+                Color::Green => codes.push("42".to_string()),
+                Color::Yellow => codes.push("43".to_string()),
+                Color::Blue => codes.push("44".to_string()),
+                Color::Magenta => codes.push("45".to_string()),
+                Color::Cyan => codes.push("46".to_string()),
+                Color::White => codes.push("47".to_string()),
+                Color::Ansi256(n) => codes.push(format!("48;5;{}", n)),
+                Color::Rgb(r, g, b) => codes.push(format!("48;2;{};{};{}", r, g, b)),
+            }
         }
 
         if codes.is_empty() {
@@ -357,5 +387,35 @@ mod tests {
 
         let styled = style.apply_to("hello");
         assert_eq!(format!("{}", styled), "hello");
+    }
+
+    #[test]
+    fn ansi256_fg() {
+        let style = Style::new().ansi256(140);
+        assert_eq!(style.to_ansi_codes(), "\x1b[38;5;140m");
+    }
+
+    #[test]
+    fn rgb_fg() {
+        let style = Style::new().rgb(255, 136, 0);
+        assert_eq!(style.to_ansi_codes(), "\x1b[38;2;255;136;0m");
+    }
+
+    #[test]
+    fn ansi256_bg() {
+        let style = Style::new().on_ansi256(140);
+        assert_eq!(style.to_ansi_codes(), "\x1b[48;5;140m");
+    }
+
+    #[test]
+    fn rgb_bg() {
+        let style = Style::new().on_rgb(255, 136, 0);
+        assert_eq!(style.to_ansi_codes(), "\x1b[48;2;255;136;0m");
+    }
+
+    #[test]
+    fn ansi256_with_bold() {
+        let style = Style::new().bold().ansi256(140);
+        assert_eq!(style.to_ansi_codes(), "\x1b[1;38;5;140m");
     }
 }

@@ -91,10 +91,10 @@ jobs:
         run: cargo test --release --target ${{ matrix.target }} --verbose
       - name: Build release (Linux)
         if: matrix.os == 'ubuntu-latest'
-        run: cross build --release --features embed-configs,debug --target ${{ matrix.target }}
+        run: cross build --release --features embed-configs --target ${{ matrix.target }}
       - name: Build release (macOS/Windows)
         if: matrix.os != 'ubuntu-latest'
-        run: cargo build --release --features embed-configs,debug --target ${{ matrix.target }}
+        run: cargo build --release --features embed-configs --target ${{ matrix.target }}
 
       - name: Package release (non-Windows)
         if: matrix.os != 'windows-latest'

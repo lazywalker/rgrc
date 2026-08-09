@@ -61,3 +61,19 @@ count=stop
 
 **Count options**: `once`, `more` (default), `stop`
 **Replace**: Supports `\1`, `\2`, etc.
+
+### 256-color and truecolor
+
+Beyond the 8 base colors and their `bright_*` variants:
+
+```ini
+# 256-color (0-255), grc-compatible
+colours=colour_140
+colours=on_colour_140
+
+# truecolor hex
+colours=rgb:ff8800
+colours=on_rgb:ff8800
+```
+
+Both `colour_` and `color_` (American spelling) are accepted.
