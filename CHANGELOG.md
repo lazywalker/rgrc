@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.6.20
+
+- feat: enable embed-configs by default so `cargo install rgrc` works out of the box; distro packagers still build with --no-default-features to use system configs
+- fix: prevent panics on multibyte UTF-8 in EnhancedRegex
+- refactor: read embedded configs from memory, drop disk cache
+- refactor: remove rgrv validator
+- refactor: remove debug feature and RGRCTIME instrumentation
+
 ## v0.6.14
 
 - fix(aliases): drop journalctl less pipeline from alias — `journalctl -f` no longer stalls (#32)

@@ -1,6 +1,6 @@
 [package]
 name = "rgrc"
-version = "0.6.16"
+version = "0.6.20"
 edition = "2024"
 license = "MIT"
 description = "Rusty Generic Colouriser"
@@ -10,6 +10,17 @@ keywords = ["cli", "grc"]
 categories = ["command-line-utilities"]
 readme = "README.md"
 default-run = "rgrc"
+exclude = [
+    ".github",
+    "benches",
+    "script",
+    "doc",
+    "etc/rgrc.fish",
+    "etc/rgrc.sh",
+    "etc/rgrc.zsh",
+    "Dockerfile.deb",
+    "Makefile",
+]
 
 [dependencies]
 regex-lite = "^0.1.9"
@@ -26,7 +37,7 @@ harness = false
 
 [features]
 # Default features: embed configs and use EnhancedRegex for enhanced patterns
-default = []
+default = ["embed-configs"]
 # Embed configuration files into the binary
 embed-configs = []
 # Use battle-tested fancy-regex for enhanced regex (supports backreferences, variable-length lookbehind, etc.)

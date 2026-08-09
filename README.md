@@ -36,7 +36,7 @@ curl -sS https://raw.githubusercontent.com/lazywalker/rgrc/master/script/install
 **Cargo:**
 
 ```bash
-cargo install rgrc --features embed-configs
+cargo install rgrc
 ```
 
 **Homebrew:**
