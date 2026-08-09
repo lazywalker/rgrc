@@ -25,7 +25,7 @@ exclude = [
 [dependencies]
 regex-lite = "^0.1.9"
 mimalloc = "^0.1.52"
-fancy-regex = { version = "0.18", optional = true }
+fancy-regex = { version = "0.19", optional = true }
 
 [dev-dependencies]
 tempfile = "3.27"
