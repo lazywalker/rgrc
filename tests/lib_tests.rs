@@ -121,36 +121,41 @@ fn test_load_grcat_config_multiple_calls() {
 
 #[test]
 fn test_resource_paths_constant() {
-    let paths = rgrc::RESOURCE_PATHS;
+    let paths = rgrc::resource_paths();
 
-    assert!(!paths.is_empty(), "RESOURCE_PATHS should not be empty");
+    assert!(!paths.is_empty(), "resource_paths() should not be empty");
 
-    let has_user_paths = paths.iter().any(|p| p.contains("~"));
+    let has_xdg_config = paths.iter().any(|p| p.ends_with("rgrc"));
     let has_system_paths = paths.iter().any(|p| p.starts_with("/"));
+    let has_grc_compat = paths.iter().any(|p| p.ends_with("grc"));
 
-    assert!(has_user_paths, "Should contain user paths (~)");
+    assert!(has_xdg_config, "Should contain rgrc paths");
     assert!(has_system_paths, "Should contain system paths (/)");
+    assert!(has_grc_compat, "Should contain grc compat paths");
 }
 
 #[test]
 fn test_resource_paths_no_empty_entries() {
-    let paths = rgrc::RESOURCE_PATHS;
+    let paths = rgrc::resource_paths();
 
     for path in paths {
         assert!(
-            !path.is_empty(),
-            "RESOURCE_PATHS should not contain empty entries"
+            !path.as_os_str().is_empty(),
+            "resource_paths() should not contain empty entries"
         );
     }
 }
 
 #[test]
 fn test_resource_paths_valid_format() {
-    let paths = rgrc::RESOURCE_PATHS;
+    let paths = rgrc::resource_paths();
 
     for path in paths {
-        let valid = path.starts_with('~') || path.starts_with('/') || path == &"share";
-        assert!(valid, "Invalid path format: {}", path);
+        assert!(
+            !path.to_string_lossy().contains('~'),
+            "Paths should be tilde-expanded: {}",
+            path.display()
+        );
     }
 }
 
