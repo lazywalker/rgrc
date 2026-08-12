@@ -443,4 +443,54 @@ mod cli_integration_tests {
             "Output should not contain ANSI escape codes when piped to a non-TTY"
         );
     }
+
+    // `rgrc -c NAME COMMAND` runs the command instead of blocking on stdin (#23)
+    #[test]
+    fn config_mode_with_command_executes() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .args([
+                "--color=on",
+                "-c",
+                "ping",
+                "echo",
+                "64 bytes from 192.168.1.1: icmp_seq=1 ttl=64 time=0.5 ms",
+            ])
+            .output()
+            .expect("failed to run rgrc");
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("64 bytes from"));
+        assert!(stdout.contains("\x1b["));
+    }
+
+    // exit code of the child propagates in -c exec mode
+    #[test]
+    fn config_mode_with_command_propagates_exit_code() {
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .args(["-c", "ping", "sh", "-c", "exit 42"])
+            .output()
+            .expect("failed to run rgrc");
+
+        assert_eq!(output.status.code(), Some(42));
+    }
+
+    // -c accepts a bare conf name too ("df" and "conf.df" both work)
+    #[test]
+    fn config_mode_accepts_conf_name() {
+        let df_line = "/dev/sda1 100G 50G 50G 50% /";
+        let out_name = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .args(["--color=on", "-c", "df", "echo", df_line])
+            .output()
+            .expect("failed to run rgrc");
+        let out_conf = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .args(["--color=on", "-c", "conf.df", "echo", df_line])
+            .output()
+            .expect("failed to run rgrc");
+
+        assert!(out_name.status.success());
+        assert!(out_conf.status.success());
+        assert_eq!(out_name.stdout, out_conf.stdout);
+        assert!(String::from_utf8_lossy(&out_name.stdout).contains("\x1b["));
+    }
 }
