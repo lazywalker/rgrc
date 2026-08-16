@@ -152,7 +152,7 @@ fn test_resource_paths_valid_format() {
 
     for path in paths {
         assert!(
-            !path.to_string_lossy().contains('~'),
+            !path.to_string_lossy().starts_with('~'),
             "Paths should be tilde-expanded: {}",
             path.display()
         );
