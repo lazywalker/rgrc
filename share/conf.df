@@ -1,6 +1,6 @@
 # FS
 #regexp=^.*?\s
-regexp=^(?!Filesystem)(\/[-\w\d.]+)+\s
+regexp=^(\/[-\w\d.]+)+\s
 colours=blue,bold blue
 ======
 # Size 'K'

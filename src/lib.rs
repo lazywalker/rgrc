@@ -13,19 +13,10 @@ pub mod utils;
 
 use std::fs::File;
 use std::io::BufRead;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 use grc::{GrcConfigReader, GrcatConfigEntry, GrcatConfigReader};
-
-// Simple tilde expansion function to replace shellexpand
-fn expand_tilde(path: &str) -> String {
-    if let Some(stripped) = path.strip_prefix("~/")
-        && let Ok(home) = std::env::var("HOME")
-    {
-        return format!("{}/{}", home, stripped);
-    }
-    path.to_string()
-}
 
 // Use generated `embedded_configs.rs` (created by build.rs) so the list of
 // embedded files is derived from the `share` directory instead of being hard-coded.
@@ -80,98 +71,179 @@ impl FromStr for ColorMode {
     }
 }
 
-/// Search paths for conf files, user config first, system/legacy last.
-pub const RESOURCE_PATHS: &[&str] = &[
-    "share", // Development mode: relative to project root (where cargo run is executed)
-    "~/.config/rgrc",
-    "~/.local/share/rgrc",
-    "/usr/local/share/rgrc",
-    "/usr/share/rgrc",
-    "~/.config/grc",
-    "~/.local/share/grc",
-    "/usr/local/share/grc",
-    "/usr/share/grc",
-];
-
-/// Load rules for `pseudo_command` by matching it against grc.conf patterns,
-/// then reading the referenced conf file from the first matching RESOURCE_PATHS.
-/// Returns empty vec on any failure (file not found, no match, parse error).
-pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
-    // First, try to load from filesystem config file
-    let filesystem_result = File::open(path).ok().and_then(|f| {
-        let bufreader = std::io::BufReader::new(f);
-        let configreader = GrcConfigReader::new(bufreader.lines());
-        // Iterate each rule so we can optionally log which pattern matched
-        for (re, config) in configreader {
-            if re.is_match(pseudo_command) {
-                if std::env::var_os("RGRC_DEBUG").is_some() {
-                    eprintln!(
-                        "rgrc: matched pattern '{}' in {} for '{}'",
-                        re.as_str(),
-                        path,
-                        pseudo_command
-                    );
-                }
-                return Some(config);
-            }
-        }
-        None
-    });
-
-    if let Some(config) = filesystem_result {
-        // Search RESOURCE_PATHS for the colorization file - **stop at first match**
-        for base_path in RESOURCE_PATHS {
-            let expanded_path = expand_tilde(base_path);
-            let config_path = format!("{}/{}", expanded_path, config);
-            if std::env::var_os("RGRC_DEBUG").is_some() {
-                eprintln!("rgrc: checking for config file {}", config_path);
-            }
-            // Use file_exists_and_parse to distinguish "file exists but empty" from "file not found"
-            match file_exists_and_parse(&config_path) {
-                Some(rules) => {
-                    if std::env::var_os("RGRC_DEBUG").is_some() {
-                        eprintln!(
-                            "rgrc: found config file {} ({} rules)",
-                            config_path,
-                            rules.len()
-                        );
-                    }
-                    return rules; // File found (even if empty) - STOP
-                }
-                None => continue, // File not found - keep searching
-            }
-        }
-    }
-
-    // No configuration found
-    Vec::new()
+fn home() -> Option<PathBuf> {
+    std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .filter(|h| !h.as_os_str().is_empty())
 }
 
-/// Check if a file exists and parse it for colorization rules.
-///
-/// Returns:
-/// - `Some(rules)` if file exists (may be empty if file is empty)
-/// - `None` if file does not exist
-///
-/// This distinguishes between "file doesn't exist" (None) and
-/// "file exists but has no rules" (Some([])).
-fn file_exists_and_parse(filename: &str) -> Option<Vec<GrcatConfigEntry>> {
-    if let Ok(grcat_config_file) = File::open(filename) {
-        let bufreader = std::io::BufReader::new(grcat_config_file);
-        let configreader = GrcatConfigReader::new(bufreader.lines());
-        let entries: Vec<_> = configreader.collect();
-        return Some(entries);
+// XDG base directory spec: relative values are ignored, fall back to defaults
+fn xdg_config_home() -> PathBuf {
+    match std::env::var_os("XDG_CONFIG_HOME") {
+        Some(v) if Path::new(&v).is_absolute() => PathBuf::from(v),
+        _ => home()
+            .map(|h| h.join(".config"))
+            .unwrap_or_else(|| PathBuf::from(".config")),
+    }
+}
+
+fn xdg_data_home() -> PathBuf {
+    match std::env::var_os("XDG_DATA_HOME") {
+        Some(v) if Path::new(&v).is_absolute() => PathBuf::from(v),
+        _ => home()
+            .map(|h| h.join(".local/share"))
+            .unwrap_or_else(|| PathBuf::from(".local/share")),
+    }
+}
+
+fn xdg_dirs(var: &str, default: &str) -> Vec<PathBuf> {
+    let raw = std::env::var_os(var)
+        // an empty value behaves as unset, so the defaults still apply
+        .filter(|v| !v.is_empty())
+        .map(|v| v.to_string_lossy().into_owned())
+        .unwrap_or_else(|| default.to_string());
+    raw.split(':')
+        .filter(|p| Path::new(p).is_absolute())
+        .map(PathBuf::from)
+        .collect()
+}
+
+// development paths next to the repo are only searched when opted in,
+// otherwise a stray share/ in the cwd would shadow user configs (#23)
+fn dev_paths_enabled() -> bool {
+    std::env::var_os("RGRC_DEV_SHARE").is_some()
+}
+
+fn dedup(paths: &mut Vec<PathBuf>) {
+    let mut seen = std::collections::HashSet::new();
+    paths.retain(|p| seen.insert(p.clone()));
+}
+
+/// Search paths for conf files, user config first, system/legacy last.
+/// Honors the XDG base directory environment variables; grc paths are kept
+/// for compatibility. The development `share/` dir requires RGRC_DEV_SHARE.
+pub fn resource_paths() -> Vec<PathBuf> {
+    let mut paths = vec![xdg_config_home().join("rgrc"), xdg_data_home().join("rgrc")];
+    paths.extend(
+        xdg_dirs("XDG_CONFIG_DIRS", "/etc/xdg")
+            .into_iter()
+            .map(|d| d.join("rgrc")),
+    );
+    paths.extend(
+        xdg_dirs("XDG_DATA_DIRS", "/usr/local/share:/usr/share")
+            .into_iter()
+            .map(|d| d.join("rgrc")),
+    );
+    if let Some(h) = home() {
+        paths.push(h.join(".config/grc"));
+        paths.push(h.join(".local/share/grc"));
+    }
+    paths.push(PathBuf::from("/usr/local/share/grc"));
+    paths.push(PathBuf::from("/usr/share/grc"));
+    if dev_paths_enabled() {
+        paths.insert(0, PathBuf::from("share"));
+    }
+    dedup(&mut paths);
+    paths
+}
+
+/// Mapper file (rgrc.conf / grc.conf) locations, user first, then system,
+/// then grc legacy. The development `etc/rgrc.conf` requires RGRC_DEV_SHARE.
+fn config_paths() -> Vec<PathBuf> {
+    let mut paths = Vec::new();
+    if dev_paths_enabled() {
+        paths.push(PathBuf::from("etc/rgrc.conf"));
+    }
+    if let Some(h) = home() {
+        paths.push(h.join(".rgrc"));
+    }
+    paths.push(xdg_config_home().join("rgrc/rgrc.conf"));
+    paths.extend(
+        xdg_dirs("XDG_CONFIG_DIRS", "/etc/xdg")
+            .into_iter()
+            .map(|d| d.join("rgrc/rgrc.conf")),
+    );
+    paths.push(PathBuf::from("/usr/local/etc/rgrc.conf"));
+    paths.push(PathBuf::from("/etc/rgrc.conf"));
+    if let Some(h) = home() {
+        paths.push(h.join(".grc"));
+    }
+    paths.push(xdg_config_home().join("grc/grc.conf"));
+    paths.push(PathBuf::from("/usr/local/etc/grc.conf"));
+    paths.push(PathBuf::from("/etc/grc.conf"));
+    dedup(&mut paths);
+    paths
+}
+
+/// Load rules for `pseudo_command` by matching it against the patterns in the
+/// mapper file at `path`, then reading the referenced conf file from the first
+/// matching resource path. Embedded configs are the last resort so that user
+/// files on disk always win. Returns empty vec on any failure.
+pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
+    let patterns = {
+        let file = match File::open(path) {
+            Ok(f) => f,
+            Err(_) => return Vec::new(),
+        };
+        let reader = GrcConfigReader::new(std::io::BufReader::new(file).lines());
+        reader.collect::<Vec<_>>()
+    };
+
+    // two-pass match: the full pseudo command first (patterns can require
+    // args), then the bare command name so simple rules like ^df$ also work
+    let cmd_name = pseudo_command
+        .split_whitespace()
+        .next()
+        .unwrap_or(pseudo_command);
+    let conf = patterns
+        .iter()
+        .find(|(re, _)| re.is_match(pseudo_command))
+        .or_else(|| patterns.iter().find(|(re, _)| re.is_match(cmd_name)))
+        .map(|(_, c)| c.clone());
+    let Some(conf) = conf else {
+        return Vec::new();
+    };
+    if std::env::var_os("RGRC_DEBUG").is_some() {
+        eprintln!("rgrc: matched conf '{}' for '{}'", conf, pseudo_command);
+    }
+
+    conf_rules(&conf)
+}
+
+/// Resolve a conf name like "conf.df" to rules: first matching disk resource
+/// path wins (an empty file stops the search), embedded configs last.
+fn conf_rules(conf: &str) -> Vec<GrcatConfigEntry> {
+    for base in resource_paths() {
+        let conf_path = base.join(conf);
+        if std::env::var_os("RGRC_DEBUG").is_some() {
+            eprintln!("rgrc: checking for config file {}", conf_path.display());
+        }
+        if let Some(rules) = read_conf_file(&conf_path) {
+            if std::env::var_os("RGRC_DEBUG").is_some() {
+                eprintln!(
+                    "rgrc: found config file {} ({} rules)",
+                    conf_path.display(),
+                    rules.len()
+                );
+            }
+            return rules;
+        }
     }
 
     #[cfg(feature = "embed-configs")]
-    {
-        let name = basename(filename);
-        if let Some(entries) = parse_embedded_conf(name) {
-            return Some(entries);
-        }
+    if let Some(entries) = parse_embedded_conf(conf) {
+        return entries;
     }
 
-    None
+    Vec::new()
+}
+
+/// Read a grcat conf file from disk. `Some(rules)` if the file exists (an
+/// empty file yields `Some([])`), `None` when missing.
+fn read_conf_file(path: &Path) -> Option<Vec<GrcatConfigEntry>> {
+    let file = File::open(path).ok()?;
+    let reader = GrcatConfigReader::new(std::io::BufReader::new(file).lines());
+    Some(reader.collect())
 }
 
 /// Load and parse a grcat conf file. Returns empty vec on any error
@@ -206,94 +278,82 @@ pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
     Vec::new()
 }
 
-/// Configuration file paths in priority order.
-/// The program searches these paths to find grc.conf (or rgrc.conf) which maps
-/// commands to their colorization profiles. Paths prefixed with ~ are expanded using shellexpand.
-/// Typical flow: try ~/.grc first (user config), then system-wide configs (/etc/grc.conf).
-const CONFIG_PATHS: &[&str] = &[
-    "etc/rgrc.conf", // Development mode: relative to project root when develop with cargo run
-    "~/.rgrc",
-    "~/.config/rgrc/rgrc.conf",
-    "/usr/local/etc/rgrc.conf",
-    "/etc/rgrc.conf",
-    "~/.grc",
-    "~/.config/grc/grc.conf",
-    "/usr/local/etc/grc.conf",
-    "/etc/grc.conf",
-];
-
-/// Load colorization rules for a given pseudo-command by searching all configuration paths.
+/// Load colorization rules for a given pseudo-command by searching all
+/// configuration paths. The search stops at the first mapper file that yields
+/// rules. Priority: user mapper (`$XDG_CONFIG_HOME/rgrc/rgrc.conf`), then
+/// the remaining mapper paths ending with legacy grc locations; the embedded
+/// mapper is the last resort.
 ///
-/// This function iterates through the predefined CONFIG_PATHS, attempting to load
-/// colorization rules for the specified pseudo-command from each configuration file.
-/// **The search stops at the first file that contains matching rules.**
-///
-/// # Priority Resolution
-///
-/// Configuration files are searched in priority order:
-/// 1. User configs (`~/.rgrc`, `~/.config/rgrc/rgrc.conf`) checked first
-/// 2. System configs (`/etc/rgrc.conf`, `/usr/local/etc/rgrc.conf`) as fallback
-/// 3. Legacy grc configs checked last for backward compatibility
-///
-/// # Arguments
-///
-/// * `pseudo_command` - The command string to match against configuration rules
-///   (e.g., "ping", "ls", "curl")
-///
-/// # Returns
-///
-/// A vector of `GrcatConfigEntry` containing all colorization rules that apply
-/// to the given pseudo-command from the **first config file containing matches**.
-///
-/// # Examples
-///
-/// ```ignore
-/// let rules = load_rules_for_command("ping");
-/// // Now rules contains all colorization rules for ping from the first matching config file
-/// ```
-#[allow(dead_code)]
+/// * `pseudo_command` - the command string to match, including arguments
+///   ("ping", "df -h"); a second pass matches the bare command name
 pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
-    // Always prioritize user config first
-    let user_config_path = "~/.config/rgrc/rgrc.conf";
-    let expanded_user_config = expand_tilde(user_config_path);
-    let rules = load_config(&expanded_user_config, pseudo_command);
+    // Always prioritize the user mapper
+    let user_config = xdg_config_home().join("rgrc/rgrc.conf");
+    let rules = load_config(&user_config.to_string_lossy(), pseudo_command);
     if !rules.is_empty() {
         return rules;
     }
 
-    // then try embedded configs directly from memory
-    #[cfg(feature = "embed-configs")]
-    {
-        let cursor = std::io::Cursor::new(EMBEDDED_GRC_CONF);
-        let reader = GrcConfigReader::new(std::io::BufReader::new(cursor).lines());
-        for (re, config_file) in reader {
-            if re.is_match(pseudo_command) {
-                if std::env::var_os("RGRC_DEBUG").is_some() {
-                    eprintln!(
-                        "rgrc: embedded matched pattern '{}' -> {}",
-                        re.as_str(),
-                        config_file
-                    );
-                }
-                if let Some(entries) = parse_embedded_conf(&config_file) {
-                    return entries;
-                }
-            }
-        }
-    }
-
-    for config_path in CONFIG_PATHS {
-        if *config_path == "~/.config/rgrc/rgrc.conf" {
+    for config_path in config_paths() {
+        if config_path == user_config {
             continue;
         }
-        let expanded_path = expand_tilde(config_path);
-        let rules = load_config(&expanded_path, pseudo_command);
+        let rules = load_config(&config_path.to_string_lossy(), pseudo_command);
         if !rules.is_empty() {
             return rules;
         }
     }
 
+    // embedded mapper only after every disk mapper failed to match
+    #[cfg(feature = "embed-configs")]
+    if let Some(rules) = load_embedded(pseudo_command) {
+        return rules;
+    }
+
     Vec::new()
+}
+
+/// Rules for an explicitly requested config (`-c NAME`): NAME is first tried
+/// as a pseudo-command against the mappers, then directly as a conf file name
+/// ("df" resolves to conf.df; "conf.df" and paths are used as-is).
+pub fn load_rules_for_config(name: &str) -> Vec<GrcatConfigEntry> {
+    let rules = load_rules_for_command(name);
+    if !rules.is_empty() {
+        return rules;
+    }
+
+    let conf = if name.starts_with("conf.") || name.contains('/') {
+        name.to_string()
+    } else {
+        format!("conf.{}", name)
+    };
+    conf_rules(&conf)
+}
+
+#[cfg(feature = "embed-configs")]
+fn load_embedded(pseudo_command: &str) -> Option<Vec<GrcatConfigEntry>> {
+    let cursor = std::io::Cursor::new(EMBEDDED_GRC_CONF);
+    let reader = GrcConfigReader::new(std::io::BufReader::new(cursor).lines());
+    let patterns: Vec<_> = reader.collect();
+
+    let cmd_name = pseudo_command
+        .split_whitespace()
+        .next()
+        .unwrap_or(pseudo_command);
+    let conf = patterns
+        .iter()
+        .find(|(re, _)| re.is_match(pseudo_command))
+        .or_else(|| patterns.iter().find(|(re, _)| re.is_match(cmd_name)))
+        .map(|(_, c)| c.clone())?;
+    if std::env::var_os("RGRC_DEBUG").is_some() {
+        eprintln!(
+            "rgrc: embedded matched conf '{}' for '{}'",
+            conf, pseudo_command
+        );
+    }
+
+    let rules = conf_rules(&conf);
+    if rules.is_empty() { None } else { Some(rules) }
 }
 
 #[cfg(test)]
@@ -527,37 +587,72 @@ mod lib_test {
         assert!(has_system, "System config should contain SYSTEM pattern");
     }
 
+    // env-sensitive checks in one test: tests share one process and run in
+    // parallel, so HOME/XDG mutations must not interleave with each other
     #[test]
-    fn test_expand_tilde() {
-        // Test with valid HOME environment variable
+    fn config_resolution() {
+        use tempfile::TempDir;
+
+        let prev_xdg = std::env::var_os("XDG_CONFIG_HOME");
+        let td = TempDir::new().expect("create tempdir");
+        let rgrc_dir = td.path().join("rgrc");
+        std::fs::create_dir_all(&rgrc_dir).expect("create rgrc dir");
         unsafe {
-            std::env::set_var("HOME", "/home/testuser");
+            std::env::set_var("XDG_CONFIG_HOME", td.path());
         }
 
-        // Normal tilde expansion
-        assert_eq!(expand_tilde("~/Documents"), "/home/testuser/Documents");
-        assert_eq!(expand_tilde("~/"), "/home/testuser/");
-        assert_eq!(expand_tilde("~"), "~");
+        // XDG_CONFIG_HOME respected and user conf overrides the embedded copy
+        std::fs::write(rgrc_dir.join("rgrc.conf"), "^df(\\s|$)\nconf.df\n").unwrap();
+        std::fs::write(rgrc_dir.join("conf.df"), "regexp=USERDF\ncolours=green\n").unwrap();
+        let has_user_df = |cmd: &str| {
+            load_rules_for_command(cmd)
+                .iter()
+                .any(|r| r.regex.as_str().contains("USERDF"))
+        };
+        assert!(has_user_df("df"));
+        assert!(has_user_df("df -h"));
 
-        // No tilde should be unchanged
-        assert_eq!(expand_tilde("/absolute/path"), "/absolute/path");
-        assert_eq!(expand_tilde("relative/path"), "relative/path");
-        assert_eq!(expand_tilde(""), "");
+        // second pass: `^df$` also matches "df -h" via the bare command name
+        std::fs::write(rgrc_dir.join("rgrc.conf"), "^df$\nconf.df\n").unwrap();
+        assert!(has_user_df("df -h"));
 
-        // Tilde not at start should be unchanged
-        assert_eq!(expand_tilde("path~/to/file"), "path~/to/file");
-        assert_eq!(expand_tilde("path~"), "path~");
+        // explicit config lookup: name, conf.NAME, both resolve to user rules
+        assert!(
+            load_rules_for_config("df")
+                .iter()
+                .any(|r| r.regex.as_str().contains("USERDF"))
+        );
+        assert!(
+            load_rules_for_config("conf.df")
+                .iter()
+                .any(|r| r.regex.as_str().contains("USERDF"))
+        );
 
-        // Test without HOME environment variable
-        unsafe {
-            std::env::remove_var("HOME");
+        // embedded fallback still works once the user mapper is gone
+        std::fs::remove_file(rgrc_dir.join("rgrc.conf")).unwrap();
+        std::fs::remove_file(rgrc_dir.join("conf.df")).unwrap();
+        #[cfg(feature = "embed-configs")]
+        assert!(!load_rules_for_command("df -h").is_empty());
+
+        if let Some(x) = prev_xdg {
+            unsafe {
+                std::env::set_var("XDG_CONFIG_HOME", x);
+            }
+        } else {
+            unsafe {
+                std::env::remove_var("XDG_CONFIG_HOME");
+            }
         }
-        assert_eq!(expand_tilde("~/Documents"), "~/Documents");
-        assert_eq!(expand_tilde("/absolute/path"), "/absolute/path");
 
-        // Restore HOME for other tests
+        // dev share/ is opt-in via RGRC_DEV_SHARE
+        assert!(!resource_paths().iter().any(|p| p == Path::new("share")));
         unsafe {
-            std::env::set_var("HOME", "/home/testuser");
+            std::env::set_var("RGRC_DEV_SHARE", "1");
         }
+        let first = resource_paths().first().expect("non-empty").clone();
+        unsafe {
+            std::env::remove_var("RGRC_DEV_SHARE");
+        }
+        assert_eq!(first, PathBuf::from("share"));
     }
 }

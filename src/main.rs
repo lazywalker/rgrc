@@ -5,7 +5,7 @@ use rgrc::{
     buffer::LineBufferedWriter,
     colorizer::colorize_regex as colorize,
     grc::GrcatConfigEntry,
-    load_rules_for_command,
+    load_rules_for_command, load_rules_for_config,
     utils::{
         SUPPORTED_COMMANDS, command_exists, set_process_title,
         should_use_colorization_for_command_supported,
@@ -34,6 +34,67 @@ fn handle_io_error(e: std::io::Error) -> Result<(), Box<dyn std::error::Error>> 
         std::process::exit(0);
     }
     Err(Box::new(e))
+}
+
+// stdin-to-stdout passthrough; `ok` is the exit code on success, `err` on copy error
+fn copy_stdin(ok: i32, err: i32) -> ! {
+    let stdin = io::stdin();
+    let stdout = io::stdout();
+    let mut reader = io::BufReader::new(stdin.lock());
+    let mut writer = io::BufWriter::new(stdout.lock());
+    let res = io::copy(&mut reader, &mut writer);
+    let _ = writer.flush();
+    match res {
+        Ok(_) => std::process::exit(ok),
+        Err(_) => std::process::exit(err),
+    }
+}
+
+// grcat-style stdin filter for `rgrc -c NAME` without a trailing command
+fn filter_stdin(config_name: &str, color_mode: ColorMode) -> ! {
+    let stdout_is_terminal = io::stdout().is_terminal();
+    let should_colorize = match color_mode {
+        ColorMode::Off => false,
+        ColorMode::On => true,
+        ColorMode::Auto => stdout_is_terminal,
+    };
+
+    if !should_colorize {
+        copy_stdin(0, 0);
+    }
+
+    let rules: Vec<GrcatConfigEntry> = load_rules_for_config(config_name);
+    if rules.is_empty() {
+        eprintln!(
+            "Error: Failed to load rules for config '{}': No matching rules found",
+            config_name
+        );
+        copy_stdin(0, 1);
+    }
+
+    let stdin = io::stdin();
+    let mut buffered_stdin = io::BufReader::with_capacity(64 * 1024, stdin.lock());
+    let mut buffered_stdout = io::BufWriter::with_capacity(64 * 1024, io::stdout());
+    let mut line_buffered_writer = LineBufferedWriter::new(&mut buffered_stdout);
+
+    if let Err(e) = colorize(
+        &mut buffered_stdin,
+        &mut line_buffered_writer,
+        rules.as_slice(),
+    ) && let Err(e) = handle_box_error(e)
+    {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+
+    if let Err(e) = buffered_stdout.flush()
+        && let Err(e) = handle_io_error(e)
+    {
+        eprintln!("Error: {}", e);
+        std::process::exit(1);
+    }
+
+    std::process::exit(0);
 }
 
 // Use mimalloc for faster memory allocation (reduces startup overhead)
@@ -120,88 +181,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(0);
     }
 
-    // If --config is specified, read from stdin and colorize using the specified config
-    if let Some(ref config_name) = args.config {
-        let color_mode = args.color;
-
-        // Detect if stdout is a terminal (TTY)
-        let stdout_is_terminal = io::stdout().is_terminal();
-
-        // Determine if we should colorize based on color mode and TTY status
-        let should_colorize = match color_mode {
-            ColorMode::Off => false,
-            ColorMode::On => true,
-            ColorMode::Auto => stdout_is_terminal,
-        };
-
-        if !should_colorize {
-            // Just pass through stdin to stdout without coloring
-            let stdin = io::stdin();
-            let stdout = io::stdout();
-            let mut reader = io::BufReader::new(stdin.lock());
-            let mut writer = io::BufWriter::new(stdout.lock());
-            match io::copy(&mut reader, &mut writer) {
-                Ok(_) => {
-                    let _ = writer.flush();
-                    std::process::exit(0);
-                }
-                Err(e) => {
-                    if e.kind() != std::io::ErrorKind::BrokenPipe {
-                        eprintln!("Error copying stdin to stdout: {}", e);
-                    }
-                    let _ = writer.flush();
-                    std::process::exit(0);
-                }
-            }
-        }
-
-        // Load colorization rules for the specified config
-        let rules: Vec<GrcatConfigEntry> = load_rules_for_command(config_name);
-
-        if rules.is_empty() {
-            // No rules found, just pass through
-            let stdin = io::stdin();
-            let stdout = io::stdout();
-            let mut reader = io::BufReader::new(stdin.lock());
-            let mut writer = io::BufWriter::new(stdout.lock());
-            match io::copy(&mut reader, &mut writer) {
-                Ok(_) => {
-                    let _ = writer.flush();
-                    std::process::exit(0);
-                }
-                Err(e) => {
-                    if e.kind() != std::io::ErrorKind::BrokenPipe {
-                        eprintln!(
-                            "Error: Failed to load rules for config '{}': No matching rules found",
-                            config_name
-                        );
-                    }
-                    let _ = writer.flush();
-                    std::process::exit(1);
-                }
-            }
-        }
-
-        // Read from stdin and colorize
-        let stdin = io::stdin();
-        let mut buffered_stdin = io::BufReader::with_capacity(64 * 1024, stdin.lock());
-        let mut buffered_stdout = io::BufWriter::with_capacity(64 * 1024, io::stdout());
-        let mut line_buffered_writer = LineBufferedWriter::new(&mut buffered_stdout);
-
-        if let Err(e) = colorize(
-            &mut buffered_stdin,
-            &mut line_buffered_writer,
-            rules.as_slice(),
-        ) {
-            handle_box_error(e)?;
-        }
-
-        // Flush buffered output
-        if let Err(e) = buffered_stdout.flush() {
-            handle_io_error(e)?;
-        }
-
-        std::process::exit(0);
+    // --config without a command: grcat-style stdin filter
+    // --config with a command: run the command and colorize its output (#23)
+    if let Some(ref config_name) = args.config
+        && args.command.is_empty()
+    {
+        filter_stdin(config_name, args.color);
     }
 
     if args.command.is_empty() {
@@ -209,8 +194,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    // Apply color mode setting
-    let color_mode = args.color;
+    let explicit_config = args.config.as_deref();
     let command_name = args.command.first().unwrap();
 
     // Update process title to show the wrapped command instead of "rgrc"
@@ -220,13 +204,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Detect if stdout is a terminal (TTY)
     let stdout_is_terminal = io::stdout().is_terminal();
 
-    // Determine if we should colorize based on color mode and TTY status
-    let should_colorize = match color_mode {
+    // An explicit -c config bypasses the supported-commands whitelist and
+    // the pseudo-command exclusions: the user asked for this config
+    let eligible =
+        explicit_config.is_some() || should_use_colorization_for_command_supported(command_name);
+    let should_colorize = match args.color {
         ColorMode::Off => false,
-        ColorMode::On => should_use_colorization_for_command_supported(command_name),
-        ColorMode::Auto => {
-            stdout_is_terminal && should_use_colorization_for_command_supported(command_name)
-        }
+        ColorMode::On => eligible,
+        ColorMode::Auto => stdout_is_terminal && eligible,
     };
 
     let pseudo_command = args.command.join(" ");
@@ -234,13 +219,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // check pseudo-command exclusions before loading rules so bare `rgrc ls`
     // skips coloring (ls colorizes its own output) while `rgrc ls -l` does not.
     let should_colorize = if should_colorize {
-        !rgrc::utils::pseudo_command_excluded(&pseudo_command)
+        explicit_config.is_some() || !rgrc::utils::pseudo_command_excluded(&pseudo_command)
     } else {
         false
     };
 
     let rules: Vec<GrcatConfigEntry> = if should_colorize {
-        load_rules_for_command(&pseudo_command)
+        match explicit_config {
+            Some(name) => load_rules_for_config(name),
+            None => load_rules_for_command(&pseudo_command),
+        }
     } else {
         Vec::new()
     };
@@ -249,10 +237,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut cmd = Command::new(command_name);
     cmd.args(args.command.iter().skip(1));
 
-    // When not colorizing, let the child write directly to our stdout.
-    // Going through a pipe here only risks corrupting binary output (e.g.
-    // `docker save > file`, see #31) and adds copying overhead for no gain.
-    if !should_colorize {
+    // When not colorizing (or no rules resolved), let the child write
+    // directly to our stdout. Going through a pipe here only risks corrupting
+    // binary output (e.g. `docker save > file`, see #31) and adds copying
+    // overhead for no gain.
+    if !should_colorize || rules.is_empty() {
         cmd.stdout(Stdio::inherit());
         cmd.stderr(Stdio::inherit());
 
@@ -276,18 +265,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::process::exit(1);
             }
         };
-        std::process::exit(ecode.code().unwrap_or(1));
-    }
-
-    // Final check: we need both the decision to colorize AND actual rules
-    // If no rules were loaded, skip colorization even if it was requested
-    if should_colorize && rules.is_empty() {
-        // No rules found, but we're piping - just pass through without coloring
-        // This handles the edge case where rule loading failed or returned empty
-        cmd.stdout(Stdio::inherit());
-        cmd.stderr(Stdio::inherit());
-        let mut child = cmd.spawn().expect("failed to spawn command");
-        let ecode = child.wait().expect("failed to wait on child");
         std::process::exit(ecode.code().unwrap_or(1));
     }
 

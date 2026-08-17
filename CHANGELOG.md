@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- fix: disk mapper and conf files now override the embedded ones; embedded is the last resort for both (#23)
+- feat: `rgrc -c NAME COMMAND [ARGS...]` runs the command instead of blocking on stdin; `-c` also accepts conf file names like `conf.df` (#23)
+- feat: honor XDG_CONFIG_HOME/XDG_DATA_HOME/XDG_CONFIG_DIRS/XDG_DATA_DIRS for config lookup (#23)
+- feat: dev paths `share/` and `etc/rgrc.conf` are only searched with RGRC_DEV_SHARE set (#23)
+- feat: rgrc.conf patterns match the full command line first, then the bare command name (#23)
+- perf: drop the unnecessary lookahead in conf.df so it stays on the fast regex path (#23)
+
 ## v0.6.20
 
 - feat: support 256-color and truecolor in config files via `colour_N`, `rgb:RRGGBB`, and raw ANSI escape strings

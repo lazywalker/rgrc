@@ -249,7 +249,7 @@ fn print_help() {
     println!("  --except CMD,..      Exclude commands from alias generation");
     println!("  --completions SHELL  Print shell completion script for SHELL (bash|zsh|fish|ash)");
     #[cfg(feature = "embed-configs")]
-    println!("  --config, -c NAME    Explicit config file name (e.g., df to load conf.df)");
+    println!("  --config, -c NAME    Explicit config (df or conf.df); with a COMMAND runs it");
     println!("  --help, -h           Show this help message");
     println!("  --version, -V        Show installed rgrc version and exit");
     println!();
@@ -258,8 +258,9 @@ fn print_help() {
     println!("  rgrc --color=off ls -la");
     println!("  rgrc --aliases");
     println!();
-    println!("  echo 'some text' | rgrc -c df  # Apply df config to piped input");
-    println!("  /bin/df | rgrc --config=df     # Colorize output using explicit config");
+    println!("  df -h | rgrc -c df          # Apply df config to piped input");
+    println!("  rgrc -c df df -h            # Run df -h and colorize with conf.df");
+    println!("  rgrc -c conf.myapp myapp    # Use an explicit conf file");
 }
 
 #[cfg(test)]

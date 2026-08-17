@@ -121,36 +121,41 @@ fn test_load_grcat_config_multiple_calls() {
 
 #[test]
 fn test_resource_paths_constant() {
-    let paths = rgrc::RESOURCE_PATHS;
+    let paths = rgrc::resource_paths();
 
-    assert!(!paths.is_empty(), "RESOURCE_PATHS should not be empty");
+    assert!(!paths.is_empty(), "resource_paths() should not be empty");
 
-    let has_user_paths = paths.iter().any(|p| p.contains("~"));
+    let has_xdg_config = paths.iter().any(|p| p.ends_with("rgrc"));
     let has_system_paths = paths.iter().any(|p| p.starts_with("/"));
+    let has_grc_compat = paths.iter().any(|p| p.ends_with("grc"));
 
-    assert!(has_user_paths, "Should contain user paths (~)");
+    assert!(has_xdg_config, "Should contain rgrc paths");
     assert!(has_system_paths, "Should contain system paths (/)");
+    assert!(has_grc_compat, "Should contain grc compat paths");
 }
 
 #[test]
 fn test_resource_paths_no_empty_entries() {
-    let paths = rgrc::RESOURCE_PATHS;
+    let paths = rgrc::resource_paths();
 
     for path in paths {
         assert!(
-            !path.is_empty(),
-            "RESOURCE_PATHS should not contain empty entries"
+            !path.as_os_str().is_empty(),
+            "resource_paths() should not contain empty entries"
         );
     }
 }
 
 #[test]
 fn test_resource_paths_valid_format() {
-    let paths = rgrc::RESOURCE_PATHS;
+    let paths = rgrc::resource_paths();
 
     for path in paths {
-        let valid = path.starts_with('~') || path.starts_with('/') || path == &"share";
-        assert!(valid, "Invalid path format: {}", path);
+        assert!(
+            !path.to_string_lossy().starts_with('~'),
+            "Paths should be tilde-expanded: {}",
+            path.display()
+        );
     }
 }
 
@@ -240,6 +245,59 @@ mod embed_configs_tests {
         assert!(
             !rules.is_empty(),
             "Should fallback to embedded configs when filesystem config doesn't exist"
+        );
+    }
+
+    // ~/.rgrc mapping wins over the embedded mapper (review on #34)
+    #[test]
+    fn test_legacy_mapper_overrides_embedded() {
+        let _guard = HOME_LOCK.lock().expect("HOME_LOCK mutex poisoned");
+        let td = TempDir::new().expect("create tempdir");
+        let prev_home = std::env::var_os("HOME");
+        let prev_xdg = std::env::var_os("XDG_CONFIG_HOME");
+        let xdg_empty = td.path().join("xdgempty");
+        std::fs::create_dir_all(&xdg_empty).expect("create empty xdg dir");
+
+        unsafe {
+            std::env::set_var("HOME", td.path());
+            std::env::set_var("XDG_CONFIG_HOME", &xdg_empty);
+        }
+
+        std::fs::write(td.path().join(".rgrc"), "^df(\\s|$)\nconf.legacydf\n").unwrap();
+        let conf_dir = xdg_empty.join("rgrc");
+        std::fs::create_dir_all(&conf_dir).expect("create rgrc dir");
+        std::fs::write(
+            conf_dir.join("conf.legacydf"),
+            "regexp=LEGACYDF\ncolours=green\n",
+        )
+        .unwrap();
+
+        let used_legacy = rgrc::load_rules_for_command("df -h")
+            .iter()
+            .any(|r| r.regex.as_str().contains("LEGACYDF"));
+
+        if let Some(h) = prev_home {
+            unsafe {
+                std::env::set_var("HOME", h);
+            }
+        } else {
+            unsafe {
+                std::env::remove_var("HOME");
+            }
+        }
+        if let Some(x) = prev_xdg {
+            unsafe {
+                std::env::set_var("XDG_CONFIG_HOME", x);
+            }
+        } else {
+            unsafe {
+                std::env::remove_var("XDG_CONFIG_HOME");
+            }
+        }
+
+        assert!(
+            used_legacy,
+            "~/.rgrc mapping should win over the embedded mapper"
         );
     }
 
