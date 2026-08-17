@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- fix: user conf files on disk now override embedded configs again; embedded is the last resort (#23)
+- fix: disk mapper and conf files now override the embedded ones; embedded is the last resort for both (#23)
 - feat: `rgrc -c NAME COMMAND [ARGS...]` runs the command instead of blocking on stdin; `-c` also accepts conf file names like `conf.df` (#23)
 - feat: honor XDG_CONFIG_HOME/XDG_DATA_HOME/XDG_CONFIG_DIRS/XDG_DATA_DIRS for config lookup (#23)
 - feat: dev paths `share/` and `etc/rgrc.conf` are only searched with RGRC_DEV_SHARE set (#23)

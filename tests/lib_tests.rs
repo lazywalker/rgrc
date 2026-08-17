@@ -248,6 +248,59 @@ mod embed_configs_tests {
         );
     }
 
+    // ~/.rgrc mapping wins over the embedded mapper (review on #34)
+    #[test]
+    fn test_legacy_mapper_overrides_embedded() {
+        let _guard = HOME_LOCK.lock().expect("HOME_LOCK mutex poisoned");
+        let td = TempDir::new().expect("create tempdir");
+        let prev_home = std::env::var_os("HOME");
+        let prev_xdg = std::env::var_os("XDG_CONFIG_HOME");
+        let xdg_empty = td.path().join("xdgempty");
+        std::fs::create_dir_all(&xdg_empty).expect("create empty xdg dir");
+
+        unsafe {
+            std::env::set_var("HOME", td.path());
+            std::env::set_var("XDG_CONFIG_HOME", &xdg_empty);
+        }
+
+        std::fs::write(td.path().join(".rgrc"), "^df(\\s|$)\nconf.legacydf\n").unwrap();
+        let conf_dir = xdg_empty.join("rgrc");
+        std::fs::create_dir_all(&conf_dir).expect("create rgrc dir");
+        std::fs::write(
+            conf_dir.join("conf.legacydf"),
+            "regexp=LEGACYDF\ncolours=green\n",
+        )
+        .unwrap();
+
+        let used_legacy = rgrc::load_rules_for_command("df -h")
+            .iter()
+            .any(|r| r.regex.as_str().contains("LEGACYDF"));
+
+        if let Some(h) = prev_home {
+            unsafe {
+                std::env::set_var("HOME", h);
+            }
+        } else {
+            unsafe {
+                std::env::remove_var("HOME");
+            }
+        }
+        if let Some(x) = prev_xdg {
+            unsafe {
+                std::env::set_var("XDG_CONFIG_HOME", x);
+            }
+        } else {
+            unsafe {
+                std::env::remove_var("XDG_CONFIG_HOME");
+            }
+        }
+
+        assert!(
+            used_legacy,
+            "~/.rgrc mapping should win over the embedded mapper"
+        );
+    }
+
     #[test]
     fn test_embed_configs_grcat_filesystem_priority() {
         let mut temp_conf = NamedTempFile::new().unwrap();

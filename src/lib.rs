@@ -98,6 +98,8 @@ fn xdg_data_home() -> PathBuf {
 
 fn xdg_dirs(var: &str, default: &str) -> Vec<PathBuf> {
     let raw = std::env::var_os(var)
+        // an empty value behaves as unset, so the defaults still apply
+        .filter(|v| !v.is_empty())
         .map(|v| v.to_string_lossy().into_owned())
         .unwrap_or_else(|| default.to_string());
     raw.split(':')
@@ -278,24 +280,17 @@ pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
 
 /// Load colorization rules for a given pseudo-command by searching all
 /// configuration paths. The search stops at the first mapper file that yields
-/// rules. Priority: user mapper (`$XDG_CONFIG_HOME/rgrc/rgrc.conf`), the
-/// embedded mapper (its conf files still resolve disk paths first), then the
-/// remaining mapper paths ending with legacy grc locations.
+/// rules. Priority: user mapper (`$XDG_CONFIG_HOME/rgrc/rgrc.conf`), then
+/// the remaining mapper paths ending with legacy grc locations; the embedded
+/// mapper is the last resort.
 ///
 /// * `pseudo_command` - the command string to match, including arguments
-///   (e.g. "ping", "df -h"); a second pass matches the bare command name
+///   ("ping", "df -h"); a second pass matches the bare command name
 pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
     // Always prioritize the user mapper
     let user_config = xdg_config_home().join("rgrc/rgrc.conf");
     let rules = load_config(&user_config.to_string_lossy(), pseudo_command);
     if !rules.is_empty() {
-        return rules;
-    }
-
-    // embedded mapper; the conf files it references still resolve user
-    // paths on disk before falling back to the embedded copies
-    #[cfg(feature = "embed-configs")]
-    if let Some(rules) = load_embedded(pseudo_command) {
         return rules;
     }
 
@@ -307,6 +302,12 @@ pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         if !rules.is_empty() {
             return rules;
         }
+    }
+
+    // embedded mapper only after every disk mapper failed to match
+    #[cfg(feature = "embed-configs")]
+    if let Some(rules) = load_embedded(pseudo_command) {
+        return rules;
     }
 
     Vec::new()
