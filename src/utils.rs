@@ -20,9 +20,14 @@ pub fn set_process_title(title: &str) {
     {
         use std::io::Write;
 
-        // 1. Update /proc/self/comm (short name, max 15 bytes)
+        // 1. Update /proc/self/comm (short name, max 15 bytes).
+        //    Byte 15 can fall inside a multibyte char; back up to the boundary.
         let truncated = if title.len() > 15 {
-            &title[..15]
+            let mut end = 15;
+            while !title.is_char_boundary(end) {
+                end -= 1;
+            }
+            &title[..end]
         } else {
             title
         };
@@ -230,6 +235,27 @@ pub const SUPPORTED_COMMANDS: &[&str] = &[
     "iostat",
 ];
 
+/// Write `alias CMD='rgrc CMD'` lines for supported commands.
+///
+/// Stops at the first write error (a closed pipe like `rgrc --aliases | head`)
+/// and returns it; callers ignore it so the process exits quietly instead of
+/// panicking the way `println!` does on EPIPE.
+pub fn write_aliases<W: std::io::Write>(
+    w: &mut W,
+    grc: &str,
+    all: bool,
+    except: &std::collections::HashSet<String>,
+) -> std::io::Result<()> {
+    for cmd in SUPPORTED_COMMANDS {
+        if !except.contains(cmd as &str) && (all || command_exists(cmd)) {
+            // plain alias for every command; piping to less in the alias
+            // breaks trailing args like `journalctl -f` (#32)
+            writeln!(w, "alias {}='{} {}'", cmd, grc, cmd)?;
+        }
+    }
+    Ok(())
+}
+
 /// Check if a command has colorization rules available (used for Always strategy)
 /// Return `true` when a command has shipped colorization rules (present in
 /// `SUPPORTED_COMMANDS`). This is a simple membership check used by the
@@ -298,6 +324,35 @@ pub fn pseudo_command_excluded(pseudo_command: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn alias_lines_and_except() {
+        let except: std::collections::HashSet<String> = ["ant".to_string()].into_iter().collect();
+        let mut out = Vec::new();
+        write_aliases(&mut out, "rgrc", true, &except).expect("vec writes cannot fail");
+
+        let text = String::from_utf8(out).unwrap();
+        assert!(text.contains("alias df='rgrc df'"));
+        assert!(!text.contains("alias ant="));
+    }
+
+    #[test]
+    fn aliases_stop_quietly_on_write_error() {
+        struct Failing;
+        impl std::io::Write for Failing {
+            fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::other("broken pipe"))
+            }
+            fn flush(&mut self) -> std::io::Result<()> {
+                Ok(())
+            }
+        }
+
+        let except = std::collections::HashSet::new();
+        let mut w = Failing;
+        // must return the error, not panic (println! would)
+        assert!(write_aliases(&mut w, "rgrc", true, &except).is_err());
+    }
 
     #[test]
     fn test_command_exists() {
@@ -396,7 +451,9 @@ mod tests {
 
     #[test]
     fn test_set_process_title() {
-        // On Linux, verify that writing to /proc/self/comm works
+        // On Linux, verify that writing to /proc/self/comm works.
+        // Multibyte case shares /proc/self/comm with this test: keep both
+        // here so the parallel writes cannot race each other.
         #[cfg(target_os = "linux")]
         {
             set_process_title("test_cmd");
@@ -415,6 +472,12 @@ mod tests {
                 .expect("should be able to read /proc/self/comm");
             assert_eq!(comm.trim().len(), 15);
             assert!(comm.trim().starts_with("this_is_a_very_"));
+
+            // byte 15 falls inside a multibyte char; cutting there used to panic
+            set_process_title("a日本語コマンド名前");
+            let comm = std::fs::read_to_string("/proc/self/comm")
+                .expect("should be able to read /proc/self/comm");
+            assert!(comm.trim().starts_with("a日本語コ"));
 
             // Restore process name
             set_process_title("test_set_proces");

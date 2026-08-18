@@ -238,29 +238,51 @@ end
 
 /// Print help message to stdout
 fn print_help() {
-    println!("Rusty Generic Colouriser");
-    println!();
-    println!("Usage: rgrc [OPTIONS] COMMAND [ARGS...]");
-    println!();
-    println!("Options:");
-    println!("  --color, --colour    Override color output (on|off|auto)");
-    println!("  --aliases            Output shell aliases for available binaries");
-    println!("  --all-aliases        Output all shell aliases");
-    println!("  --except CMD,..      Exclude commands from alias generation");
-    println!("  --completions SHELL  Print shell completion script for SHELL (bash|zsh|fish|ash)");
+    use std::fmt::Write as _;
+
+    let mut s = String::new();
+    let _ = writeln!(
+        s,
+        "Rusty Generic Colouriser\n\nUsage: rgrc [OPTIONS] COMMAND [ARGS...]\n\nOptions:"
+    );
+    let _ = writeln!(
+        s,
+        "  --color, --colour    Override color output (on|off|auto)"
+    );
+    let _ = writeln!(
+        s,
+        "  --aliases            Output shell aliases for available binaries"
+    );
+    let _ = writeln!(s, "  --all-aliases        Output all shell aliases");
+    let _ = writeln!(
+        s,
+        "  --except CMD,..      Exclude commands from alias generation"
+    );
+    let _ = writeln!(
+        s,
+        "  --completions SHELL  Print shell completion script for SHELL (bash|zsh|fish|ash)"
+    );
     #[cfg(feature = "embed-configs")]
-    println!("  --config, -c NAME    Explicit config (df or conf.df); with a COMMAND runs it");
-    println!("  --help, -h           Show this help message");
-    println!("  --version, -V        Show installed rgrc version and exit");
-    println!();
-    println!("Examples:");
-    println!("  rgrc ping -c 4 google.com");
-    println!("  rgrc --color=off ls -la");
-    println!("  rgrc --aliases");
-    println!();
-    println!("  df -h | rgrc -c df          # Apply df config to piped input");
-    println!("  rgrc -c df df -h            # Run df -h and colorize with conf.df");
-    println!("  rgrc -c conf.myapp myapp    # Use an explicit conf file");
+    let _ = writeln!(
+        s,
+        "  --config, -c NAME    Explicit config (df or conf.df); with a COMMAND runs it"
+    );
+    let _ = writeln!(s, "  --help, -h           Show this help message");
+    let _ = writeln!(
+        s,
+        "  --version, -V        Show installed rgrc version and exit"
+    );
+    let _ = writeln!(
+        s,
+        "\nExamples:\n  rgrc ping -c 4 google.com\n  rgrc --color=off ls -la\n  rgrc --aliases"
+    );
+    let _ = writeln!(
+        s,
+        "\n  df -h | rgrc -c df          # Apply df config to piped input\n  rgrc -c df df -h            # Run df -h and colorize with conf.df\n  rgrc -c conf.myapp myapp    # Use an explicit conf file"
+    );
+
+    // single write with the error ignored: `rgrc --help | head` must not panic
+    let _ = std::io::Write::write_all(&mut std::io::stdout(), s.as_bytes());
 }
 
 #[cfg(test)]
