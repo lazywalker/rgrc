@@ -493,4 +493,42 @@ mod cli_integration_tests {
         assert_eq!(out_name.stdout, out_conf.stdout);
         assert!(String::from_utf8_lossy(&out_name.stdout).contains("\x1b["));
     }
+
+    // a signal-killed child reports 128+signal instead of panicking
+    #[test]
+    #[cfg(unix)]
+    fn signal_death_reports_shell_style_code() {
+        for (sig, expected) in [(9, 137), (15, 143)] {
+            let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+                .args(["-c", "ping", "sh", "-c", &format!("kill -{sig} $$")])
+                .output()
+                .expect("failed to run rgrc");
+
+            assert_eq!(output.status.code(), Some(expected));
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(!stderr.contains("panicked"));
+        }
+    }
+
+    // closed stdout must not panic the println! paths (rgrc --aliases | head)
+    #[test]
+    #[cfg(unix)]
+    fn no_panic_on_closed_stdout() {
+        let exe = env!("CARGO_BIN_EXE_rgrc");
+        for flag in ["--all-aliases", "--help", "--version"] {
+            let out = Command::new("sh")
+                .arg("-c")
+                .arg(format!(
+                    "{exe} {flag} 2>/tmp/rgrc_err.txt | head -1 >/dev/null"
+                ))
+                .output()
+                .expect("failed to run sh");
+            let stderr = std::fs::read_to_string("/tmp/rgrc_err.txt").unwrap_or_default();
+            assert!(
+                !stderr.contains("panicked"),
+                "{flag} panicked on closed stdout: {stderr}"
+            );
+            assert!(out.status.success());
+        }
+    }
 }

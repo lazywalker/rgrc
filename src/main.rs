@@ -6,10 +6,7 @@ use rgrc::{
     colorizer::colorize_regex as colorize,
     grc::GrcatConfigEntry,
     load_rules_for_command, load_rules_for_config,
-    utils::{
-        SUPPORTED_COMMANDS, command_exists, set_process_title,
-        should_use_colorization_for_command_supported,
-    },
+    utils::{set_process_title, should_use_colorization_for_command_supported, write_aliases},
 };
 
 use std::io::{self, IsTerminal, Write};
@@ -132,9 +129,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     };
 
-    // Handle --version flag first: print version and exit
+    // Handle --version flag first: print version and exit.
+    // write-and-ignore instead of println!: a closed pipe must not panic
     if args.show_version {
-        println!("rgrc {}", env!("CARGO_PKG_VERSION"));
+        let _ = writeln!(io::stdout().lock(), "rgrc {}", env!("CARGO_PKG_VERSION"));
         std::process::exit(0);
     }
 
@@ -142,7 +140,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(shell) = args.show_completions.as_deref() {
         match get_completion_script(shell) {
             Some(script) => {
-                print!("{}", script);
+                let _ = write!(io::stdout().lock(), "{}", script);
                 std::process::exit(0);
             }
             None => {
@@ -167,17 +165,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .flat_map(|s| s.split(',').map(|p| p.trim().to_string()))
             .collect();
 
-        // Curated list of commands known to work well with grc
-        for cmd in SUPPORTED_COMMANDS {
-            // Output a shell alias if:
-            // 1. The command is not in the exclude list, AND
-            // 2. Either we're generating all aliases (--all-aliases) OR the command exists in PATH (which::which)
-            if !except_set.contains(cmd as &str) && (args.show_all_aliases || command_exists(cmd)) {
-                // plain alias for every command; piping to less in the alias
-                // breaks trailing args like `journalctl -f` (#32)
-                println!("alias {}='{} {}'", cmd, grc, cmd);
-            }
-        }
+        let mut out = io::BufWriter::new(io::stdout().lock());
+        let _ = write_aliases(&mut out, &grc, args.show_all_aliases, &except_set);
+        let _ = out.flush();
         std::process::exit(0);
     }
 
@@ -265,7 +255,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 std::process::exit(1);
             }
         };
-        std::process::exit(ecode.code().unwrap_or(1));
+        std::process::exit(child_exit_code(&ecode));
     }
 
     // Only pipe stdout when colorization is actually needed
@@ -310,5 +300,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Wait for the spawned command to complete and propagate its exit code.
     let ecode = child.wait().expect("failed to wait on child");
-    std::process::exit(ecode.code().expect("need an exit code"));
+    std::process::exit(child_exit_code(&ecode));
+}
+
+/// Exit status to propagate: the child's code, or 128+signal like a shell
+/// reports when the child was killed.
+fn child_exit_code(status: &std::process::ExitStatus) -> i32 {
+    if let Some(code) = status.code() {
+        return code;
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        128 + status.signal().unwrap_or(1)
+    }
+    #[cfg(not(unix))]
+    {
+        1
+    }
 }
