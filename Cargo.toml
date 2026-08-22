@@ -1,66 +1,26 @@
 [package]
 name = "rgrc"
-version = "0.6.20"
+version = "0.6.30"
 edition = "2024"
-license = "MIT"
 description = "Rusty Generic Colouriser"
-repository = "https://github.com/lazywalker/rgrc"
+readme = "README.md"
 homepage = "https://lazywalker.github.io/rgrc"
+repository = "https://github.com/lazywalker/rgrc"
+license = "MIT"
 keywords = ["cli", "grc"]
 categories = ["command-line-utilities"]
-readme = "README.md"
-default-run = "rgrc"
 exclude = [
-    ".github",
-    "benches",
-    "script",
-    "doc",
-    "etc/rgrc.fish",
-    "etc/rgrc.sh",
-    "etc/rgrc.zsh",
-    "Dockerfile.deb",
-    "Makefile",
+  ".github",
+  "Dockerfile.deb",
+  "Makefile",
+  "benches",
+  "doc",
+  "etc/rgrc.fish",
+  "etc/rgrc.sh",
+  "etc/rgrc.zsh",
+  "script",
 ]
-
-[dependencies]
-regex-lite = "^0.1.9"
-mimalloc = "^0.1.52"
-fancy-regex = { version = "0.18", optional = true }
-
-[dev-dependencies]
-tempfile = "3.27"
-criterion = "0.8"
-
-[[bench]]
-name = "enhanced_regex_bench"
-harness = false
-
-[features]
-# Default features: embed configs and use EnhancedRegex for enhanced patterns
-default = ["embed-configs"]
-# Embed configuration files into the binary
-embed-configs = []
-# Use battle-tested fancy-regex for enhanced regex (supports backreferences, variable-length lookbehind, etc.)
-# Without this feature, uses lightweight EnhancedRegex (supports fixed-length lookahead/lookbehind only)
-fancy-regex = ["dep:fancy-regex"]
-
-[profile.release]
-panic = "abort"
-lto = true
-codegen-units = 1
-strip = true
-
-[profile.bench]
-debug = 1
-
-[profile.minimal]
-inherits = "release"
-opt-level = "z"
-
-[[bin]]
-name = "rgrc"
-path = "src/main.rs"
-doc = true
+default-run = "rgrc"
 
 [package.metadata.deb]
 maintainer = "lazywalker <lazywalkerz@gmail.com>"
@@ -77,25 +37,65 @@ depends = "$auto"
 section = "utility"
 priority = "optional"
 assets = [
-	# `target/release` path is special and will be replaced by cargo-deb at build time
-	[
-		"target/release/rgrc",
-		"usr/bin/",
-		"755",
-	],
-	[
-		"doc/rgrc.1.gz",
-		"usr/share/man/man1/",
-		"644",
-	],
-	[
-		"etc/rgrc.conf",
-		"etc/",
-		"644",
-	],
-	[
-		"share/conf.*",
-		"usr/share/rgrc/",
-		"644",
-	],
+  # `target/release` path is special and will be replaced by cargo-deb at build time
+  [
+    "target/release/rgrc",
+    "usr/bin/",
+    "755",
+  ],
+  [
+    "doc/rgrc.1.gz",
+    "usr/share/man/man1/",
+    "644",
+  ],
+  [
+    "etc/rgrc.conf",
+    "etc/",
+    "644",
+  ],
+  [
+    "share/conf.*",
+    "usr/share/rgrc/",
+    "644",
+  ],
 ]
+
+[[bin]]
+doc = true
+name = "rgrc"
+path = "src/main.rs"
+
+[[bench]]
+harness = false
+name = "enhanced_regex_bench"
+
+[dependencies]
+fancy-regex = { version = "0.18", optional = true }
+mimalloc = "^0.1.52"
+regex-lite = "^0.1.9"
+
+[dev-dependencies]
+criterion = "0.8"
+tempfile = "3.27"
+
+[features]
+# Default features: embed configs and use EnhancedRegex for enhanced patterns
+default = ["embed-configs"]
+# Embed configuration files into the binary
+embed-configs = []
+# Use battle-tested fancy-regex for enhanced regex (supports backreferences, variable-length lookbehind, etc.)
+# Without this feature, uses lightweight EnhancedRegex (supports fixed-length lookahead/lookbehind only)
+fancy-regex = ["dep:fancy-regex"]
+
+[profile.bench]
+debug = 1
+
+[profile.release]
+strip = true
+lto = true
+panic = "abort"
+codegen-units = 1
+
+[profile.minimal]
+inherits = "release"
+opt-level = "z"

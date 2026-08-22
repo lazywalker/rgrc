@@ -1,17 +1,16 @@
 # Changelog
 
-## Unreleased
+## v0.6.30
 
-- fix: no panic on closed stdout for --aliases/--completions/--version/--help
-- fix: multibyte command names no longer panic the process title truncation
-- fix: report 128+signal when the wrapped command is killed by a signal
-- fix(df): sizes use one neutral color; red is reserved for high Use% (#22)
-
-- fix: disk mapper and conf files now override the embedded ones; embedded is the last resort for both (#23)
 - feat: `rgrc -c NAME COMMAND [ARGS...]` runs the command instead of blocking on stdin; `-c` also accepts conf file names like `conf.df` (#23)
 - feat: honor XDG_CONFIG_HOME/XDG_DATA_HOME/XDG_CONFIG_DIRS/XDG_DATA_DIRS for config lookup (#23)
 - feat: dev paths `share/` and `etc/rgrc.conf` are only searched with RGRC_DEV_SHARE set (#23)
 - feat: rgrc.conf patterns match the full command line first, then the bare command name (#23)
+- fix: disk mapper and conf files now override the embedded ones; embedded is the last resort for both (#23)
+- fix: no panic on closed stdout for --aliases/--completions/--version/--help
+- fix: multibyte command names no longer panic the process title truncation
+- fix: report 128+signal when the wrapped command is killed by a signal
+- fix(df): sizes use one neutral color; red is reserved for high Use% (#22)
 - perf: drop the unnecessary lookahead in conf.df so it stays on the fast regex path (#23)
 
 ## v0.6.20
@@ -29,7 +28,6 @@
 - fix(output): handle non-UTF-8 output without aborting — `docker save > file` works again (#31)
 
 ## v0.6.13
-
 - feat(tmux): set process title to wrapped command (#26)
 
 ## v0.6.12
