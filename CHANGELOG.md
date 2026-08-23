@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- feat: colorization is decided by rgrc.conf matching at runtime; the supported-commands list only drives alias generation
+- fix: asdf, gpg, phpunit, mtr and configure were whitelisted-but-unreachable; curl, lsusb, php and proftpd shipped configs without a mapper entry, now mapped
+- fix: drop dead whitelist entries (common, dummy, esperanto, irclog, jobs, ping2, pv, sql, ulimit, yaml)
+- test: whitelist_entries_are_mapped guards the list against future desync
+
 ## v0.6.30
 
 - feat: `rgrc -c NAME COMMAND [ARGS...]` runs the command instead of blocking on stdin; `-c` also accepts conf file names like `conf.df` (#23)

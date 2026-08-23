@@ -146,21 +146,14 @@ pub fn command_exists(cmd: &str) -> bool {
 
 /// Curated list of commands that ship with colorization rules.
 ///
-/// This array contains the command identifiers corresponding to files in
-/// `share/conf.*` and is used by alias generation and the "Always" color
-/// strategy to decide which commands are supported.
-///
-/// # Example
-///
-/// ```ignore
-/// if rgrc::utils::SUPPORTED_COMMANDS.contains(&"ping") {
-///     println!("ping is supported for colorization");
-/// }
-/// ```
+/// Drives `--aliases` generation only; colorization itself is decided by
+/// rgrc.conf matching at runtime. Entries must be mapped in etc/rgrc.conf
+/// (arg-gated patterns are fine), which whitelist_entries_are_mapped enforces.
 pub const SUPPORTED_COMMANDS: &[&str] = &[
     "ant",
+    "asdf",
     "blkid",
-    "common",
+    "configure",
     "curl",
     "cvs",
     "df",
@@ -171,22 +164,19 @@ pub const SUPPORTED_COMMANDS: &[&str] = &[
     "docker",
     "du",
     "kdig",
-    "dummy",
     "env",
-    "esperanto",
     "fdisk",
     "findmnt",
     "free",
     "gcc",
     "getfacl",
     "getsebool",
+    "gpg",
     "id",
     "ifconfig",
     "ip",
     "iptables",
-    "irclog",
     "iwconfig",
-    "jobs",
     "kubectl",
     "last",
     "ldap",
@@ -200,22 +190,21 @@ pub const SUPPORTED_COMMANDS: &[&str] = &[
     "ls",
     "lsusb",
     "mount",
+    "mtr",
     "mvn",
     "netstat",
     "nmap",
     "ntpdate",
     "php",
+    "phpunit",
     "ping",
-    "ping2",
     "podman",
     "proftpd",
     "ps",
-    "pv",
     "semanage",
     "sensors",
     "showmount",
     "sockstat",
-    "sql",
     "ss",
     "stat",
     "sysctl",
@@ -225,12 +214,10 @@ pub const SUPPORTED_COMMANDS: &[&str] = &[
     "tcpdump",
     "traceroute",
     "tune2fs",
-    "ulimit",
     "uptime",
     "vmstat",
     "wdiff",
     "whois",
-    "yaml",
     "go",
     "iostat",
 ];
@@ -254,21 +241,6 @@ pub fn write_aliases<W: std::io::Write>(
         }
     }
     Ok(())
-}
-
-/// Check if a command has colorization rules available (used for Always strategy)
-/// Return `true` when a command has shipped colorization rules (present in
-/// `SUPPORTED_COMMANDS`). This is a simple membership check used by the
-/// Always colorization strategy.
-///
-/// # Examples
-///
-/// ```ignore
-/// assert!(rgrc::utils::should_use_colorization_for_command_supported("ls"));
-/// assert!(!rgrc::utils::should_use_colorization_for_command_supported("unknown"));
-/// ```
-pub fn should_use_colorization_for_command_supported(command: &str) -> bool {
-    SUPPORTED_COMMANDS.contains(&command)
 }
 
 /// Pseudo-commands (exact match) that should NOT be colorized for explicit checks
@@ -398,22 +370,6 @@ mod tests {
             !command_exists("command with spaces"),
             "commands with spaces should not exist"
         );
-    }
-
-    #[test]
-    fn test_should_use_colorization_for_command_supported() {
-        // Test supported commands
-        assert!(should_use_colorization_for_command_supported("ping"));
-        assert!(should_use_colorization_for_command_supported("ls"));
-        assert!(should_use_colorization_for_command_supported("df"));
-        // Journalctl support added
-        assert!(should_use_colorization_for_command_supported("journalctl"));
-
-        // Test unsupported commands
-        assert!(!should_use_colorization_for_command_supported(
-            "unknown_command"
-        ));
-        assert!(!should_use_colorization_for_command_supported(""));
     }
 
     #[test]

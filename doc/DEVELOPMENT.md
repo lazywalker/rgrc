@@ -18,7 +18,9 @@
    ```bash
    RGRC_DEV_SHARE=1 cargo run -- --color on -c conf.mycommand mycommand --arg
    ```
-4. Enable command in `etc/rgrc.conf` to load the new config file. after that, the command will be available as `rgrc mycommand` (or via alias if configured).
+4. Enable the command in `etc/rgrc.conf`; colorization picks it up from there.
+   Optionally add the name to `SUPPORTED_COMMANDS` in `src/utils.rs` so
+   `--aliases` covers it; whitelist_entries_are_mapped keeps the two in sync.
 
 ## Config resolution
 

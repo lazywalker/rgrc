@@ -6,7 +6,7 @@ use rgrc::{
     colorizer::colorize_regex as colorize,
     grc::GrcatConfigEntry,
     load_rules_for_command, load_rules_for_config,
-    utils::{set_process_title, should_use_colorization_for_command_supported, write_aliases},
+    utils::{set_process_title, write_aliases},
 };
 
 use std::io::{self, IsTerminal, Write};
@@ -194,14 +194,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Detect if stdout is a terminal (TTY)
     let stdout_is_terminal = io::stdout().is_terminal();
 
-    // An explicit -c config bypasses the supported-commands whitelist and
-    // the pseudo-command exclusions: the user asked for this config
-    let eligible =
-        explicit_config.is_some() || should_use_colorization_for_command_supported(command_name);
+    // Whether we actually colorize is decided by rule loading: a command no
+    // rgrc.conf pattern maps to loads no rules and falls through to passthrough
     let should_colorize = match args.color {
         ColorMode::Off => false,
-        ColorMode::On => eligible,
-        ColorMode::Auto => stdout_is_terminal && eligible,
+        ColorMode::On => true,
+        ColorMode::Auto => stdout_is_terminal,
     };
 
     let pseudo_command = args.command.join(" ");

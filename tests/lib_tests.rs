@@ -1,3 +1,35 @@
+// every alias-whitelist entry must be mapped by the embedded rgrc.conf;
+// catches entries like "dummy" that can never colorize anything
+#[test]
+#[cfg(feature = "embed-configs")]
+fn whitelist_entries_are_mapped() {
+    use std::io::{BufRead, Cursor};
+
+    let reader = rgrc::grc::GrcConfigReader::new(
+        std::io::BufReader::new(Cursor::new(rgrc::EMBEDDED_GRC_CONF)).lines(),
+    );
+    let patterns: Vec<_> = reader.collect();
+
+    for cmd in rgrc::utils::SUPPORTED_COMMANDS {
+        // the command name appears as a literal token in some pattern
+        // (covers arg- or subcommand-gated mappings like `fdisk -l` or
+        // `docker ps`), or a probe matches outright
+        let named = patterns.iter().any(|(re, _)| {
+            re.as_str()
+                .split(|c: char| !c.is_alphanumeric())
+                .any(|t| t == *cmd)
+        });
+        let probes = [(*cmd).to_string(), format!("{cmd} x")];
+        let matched = probes
+            .iter()
+            .any(|p| patterns.iter().any(|(re, _)| re.is_match(p)));
+        assert!(
+            named || matched,
+            "{cmd} is in SUPPORTED_COMMANDS but no rgrc.conf pattern mentions it"
+        );
+    }
+}
+
 #[test]
 fn test_load_grcat_config_nonexistent_file() {
     let result = rgrc::load_grcat_config("/nonexistent/path/file.conf");
