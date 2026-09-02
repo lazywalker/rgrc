@@ -9,6 +9,7 @@ pub mod buffer;
 pub mod colorizer;
 pub mod enhanced_regex;
 pub mod grc;
+pub mod run;
 pub mod utils;
 
 use std::fs::File;

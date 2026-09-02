@@ -1,125 +1,17 @@
 // Import testable components from lib
 use rgrc::{
-    ColorMode,
     args::{get_completion_script, parse_args},
-    buffer::LineBufferedWriter,
-    colorizer::colorize_regex as colorize,
-    grc::GrcatConfigEntry,
-    load_rules_for_command, load_rules_for_config,
+    run::{
+        eligible_for_colorize, filter_stdin_exit, rules_for, run_colorized, run_passthrough,
+        stdin_plan,
+    },
     utils::{set_process_title, write_aliases},
 };
 
 use std::io::{self, IsTerminal, Write};
-use std::process::{Command, Stdio};
+use std::process::Command;
 
-// Helper to centralize BrokenPipe handling.
-// - `handle_box_error` accepts a boxed error (Box<dyn Error>), downcasts to
-//   `std::io::Error` when possible and delegates to `handle_io_error`.
-// - `handle_io_error` exits silently on BrokenPipe, otherwise returns the
-//   error wrapped as `Box<dyn std::error::Error>` for propagation.
-//
-// TODO: Consider refactoring to use a custom error type for more granular control.
-fn handle_box_error(e: Box<dyn std::error::Error>) -> Result<(), Box<dyn std::error::Error>> {
-    match e.downcast::<std::io::Error>() {
-        Ok(io_err) => handle_io_error(*io_err),
-        Err(e) => Err(e),
-    }
-}
-
-fn handle_io_error(e: std::io::Error) -> Result<(), Box<dyn std::error::Error>> {
-    if e.kind() == std::io::ErrorKind::BrokenPipe {
-        std::process::exit(0);
-    }
-    Err(Box::new(e))
-}
-
-// stdin-to-stdout passthrough; `ok` is the exit code on success, `err` on copy error
-fn copy_stdin(ok: i32, err: i32) -> ! {
-    let stdin = io::stdin();
-    let stdout = io::stdout();
-    let mut reader = io::BufReader::new(stdin.lock());
-    let mut writer = io::BufWriter::new(stdout.lock());
-    let res = io::copy(&mut reader, &mut writer);
-    let _ = writer.flush();
-    match res {
-        Ok(_) => std::process::exit(ok),
-        Err(_) => std::process::exit(err),
-    }
-}
-
-// grcat-style stdin filter for `rgrc -c NAME` without a trailing command
-fn filter_stdin(config_name: &str, color_mode: ColorMode) -> ! {
-    let stdout_is_terminal = io::stdout().is_terminal();
-    let should_colorize = match color_mode {
-        ColorMode::Off => false,
-        ColorMode::On => true,
-        ColorMode::Auto => stdout_is_terminal,
-    };
-
-    if !should_colorize {
-        copy_stdin(0, 0);
-    }
-
-    let rules: Vec<GrcatConfigEntry> = load_rules_for_config(config_name);
-    if rules.is_empty() {
-        eprintln!(
-            "Error: Failed to load rules for config '{}': No matching rules found",
-            config_name
-        );
-        copy_stdin(0, 1);
-    }
-
-    let stdin = io::stdin();
-    let mut buffered_stdin = io::BufReader::with_capacity(64 * 1024, stdin.lock());
-    let mut buffered_stdout = io::BufWriter::with_capacity(64 * 1024, io::stdout());
-    let mut line_buffered_writer = LineBufferedWriter::new(&mut buffered_stdout);
-
-    if let Err(e) = colorize(
-        &mut buffered_stdin,
-        &mut line_buffered_writer,
-        rules.as_slice(),
-    ) && let Err(e) = handle_box_error(e)
-    {
-        eprintln!("Error: {}", e);
-        std::process::exit(1);
-    }
-
-    if let Err(e) = buffered_stdout.flush()
-        && let Err(e) = handle_io_error(e)
-    {
-        eprintln!("Error: {}", e);
-        std::process::exit(1);
-    }
-
-    std::process::exit(0);
-}
-
-// Use mimalloc for faster memory allocation (reduces startup overhead)
-#[cfg(not(target_env = "msvc"))]
-#[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
-/// Main entry point for the grc (generic colourizer) program.
-///
-/// This tool colorizes the output of command-line programs using
-/// regex-based configuration rules. It works by:
-/// 1. Parsing command-line arguments and configuration files.
-/// 2. Spawning the target command with stdout redirected to a pipe.
-/// 3. Applying colour rules to the piped output using pattern matching.
-/// 4. Writing the colored output to stdout.
-///
-/// Configuration:
-/// - Reads grc.conf to map commands to their colouring profiles.
-/// - Reads grcat configuration files containing regex + style rules.
-/// - Searches multiple standard paths for configuration files.
-///
-/// Command-line options:
-/// - --color on|off|auto: Override color output mode.
-/// - --aliases: Print shell aliases for commonly colorized commands.
-/// - --all-aliases: Print shell aliases for all known commands.
-/// - --except CMD1,CMD2,...: Exclude commands from alias generation.
-/// - --completions SHELL: Print completion script for SHELL (bash|zsh|fish|ash)
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() {
     // Parse command-line arguments
     let args = match parse_args() {
         Ok(args) => args,
@@ -157,8 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .and_then(|p| p.file_name().map(|n| n.to_string_lossy().into()))
             .unwrap_or_else(|| "rgrc".to_string());
 
-        // Build a set of excluded aliases (split comma-separated entries).
-        // This allows users to exclude specific commands from the generated alias list via --except flag.
+        // Comma-separated exclusions from --except
         let except_set: std::collections::HashSet<String> = args
             .except_aliases
             .iter()
@@ -176,7 +67,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(ref config_name) = args.config
         && args.command.is_empty()
     {
-        filter_stdin(config_name, args.color);
+        let plan = stdin_plan(config_name, args.color, io::stdout().is_terminal());
+        std::process::exit(filter_stdin_exit(plan));
     }
 
     if args.command.is_empty() {
@@ -191,129 +83,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // This makes tmux, ps, top etc. display the actual command being run
     set_process_title(command_name);
 
-    // Detect if stdout is a terminal (TTY)
     let stdout_is_terminal = io::stdout().is_terminal();
+    let pseudo_command = args.command.join(" ");
 
     // Whether we actually colorize is decided by rule loading: a command no
     // rgrc.conf pattern maps to loads no rules and falls through to passthrough
-    let should_colorize = match args.color {
-        ColorMode::Off => false,
-        ColorMode::On => true,
-        ColorMode::Auto => stdout_is_terminal,
-    };
+    let should_colorize = eligible_for_colorize(
+        args.color,
+        stdout_is_terminal,
+        &pseudo_command,
+        explicit_config.is_some(),
+    );
 
-    let pseudo_command = args.command.join(" ");
-
-    // check pseudo-command exclusions before loading rules so bare `rgrc ls`
-    // skips coloring (ls colorizes its own output) while `rgrc ls -l` does not.
-    let should_colorize = if should_colorize {
-        explicit_config.is_some() || !rgrc::utils::pseudo_command_excluded(&pseudo_command)
-    } else {
-        false
-    };
-
-    let rules: Vec<GrcatConfigEntry> = if should_colorize {
-        match explicit_config {
-            Some(name) => load_rules_for_config(name),
-            None => load_rules_for_command(&pseudo_command),
-        }
+    let rules = if should_colorize {
+        rules_for(explicit_config, &pseudo_command)
     } else {
         Vec::new()
     };
 
-    // Spawn the command with appropriate stdout handling
     let mut cmd = Command::new(command_name);
     cmd.args(args.command.iter().skip(1));
 
-    // When not colorizing (or no rules resolved), let the child write
-    // directly to our stdout. Going through a pipe here only risks corrupting
-    // binary output (e.g. `docker save > file`, see #31) and adds copying
-    // overhead for no gain.
     if !should_colorize || rules.is_empty() {
-        cmd.stdout(Stdio::inherit());
-        cmd.stderr(Stdio::inherit());
-
-        let mut child = match cmd.spawn() {
-            Ok(c) => c,
-            Err(e) => {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    eprintln!("Error: command not found: '{}'", command_name);
-                    std::process::exit(127);
-                } else {
-                    eprintln!("Failed to spawn '{}': {}", command_name, e);
-                    std::process::exit(1);
-                }
-            }
-        };
-
-        let ecode = match child.wait() {
-            Ok(status) => status,
-            Err(e) => {
-                eprintln!("Failed while waiting for '{}': {}", command_name, e);
-                std::process::exit(1);
-            }
-        };
-        std::process::exit(child_exit_code(&ecode));
+        std::process::exit(run_passthrough(&mut cmd, command_name));
     }
-
-    // Only pipe stdout when colorization is actually needed
-    // This avoids unnecessary piping overhead when colors are disabled or not beneficial
-    cmd.stdout(Stdio::piped());
-
-    // Spawn the command subprocess.
-    let mut child = match cmd.spawn() {
-        Ok(c) => c,
-        Err(e) => {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                eprintln!("Error: command not found: '{}'", command_name);
-                std::process::exit(127);
-            } else {
-                eprintln!("Failed to spawn '{}': {}", command_name, e);
-                std::process::exit(1);
-            }
-        }
-    };
-
-    let mut stdout = child
-        .stdout
-        .take()
-        .expect("child did not have a handle to stdout");
-
-    let mut buffered_stdout = std::io::BufReader::with_capacity(64 * 1024, &mut stdout);
-    let mut buffered_writer = std::io::BufWriter::with_capacity(64 * 1024, std::io::stdout());
-    let mut line_buffered_writer = LineBufferedWriter::new(&mut buffered_writer);
-
-    if let Err(e) = colorize(
-        &mut buffered_stdout,
-        &mut line_buffered_writer,
-        rules.as_slice(),
-    ) {
-        handle_box_error(e)?;
-    }
-
-    // Ensure all buffered output is written
-    if let Err(e) = buffered_writer.flush() {
-        handle_io_error(e)?;
-    }
-
-    // Wait for the spawned command to complete and propagate its exit code.
-    let ecode = child.wait().expect("failed to wait on child");
-    std::process::exit(child_exit_code(&ecode));
-}
-
-/// Exit status to propagate: the child's code, or 128+signal like a shell
-/// reports when the child was killed.
-fn child_exit_code(status: &std::process::ExitStatus) -> i32 {
-    if let Some(code) = status.code() {
-        return code;
-    }
-    #[cfg(unix)]
-    {
-        use std::os::unix::process::ExitStatusExt;
-        128 + status.signal().unwrap_or(1)
-    }
-    #[cfg(not(unix))]
-    {
-        1
-    }
+    std::process::exit(run_colorized(&mut cmd, command_name, &rules));
 }

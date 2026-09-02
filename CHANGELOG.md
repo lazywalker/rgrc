@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- refactor: move the wrapping pipeline from main.rs into the library (src/run.rs) so it is unit-testable; main.rs is a thin dispatch layer
+- chore: re-enable the codecov patch status now that the pipeline lives in the library
 - feat: colorization is decided by rgrc.conf matching at runtime; the supported-commands list only drives alias generation
 - fix: asdf, gpg, phpunit, mtr and configure were whitelisted-but-unreachable; curl, lsusb, php and proftpd shipped configs without a mapper entry, now mapped
 - fix: drop dead whitelist entries (common, dummy, esperanto, irclog, jobs, ping2, pv, sql, ulimit, yaml)
