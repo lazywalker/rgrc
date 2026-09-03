@@ -11,6 +11,11 @@ use rgrc::{
 use std::io::{self, IsTerminal, Write};
 use std::process::Command;
 
+// Use mimalloc for faster memory allocation (reduces startup overhead)
+#[cfg(not(target_env = "msvc"))]
+#[global_allocator]
+static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
+
 fn main() {
     // Parse command-line arguments
     let args = match parse_args() {
