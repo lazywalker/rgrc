@@ -1,0 +1,9 @@
+# Applies to both "apk info|search"
+
+# Package name, version and desc
+regexp=^([^\s]+)-([^\s-]+)-(r[^\s-]+)( - .*)?$
+colours=default,bold,green,dark,default
+
+# apk info -W
+regexp=^(.+) is owned by (.+)-([^\s-]+)-(r[^\s-]+)$
+colours=default,bold,bold,green,dark
