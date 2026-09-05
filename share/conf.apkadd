@@ -1,0 +1,8 @@
+# Applies to "apk add|del|upgrade"
+
+regexp=^(OK): (.+) in (.+) packages$
+colours=default,bold green,cyan,cyan
+
+# Installing/Upgrading/Purging/etc package
+regexp=(\(\d+\/\d+\)) ([^\s]+) ([^\s]+) \(([^\s-]+)-(r[^\s-]+)( -> ([^\s-]+)-(r[^\s-]+))?\)
+colours=default,dark,yellow,bold,green,dark,default,green,dark

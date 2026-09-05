@@ -9,6 +9,7 @@ fi
 cmds=(
   as
   ant
+  apk
   blkid
   cc
   configure
