@@ -1,9 +1,11 @@
-# Applies to both "apk info|search"
+# apk search: bare name-version-revision lines
+regexp=^(.+)-([^\s-]+)-(r[^\s-]+)$
+colours=bold,green,dark
 
-# Package name, version and desc
-regexp=^([^\s]+)-([^\s-]+)-(r[^\s-]+)( - .*)?$
-colours=default,bold,green,dark,default
+# apk info <pkg>: "<name>-<ver>-<rev> <field>:" header lines
+regexp=^(.+)-([^\s-]+)-(r[^\s-]+) (description|webpage|installed size|depends on|provides|contains|triggers|auto-installed|shared dependencies):$
+colours=bold,green,dark,cyan
 
-# apk info -W
+# apk info -W: "<path> is owned by <name>-<ver>-<rev>"
 regexp=^(.+) is owned by (.+)-([^\s-]+)-(r[^\s-]+)$
-colours=default,bold,bold,green,dark
+colours=default,bold,green,dark
