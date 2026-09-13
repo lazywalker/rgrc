@@ -1,0 +1,8 @@
+regexp=^(.+) policy:$
+colours=default,bold
+
+regexp=^\s{2}([^\s-]+)-(r[^\s-]+):$
+colours=default,green,dark
+
+regexp=^\s{4}(.*)$
+colours=default,cyan

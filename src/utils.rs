@@ -151,6 +151,7 @@ pub fn command_exists(cmd: &str) -> bool {
 /// (arg-gated patterns are fine), which whitelist_entries_are_mapped enforces.
 pub const SUPPORTED_COMMANDS: &[&str] = &[
     "ant",
+    "apk",
     "asdf",
     "blkid",
     "configure",

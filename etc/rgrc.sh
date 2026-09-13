@@ -54,5 +54,6 @@ if tty -s && [ -n "$TERM" ] && [ "$TERM" != dumb ] && [ -n "$GRC" ]; then
     alias getsebool='colourify getsebool'
     alias ifconfig='colourify ifconfig'
     alias sockstat='colourify sockstat'
+    alias apk='colourify apk'
 fi
 

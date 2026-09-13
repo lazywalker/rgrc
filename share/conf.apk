@@ -1,0 +1,3 @@
+# apk without args
+regexp=^\s+([^\s]+)\s+(.+)$
+colours=default,bold yellow,default

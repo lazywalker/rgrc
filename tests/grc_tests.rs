@@ -339,6 +339,7 @@ mod grcat_config_reader_tests {
     fn test_specific_conf_files() {
         let test_files = vec![
             "conf.ant",
+            "conf.apk",
             "conf.blkid",
             "conf.configure",
             "conf.curl",
