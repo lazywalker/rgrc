@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
+## v0.6.34
 
+- feat(apk): colorization for apk, apk info|search|add|del|upgrade|policy (#37, @vegas503)
 - feat: colorization is decided by rgrc.conf matching at runtime; the supported-commands list only drives alias generation
 - fix: asdf, gpg, phpunit, mtr and configure were whitelisted-but-unreachable; curl, lsusb, php and proftpd shipped configs without a mapper entry, now mapped
 - fix: drop dead whitelist entries (common, dummy, esperanto, irclog, jobs, ping2, pv, sql, ulimit, yaml)
