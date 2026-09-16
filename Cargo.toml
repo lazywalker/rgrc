@@ -70,7 +70,7 @@ harness = false
 name = "enhanced_regex_bench"
 
 [dependencies]
-fancy-regex = { version = "0.18", optional = true }
+fancy-regex = { version = "0.19", optional = true }
 mimalloc = "^0.1.52"
 regex-lite = "^0.1.9"
 
