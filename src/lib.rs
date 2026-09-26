@@ -330,8 +330,9 @@ pub fn load_rules_for_config(name: &str) -> Vec<GrcatConfigEntry> {
         return rules;
     }
 
-    // a real path goes straight to the file; a bare name maps to conf.NAME
-    if name.contains('/') {
+    // a real path goes straight to the file; a bare name maps to conf.NAME.
+    // accept both separators: windows paths use backslash
+    if name.contains('/') || name.contains('\\') {
         if let Some(rules) = read_conf_file(Path::new(name)) {
             return rules;
         }
