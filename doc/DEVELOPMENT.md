@@ -35,6 +35,27 @@ Conf files are searched in this order (first match wins, embedded configs last):
 Mapper files (`rgrc.conf`) are searched the same way. Patterns match the full
 command line first, then the bare command name, so `^df$` also matches `df -h`.
 
+### bypass
+
+A mapper entry pointing at `bypass` (a sentinel, not a conf file) runs the
+command untouched: inherited stdio (the tty stays intact) and no
+colorization. Use it for commands that only need colorization when invoked
+bare, like `env`:
+
+```
+# env wrapping another command: run it untouched (#40)
+^([/\w\.]+\/)?env\s
+bypass
+
+# env listing the environment
+^([/\w\.]+\/)?env\b
+conf.env
+```
+
+Order matters: the first matching pattern wins, so the bypass pattern
+must come first. The same trick works for wrappers you want to exempt
+yourself (`sudo`, `watch`, `ssh`, ...) via your own rgrc.conf.
+
 ## Testing
 
 ```bash

@@ -531,4 +531,90 @@ mod cli_integration_tests {
             assert!(out.status.success());
         }
     }
+
+    // hermetic mapper for the env tests: an XDG dir whose user mapper has the
+    // bypass entry, so system-installed mappers cannot interfere
+    fn hermetic_env_dir() -> tempfile::TempDir {
+        let td = tempfile::TempDir::new().unwrap();
+        let dir = td.path().join("rgrc");
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("rgrc.conf"),
+            "^([/\\w\\.]+/)?env\\s\nbypass\n\n^([/\\w\\.]+/)?env\\b\nconf.env\n",
+        )
+        .unwrap();
+        std::fs::write(dir.join("conf.env"), "regexp=.*\ncolours=green\n").unwrap();
+        td
+    }
+
+    // env wrapping a command passes through byte-identically: no recoloring
+    // of lines with '=', no ANSI re-wrapping (#40)
+    #[test]
+    fn env_wrap_passthrough_bytes() {
+        let td = hermetic_env_dir();
+        let payload = "\u{1b}[32mx=y\u{1b}[0m\nPROMPT> ";
+        let expected = format!("printf '{payload}'");
+        let direct = Command::new("sh")
+            .arg("-c")
+            .arg(&expected)
+            .output()
+            .unwrap();
+        let wrapped = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .env("XDG_CONFIG_HOME", td.path())
+            .args(["--color=on", "env", "FOO=1", "sh", "-c", &expected])
+            .output()
+            .unwrap();
+
+        assert!(wrapped.status.success());
+        assert_eq!(direct.stdout, wrapped.stdout);
+    }
+
+    // exit codes propagate through the env passthrough
+    #[test]
+    fn env_wrap_exit_code() {
+        let td = hermetic_env_dir();
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .env("XDG_CONFIG_HOME", td.path())
+            .args(["--color=on", "env", "FOO=1", "sh", "-c", "exit 42"])
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(42));
+    }
+
+    // bare `env` still colorizes its KEY=value listing
+    #[test]
+    fn bare_env_colorized() {
+        let td = hermetic_env_dir();
+        let output = Command::new(env!("CARGO_BIN_EXE_rgrc"))
+            .env("XDG_CONFIG_HOME", td.path())
+            .args(["--color=on", "env"])
+            .env("RGRC_TEST_VAR", "marker-value")
+            .output()
+            .unwrap();
+
+        assert!(output.status.success());
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(stdout.contains("RGRC_TEST_VAR"));
+        assert!(stdout.contains("\x1b["));
+    }
+
+    // the wrapped command keeps the tty: the heart of #40 (devenv shells)
+    #[test]
+    #[cfg(unix)]
+    fn env_wrap_preserves_tty() {
+        let td = hermetic_env_dir();
+        let script = format!(
+            "XDG_CONFIG_HOME={} rgrc --color on env X=1 sh -c 'tty >/dev/null 2>&1 || echo NOTTY'",
+            td.path().display()
+        );
+        let out = Command::new("script")
+            .args(["-qec", &script, "/dev/null"])
+            .output()
+            .unwrap();
+
+        assert!(
+            !String::from_utf8_lossy(&out.stdout).contains("NOTTY"),
+            "wrapped command lost its tty"
+        );
+    }
 }

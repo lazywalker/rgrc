@@ -181,11 +181,15 @@ fn config_paths() -> Vec<PathBuf> {
 /// matching resource path. Embedded configs are the last resort so that user
 /// files on disk always win. Returns empty vec on any failure.
 pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
+    load_config_matched(path, pseudo_command).unwrap_or_default()
+}
+
+/// Like [`load_config`] but distinguishes "a mapper pattern matched" from
+/// "nothing matched": `Some(rules)` means resolved (the rules may be empty,
+/// for the `bypass` sentinel), `None` means no match, keep searching.
+fn load_config_matched(path: &str, pseudo_command: &str) -> Option<Vec<GrcatConfigEntry>> {
     let patterns = {
-        let file = match File::open(path) {
-            Ok(f) => f,
-            Err(_) => return Vec::new(),
-        };
+        let file = File::open(path).ok()?;
         let reader = GrcConfigReader::new(std::io::BufReader::new(file).lines());
         reader.collect::<Vec<_>>()
     };
@@ -200,10 +204,7 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         .iter()
         .find(|(re, _)| re.is_match(pseudo_command))
         .or_else(|| patterns.iter().find(|(re, _)| re.is_match(cmd_name)))
-        .map(|(_, c)| c.clone());
-    let Some(conf) = conf else {
-        return Vec::new();
-    };
+        .map(|(_, c)| c.clone())?;
     if std::env::var_os("RGRC_DEBUG").is_some() {
         eprintln!("rgrc: matched conf '{}' for '{}'", conf, pseudo_command);
     }
@@ -212,8 +213,14 @@ pub fn load_config(path: &str, pseudo_command: &str) -> Vec<GrcatConfigEntry> {
 }
 
 /// Resolve a conf name like "conf.df" to rules: first matching disk resource
-/// path wins (an empty file stops the search), embedded configs last.
-fn conf_rules(conf: &str) -> Vec<GrcatConfigEntry> {
+/// path wins, embedded configs last. `bypass` is a sentinel (not a file name)
+/// meaning "run the command untouched" and resolves to empty rules (#40).
+/// `Some(rules)` = resolved (may be empty), `None` = not found.
+fn conf_rules(conf: &str) -> Option<Vec<GrcatConfigEntry>> {
+    if conf == "bypass" {
+        return Some(Vec::new());
+    }
+
     for base in resource_paths() {
         let conf_path = base.join(conf);
         if std::env::var_os("RGRC_DEBUG").is_some() {
@@ -227,16 +234,16 @@ fn conf_rules(conf: &str) -> Vec<GrcatConfigEntry> {
                     rules.len()
                 );
             }
-            return rules;
+            return Some(rules);
         }
     }
 
     #[cfg(feature = "embed-configs")]
     if let Some(entries) = parse_embedded_conf(conf) {
-        return entries;
+        return Some(entries);
     }
 
-    Vec::new()
+    None
 }
 
 /// Read a grcat conf file from disk. `Some(rules)` if the file exists (an
@@ -288,10 +295,11 @@ pub fn load_grcat_config<T: AsRef<str>>(filename: T) -> Vec<GrcatConfigEntry> {
 /// * `pseudo_command` - the command string to match, including arguments
 ///   ("ping", "df -h"); a second pass matches the bare command name
 pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
-    // Always prioritize the user mapper
+    // Always prioritize the user mapper. Some(rules) stops the search even
+    // when empty: an empty resolution (the bypass sentinel, or an explicitly
+    // empty conf file) is a decision, not a miss.
     let user_config = xdg_config_home().join("rgrc/rgrc.conf");
-    let rules = load_config(&user_config.to_string_lossy(), pseudo_command);
-    if !rules.is_empty() {
+    if let Some(rules) = load_config_matched(&user_config.to_string_lossy(), pseudo_command) {
         return rules;
     }
 
@@ -299,8 +307,7 @@ pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
         if config_path == user_config {
             continue;
         }
-        let rules = load_config(&config_path.to_string_lossy(), pseudo_command);
-        if !rules.is_empty() {
+        if let Some(rules) = load_config_matched(&config_path.to_string_lossy(), pseudo_command) {
             return rules;
         }
     }
@@ -315,7 +322,7 @@ pub fn load_rules_for_command(pseudo_command: &str) -> Vec<GrcatConfigEntry> {
 }
 
 /// Rules for an explicitly requested config (`-c NAME`): NAME is first tried
-/// as a pseudo-command against the mappers, then directly as a conf file name
+/// as a pseudo-command against the mappers, then as a conf file name or path
 /// ("df" resolves to conf.df; "conf.df" and paths are used as-is).
 pub fn load_rules_for_config(name: &str) -> Vec<GrcatConfigEntry> {
     let rules = load_rules_for_command(name);
@@ -323,12 +330,19 @@ pub fn load_rules_for_config(name: &str) -> Vec<GrcatConfigEntry> {
         return rules;
     }
 
-    let conf = if name.starts_with("conf.") || name.contains('/') {
+    // a real path goes straight to the file; a bare name maps to conf.NAME
+    if name.contains('/') {
+        if let Some(rules) = read_conf_file(Path::new(name)) {
+            return rules;
+        }
+        return Vec::new();
+    }
+    let conf = if name.starts_with("conf.") {
         name.to_string()
     } else {
         format!("conf.{}", name)
     };
-    conf_rules(&conf)
+    conf_rules(&conf).unwrap_or_default()
 }
 
 #[cfg(feature = "embed-configs")]
@@ -353,8 +367,7 @@ fn load_embedded(pseudo_command: &str) -> Option<Vec<GrcatConfigEntry>> {
         );
     }
 
-    let rules = conf_rules(&conf);
-    if rules.is_empty() { None } else { Some(rules) }
+    conf_rules(&conf)
 }
 
 #[cfg(test)]
@@ -629,11 +642,36 @@ mod lib_test {
                 .any(|r| r.regex.as_str().contains("USERDF"))
         );
 
+        // an explicit path opens that file directly
+        let path_conf = td.path().join("custom.rules");
+        std::fs::write(&path_conf, "regexp=PAThrule\ncolours=red\n").unwrap();
+        assert!(
+            load_rules_for_config(&path_conf.to_string_lossy())
+                .iter()
+                .any(|r| r.regex.as_str().contains("PAThrule"))
+        );
+        // a missing path yields no rules instead of falling through
+        assert!(load_rules_for_config(&td.path().join("nope.rules").to_string_lossy()).is_empty());
+
         // embedded fallback still works once the user mapper is gone
         std::fs::remove_file(rgrc_dir.join("rgrc.conf")).unwrap();
         std::fs::remove_file(rgrc_dir.join("conf.df")).unwrap();
         #[cfg(feature = "embed-configs")]
         assert!(!load_rules_for_command("df -h").is_empty());
+
+        // bypass sentinel (#40): a user mapper entry resolving to it must
+        // terminate the search -- env wrapping a command yields empty rules
+        // even though system/embedded mappers still map `env` to conf.env
+        // (this box has an old /usr/local/etc/rgrc.conf doing so)
+        std::fs::write(
+            rgrc_dir.join("rgrc.conf"),
+            "^([/\\w\\.]+/)?env\\s\nbypass\n\n^([/\\w\\.]+/)?env\\b\nconf.env\n",
+        )
+        .unwrap();
+        assert!(load_rules_for_command("env FOO=1 some cmd").is_empty());
+        assert!(load_rules_for_command("env -- cmd").is_empty());
+        // bare env still colorizes via the second pattern
+        assert!(!load_rules_for_command("env").is_empty());
 
         if let Some(x) = prev_xdg {
             unsafe {
