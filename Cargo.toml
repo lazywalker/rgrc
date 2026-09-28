@@ -1,6 +1,6 @@
 [package]
 name = "rgrc"
-version = "0.6.34"
+version = "0.6.35"
 edition = "2024"
 description = "Rusty Generic Colouriser"
 readme = "README.md"
@@ -76,8 +76,7 @@ regex-lite = "^0.1.9"
 
 [dev-dependencies]
 criterion = "0.8"
-# 3.18+ pulls rustix 1.x, whose statx glob import breaks on musl>=1.2.3
-tempfile = "3.17"
+tempfile = "3.27"
 
 [features]
 # Default features: embed configs and use EnhancedRegex for enhanced patterns

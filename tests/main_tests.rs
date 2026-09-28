@@ -598,10 +598,14 @@ mod cli_integration_tests {
         assert!(stdout.contains("\x1b["));
     }
 
-    // the wrapped command keeps the tty: the heart of #40 (devenv shells)
+    // the wrapped command keeps the tty: the heart of #40 (devenv shells).
+    // needs script(1); minimal containers (alpine base) do not ship it
     #[test]
     #[cfg(unix)]
     fn env_wrap_preserves_tty() {
+        if Command::new("script").arg("--version").output().is_err() {
+            return;
+        }
         let td = hermetic_env_dir();
         let script = format!(
             "XDG_CONFIG_HOME={} rgrc --color on env X=1 sh -c 'tty >/dev/null 2>&1 || echo NOTTY'",

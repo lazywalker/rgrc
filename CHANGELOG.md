@@ -2,6 +2,7 @@
 
 ## v0.6.35
 
+- fix(apk): incorrect apk colors
 - fix: env wrapping another command runs it untouched via the new `bypass` mapper sentinel; bare `env` still colorizes (#40)
 - fix: a mapper match resolving to empty rules (bypass, empty conf file) now stops the search instead of falling through to system/embedded mappers
 - fix: `rgrc -c PATH` opens the conf file at that path instead of searching resource dirs
