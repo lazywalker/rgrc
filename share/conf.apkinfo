@@ -1,6 +1,6 @@
-# apk search: bare name-version-revision lines
-regexp=^(.+)-([^\s-]+)-(r[^\s-]+)$
-colours=bold,green,dark
+# apk search: bare name-version-revision lines with optional description (-v flag)
+regexp=^(.+)-([^\s-]+)-(r[^\s-]+)( - .+)?$
+colours=default,green,dark,bold,default
 
 # apk info <pkg>: "<name>-<ver>-<rev> <field>:" header lines
 regexp=^(.+)-([^\s-]+)-(r[^\s-]+) (description|webpage|installed size|depends on|provides|contains|triggers|auto-installed|shared dependencies):$
